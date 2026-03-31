@@ -1,0 +1,59 @@
+{
+  "canary": "cublas",
+  "backend": "cuda",
+  "host": "gx10-a5b5",
+  "gpu": {
+    "device": "NVIDIA GB10",
+    "vram_total_mb": 122502,
+    "cuda_version": "13.0",
+    "compute_capability": "12.1"
+  },
+  "timestamp": "2026-03-31T10:29:12.102264+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 16,
+    "seq_len": 512,
+    "steps": 50,
+    "lr": 0.0002,
+    "seed": 42,
+    "dtype": "bf16"
+  },
+  "metrics": {
+    "default": {
+      "label": "default",
+      "throughput_samples_sec": 7.83,
+      "tokens_per_sec": 4009.5,
+      "peak_vram_mb": 49777,
+      "final_loss": 0.0139,
+      "step_time_ms": {
+        "mean": 2043.0,
+        "p50": 2468.7,
+        "p95": 2475.7,
+        "p99": 3723.2
+      },
+      "wall_time_sec": 102.16
+    },
+    "cublas": {
+      "label": "cublas",
+      "throughput_samples_sec": 7.86,
+      "tokens_per_sec": 4026.8,
+      "peak_vram_mb": 49778,
+      "final_loss": 0.0139,
+      "step_time_ms": {
+        "mean": 2034.1,
+        "p50": 2469.3,
+        "p95": 2476.4,
+        "p99": 3209.1
+      },
+      "wall_time_sec": 101.72
+    },
+    "parity": {
+      "loss_divergence": 0.0,
+      "max_step_divergence": 0.0,
+      "throughput_ratio": 1.0043,
+      "vram_delta_mb": 1,
+      "numerically_equivalent": true,
+      "perf_equivalent": true
+    }
+  }
+}
