@@ -1,0 +1,134 @@
+metadata:
+  version: 1.0.0
+  created: '2026-03-31'
+  author: PAIML Engineering
+  description: CUDA training forward pass — GPU-resident forward through transformer blocks with loss computation
+  references:
+  - Vaswani et al. (2017) Attention Is All You Need
+  - Hu et al. (2021) LoRA — Low-Rank Adaptation of Large Language Models
+
+equations:
+  gpu_forward_pass:
+    formula: logits = lm_head(rms_norm(block_N(...block_1(embed(tokens)))))
+    domain: tokens in Z^{batch x seq_len}, tokens[i] in {0, ..., vocab-1}
+    codomain: logits in R^{batch x seq_len x vocab}
+    invariants:
+    - All intermediate tensors remain GPU-resident (no D2H until loss)
+    - Output logits are finite (no NaN/Inf)
+    - Forward pass completes without CPU fallback
+    preconditions:
+    - CUDA context is current on the executing thread
+    - GPU memory sufficient for model + activations (VRAM >= plan.total_bytes)
+    - PTX kernels loaded successfully (cuModuleLoadData returns CUDA_SUCCESS)
+    postconditions:
+    - logits.is_finite().all() == true
+    - peak_vram <= planned_vram * 1.05
+
+  training_loss:
+    formula: loss = cross_entropy(logits[response_mask], labels[response_mask])
+    domain: logits in R^{batch x seq_len x vocab}, labels in Z^{batch x seq_len}
+    codomain: loss in R, loss >= 0
+    invariants:
+    - loss is finite (not NaN, not Inf)
+    - loss > 0 for non-trivial inputs
+    - loss decreases over training steps (convergence)
+    preconditions:
+    - logits.is_finite().all()
+    - response_mask has at least one true element
+    postconditions:
+    - loss.is_finite()
+    - loss > 0.0
+
+  backward_pass:
+    formula: grads = d(loss)/d(params) via reverse-mode autodiff
+    domain: loss in R (scalar), params = {lora_A, lora_B} for QLoRA
+    codomain: grads same shape as params
+    invariants:
+    - Gradients are finite
+    - Only trainable parameters (LoRA adapters) receive gradients
+    - Frozen base weights have zero gradient
+    preconditions:
+    - loss.is_finite()
+    - loss is not NaN or Inf
+    postconditions:
+    - grads.values().all(|g| g.is_finite())
+
+proof_obligations:
+- type: invariant
+  property: No CPU fallback
+  formal: forward_logits_gpu_resident() returns true
+  applies_to: gpu_forward_pass
+  falsified_by: F-WL-06 (yoga sm_89 — CUDA forward fails, CPU fallback)
+
+- type: invariant
+  property: Finite logits
+  formal: logits.iter().all(|x| x.is_finite())
+  applies_to: gpu_forward_pass
+  falsified_by: F-WL-06 (gx10 sm_121 — NaN/Inf loss after forward)
+
+- type: invariant
+  property: Loss convergence
+  formal: loss(epoch_N) < loss(epoch_0) for N > 0
+  applies_to: training_loss
+  falsified_by: F-WL-06 (loss stuck at 11.93 across epochs)
+
+- type: precondition
+  property: PTX kernel loading
+  formal: cuModuleLoadData(ptx) == CUDA_SUCCESS for all kernels
+  applies_to: gpu_forward_pass
+  falsified_by: cuLinkCreate CUDA_ERROR_INVALID_VALUE on sm_89/driver 590.48
+
+- type: precondition
+  property: CUDA-free compilation
+  formal: entrenar compiles with --no-default-features --features training
+  applies_to: all
+  falsified_by: 147 compile errors when CUDA features disabled
+
+falsification_tests:
+- id: FALSIFY-TRAIN-001
+  rule: GPU-resident forward pass (no CPU fallback)
+  prediction: forward_logits_gpu_resident() returns true for all training steps on sm_89
+  test: Run apr finetune on yoga (RTX 4060L) and check stderr for CPU fallback messages
+  if_fails: CUDA forward path broken — trueno PTX kernels fail to execute on sm_89
+
+- id: FALSIFY-TRAIN-002
+  rule: Finite logits after GPU forward
+  prediction: All logits produced by GPU forward are finite (no NaN/Inf)
+  test: Run apr finetune on gx10 (GB10 sm_121) and check for NaN/Inf loss messages
+  if_fails: Numerical instability in Blackwell forward path — check fp16 overflow in lm_head GEMM
+
+- id: FALSIFY-TRAIN-003
+  rule: Loss convergence over epochs
+  prediction: loss(epoch_1) < loss(epoch_0) with lr=2e-4 on canary dataset
+  test: Run 8 epochs and compare epoch metadata loss values
+  if_fails: Optimizer not updating weights — either gradients zero (NaN skip) or learning rate too low
+
+- id: FALSIFY-TRAIN-004
+  rule: PTX kernel loading on sm_89
+  prediction: cuLinkCreate with CU_JIT_TARGET=89 returns CUDA_SUCCESS on driver 590.48
+  test: Load any trueno PTX kernel on yoga
+  if_fails: cuLinkCreate API incompatible with CUDA 13.1 — try cuModuleLoadDataEx directly
+
+- id: FALSIFY-TRAIN-005
+  rule: CUDA-free compilation
+  prediction: entrenar compiles with --features training but without cuda feature
+  test: cargo build -p entrenar --no-default-features --features training
+  if_fails: entrenar hard-depends on CUDA types — need feature gates for wgpu-only builds
+
+kani_harnesses:
+- id: KANI-TRAIN-001
+  obligation: Finite logits
+  property: All logits produced by forward pass are finite
+  bound: 4
+  strategy: stub_float
+  solver: cadical
+  harness: verify_logits_finite
+
+qa_gate:
+  id: F-TRAIN-GATE-001
+  name: CUDA Training Forward Contract
+  description: GPU training forward pass produces finite gradients on all hardware
+  checks:
+  - gpu_forward_no_fallback
+  - logits_finite
+  - loss_convergence
