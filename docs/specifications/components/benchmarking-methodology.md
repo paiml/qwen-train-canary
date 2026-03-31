@@ -90,6 +90,35 @@ Full fine-tune exceeds 8 GB -- pytorch/cublas canaries auto-enable gradient chec
 | Normalization | RMSNorm |
 | Position encoding | RoPE (base 1,000,000) |
 
+## Measurement Stack
+
+Mirrors qwen-coder-deploy's layered profiling approach. Canary wall-clock throughput is the top-level metric; deeper layers diagnose WHY a runtime is slow.
+
+| Layer | Tool | Target | What It Measures |
+|-------|------|--------|------------------|
+| **Throughput** | canary scripts | `make canary-yoga` | tok/s, VRAM, loss (regression gate) |
+| **Roofline** | `apr profile --granular` | `make profile-yoga` | Compute vs memory bound per brick |
+| **Layer trace** | `apr trace --verbose` | `make trace-yoga` | Per-layer data flow, anomalies |
+| **GPU kernels** | `nsys profile` | `make nsys-yoga` | Kernel timeline, occupancy, stalls |
+| **Kernel roofline** | `ncu` | manual | Per-kernel bandwidth vs compute |
+
+### When to use each layer
+
+- **Throughput only**: Nightly regression detection. If PASS, done.
+- **Roofline**: When throughput regresses >10%. Identifies compute-bound vs memory-bound bottleneck.
+- **Layer trace**: When roofline shows unexpected pattern. Identifies which layer is slow.
+- **nsys/ncu**: When layer trace identifies a specific kernel. Full GPU pipeline analysis.
+
+### Parity diagnosis protocol
+
+When Runtime A is slower than Runtime B on same hardware:
+1. Run both at throughput layer — confirm gap
+2. Run roofline on both — compare compute utilization
+3. Trace the slower runtime — find the hot layer
+4. Profile the hot layer's kernels — identify the root cause
+5. Fix the root cause in the slower runtime's code
+6. Re-measure — confirm parity
+
 ## Falsification Conditions
 
 | ID | Condition | Action |

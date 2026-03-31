@@ -216,6 +216,38 @@ canary-compile-gx10:
 	scp gx10:/tmp/canary-compile-gx10-$(DATE).json results/
 
 # ============================================================================
+# Profiling & Tracing (mirrors qwen-coder-deploy measurement stack)
+# ============================================================================
+
+.PHONY: profile-yoga profile-gx10 trace-yoga bench-yoga nsys-yoga
+
+# Roofline analysis + per-brick hotspots (apr profile)
+profile-yoga:
+	ssh yoga 'apr profile ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+		--granular --perf-grade --json \
+		--warmup 3 --measure 10 --tokens 32' | tee results/profile-yoga-$(DATE).json
+
+profile-gx10:
+	ssh gx10 'apr profile ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+		--granular --perf-grade --json \
+		--warmup 3 --measure 10 --tokens 32' | tee results/profile-gx10-$(DATE).json
+
+# Layer-by-layer trace (apr trace)
+trace-yoga:
+	ssh yoga 'apr trace ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr --verbose --json' \
+		| tee results/trace-yoga-$(DATE).json
+
+# NVIDIA kernel profiling (nsys/ncu)
+nsys-yoga:
+	@echo "=== nsys: Profiling training step on yoga ==="
+	ssh yoga 'cd ~/qwen-train-canary && sudo nvidia-smi -lgc 1900,1900 && \
+		nsys profile -o /tmp/canary-nsys-$(DATE) -t cuda,nvtx --duration 30 \
+		~/venvs/unsloth/bin/python canaries/unsloth/train.py \
+			--model $(MODEL_ID) --steps 10 --batch-size 4 --seq-len 512 \
+			--seed 42 --output /dev/null 2>&1'
+	scp yoga:/tmp/canary-nsys-$(DATE).nsys-rep results/
+
+# ============================================================================
 # Reports & Scoring
 # ============================================================================
 
