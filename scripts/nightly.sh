@@ -3,7 +3,7 @@
 # Usage: bash scripts/nightly.sh [cuda|wgpu|gx10|all]
 set -euo pipefail
 
-MODE="${1:-all}"
+MODE="${1:-cuda}"
 DATE=$(date +%Y%m%d)
 RESULTS_DIR="results"
 

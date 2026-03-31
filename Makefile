@@ -150,7 +150,7 @@ canary-gx10:
 # Reports & Scoring
 # ============================================================================
 
-.PHONY: report score score-json
+.PHONY: report score score-json score-gate
 
 report:
 	python scripts/report.py --results-dir results/ --output performance.md
@@ -160,6 +160,9 @@ score:
 
 score-json:
 	python scripts/score.py --results-dir results/ --baselines baselines.json --format json --output results/scorecard-$(DATE).json
+
+# CI gate — exits non-zero if ANY canary fails (same as score, explicit target for spec)
+score-gate: score
 
 # ============================================================================
 # Nightly

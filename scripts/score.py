@@ -128,14 +128,13 @@ def main():
     if args.format == "json":
         output = json.dumps(scores, indent=2)
     else:
-        lines = ["Canary       | Pass | Throughput | VRAM | Loss"]
-        lines.append("-------------|------|-----------|------|-----")
+        lines = ["Canary       | Pass | Checks"]
+        lines.append("-------------|------|-------")
         for s in scores:
             c = s["checks"]
-            p = lambda x: "PASS" if x["pass"] else "FAIL"
+            check_strs = [f"{k}={'PASS' if v['pass'] else 'FAIL'}" for k, v in c.items()]
             lines.append(
-                f"{s['canary']:12} | {'PASS' if s['pass'] else 'FAIL':4} "
-                f"| {p(c['throughput']):9} | {p(c['vram']):4} | {p(c['loss'])}"
+                f"{s['canary']:12} | {'PASS' if s['pass'] else 'FAIL':4} | {', '.join(check_strs)}"
             )
         output = "\n".join(lines)
 
