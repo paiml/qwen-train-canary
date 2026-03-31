@@ -1,102 +1,87 @@
 # qwen-train-canary
 
-## What This Is
+<picture>
+  <img src="docs/hero.svg" alt="Training throughput comparison across 5 runtimes" width="800">
+</picture>
 
-Canary benchmarks for **training performance** across GPU backends. We take Qwen2.5-Coder-1.5B and run small, fast fine-tuning workloads to detect performance regressions and compare backends.
+Competitive fine-tuning benchmarks for **Qwen2.5-Coder-1.5B** across five training runtimes — the training analog of [qwen-coder-deploy](https://github.com/paiml/qwen-coder-deploy)'s inference runtime comparison.
 
-**Primary target: Yoga** (RTX 4060 Laptop, 8 GB VRAM). All baselines calibrated here first.
+## Measured Results
 
-Four canary workloads:
+| Runtime | Engine | yoga (8GB) | gx10 (120GB) | intel (Vulkan) |
+|---------|--------|-----------|-------------|---------------|
+| **apr** | entrenar (Rust) | training... | building | — |
+| **unsloth** | Python QLoRA | **6,697 tok/s** | **13,660 tok/s** | — |
+| **pytorch** | Python full FT | OOM (F-EXEC-02) | **4,055 tok/s** | — |
+| **cublas** | Python parity | OOM | **4,027 tok/s** | divergence: 0.000 |
+| **wgpu** | burn (Rust) | — | — | **6,730 tok/s** |
 
-| Canary | Backend | What It Measures |
-|--------|---------|-----------------|
-| **unsloth** (QLoRA) | CUDA | Optimized LoRA fine-tuning throughput |
-| **pytorch** (full fine-tune) | CUDA | Baseline PyTorch training loop |
-| **cublas** (parity gate) | CUDA | GEMM backend numerical parity (runs model 2x) |
-| **wgpu** (burn) | WGPU/Vulkan | Non-NVIDIA training viability |
+All measurements: locked clocks, seed=42, deterministic dataset. Yoga variance: 0.34% across 5 runs.
 
 ## Why Canaries?
 
-A canary is a short, reproducible training run (~100 steps) that produces consistent metrics. Run it before and after changes to detect:
+100-step training runs (~2 min) that produce machine-readable JSON. Run before and after changes to catch:
 
-- Training throughput regressions (samples/sec, tokens/sec)
-- Memory regressions (peak VRAM, OOM thresholds)
-- Loss convergence changes (final loss after N steps)
-- Backend-specific issues (WGPU driver updates, CUDA version changes)
+- Throughput regressions >10% (tok/s)
+- Memory regressions >5% (peak VRAM)
+- Convergence failures (loss threshold)
+- GEMM backend divergence (cuBLAS parity gate)
 
-## Hardware Targets
+## Hardware
 
 ```
-Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (SECONDARY — GB10, 120GB, sm_121)
-├── unsloth QLoRA canary                   ├── unsloth QLoRA (batch=16)
-├── pytorch baseline canary                ├── pytorch baseline
-├── cublas parity gate                     └── 120 GB unified memory
-└── Clock-locked at 1900 MHz
-
-Intel (SECONDARY — Radeon W5700X, 8GB)
-├── wgpu/burn training canary
-└── Vulkan backend
+Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (GB10, 120GB, sm_121)
+├── apr QLoRA (Sovereign Stack)            ├── apr QLoRA
+├── unsloth QLoRA (6,697 tok/s)            ├── unsloth QLoRA (13,660 tok/s)
+└── Clock-locked 1900 MHz                  ├── pytorch full FT (4,055 tok/s)
+                                           └── cublas parity (0.000 divergence)
+Intel (Radeon W5700X, 8GB, Vulkan)
+└── wgpu/burn (6,730 tok/s @ hidden=1536)
 ```
 
 ## Quick Start
 
 ```bash
-# Run all CUDA canaries on yoga
-make canary-yoga
+# Yoga (QLoRA canaries)
+make canary-yoga           # apr + unsloth on yoga
+make canary-apr            # APR/entrenar only
+make canary-unsloth        # Unsloth QLoRA only
 
-# Run individual canaries
-make canary-unsloth      # QLoRA fine-tune (yoga, ~2 min)
-make canary-pytorch      # PyTorch baseline (yoga, ~3 min)
-make canary-cublas       # cuBLAS parity gate (yoga, ~4 min)
-make canary-wgpu         # WGPU/burn training (intel, ~5 min)
+# gx10 (full fine-tune + parity)
+make canary-gx10           # pytorch + cublas on GB10
+make canary-compile-gx10   # torch.compile comparison
 
-# Compare results
-make report              # Generate comparison table
-make score               # Grade pass/fail against baselines
+# Intel (WGPU/Vulkan)
+make canary-wgpu           # burn/WGPU training
+
+# Scoring & profiling
+make score                 # Pass/fail against baselines
+make report                # Markdown comparison table
+make profile-yoga          # apr roofline analysis
+make nsys-yoga             # NVIDIA kernel timeline
 ```
 
-## Key Metrics
+## Key Findings
 
-Each canary produces:
+**F-EXEC-02 (falsified):** Full fine-tune of 1.5B is impossible on 8GB. Model weights (3.5GB) + gradients (3.5GB) = 7GB floor. QLoRA is the only viable path on consumer GPUs.
 
-| Metric | Unit | What It Tells You |
-|--------|------|------------------|
-| `throughput` | samples/sec | Training speed |
-| `tokens_per_sec` | tok/s | Effective token processing rate |
-| `peak_vram_mb` | MB | Memory high-water mark |
-| `final_loss` | float | Convergence sanity check |
-| `step_time_ms` | ms | Per-step latency (mean, p50, p95, p99) |
-| `wall_time_sec` | sec | Total canary duration |
+**F-RD-01 (falsified):** torch.compile regresses -11% at canary length. Compilation cost (~90s) dominates 200s runs. Not suitable for short benchmarks.
+
+**F-HW-01 (confirmed):** Locked clocks give 0.34% throughput variance. VRAM and loss are perfectly deterministic.
+
+**F-WL-03 (confirmed):** cuBLAS parity is perfect on Blackwell. Zero loss divergence, 1.004x throughput ratio.
+
+**WGPU parity:** burn/Vulkan at 6,730 tok/s matches unsloth/CUDA at 6,697 tok/s on equivalent hidden dim. Vulkan compute shaders are competitive for training.
+
+## Parity Mandate
+
+Gaps are defects to fix, not findings to document. Every runtime must achieve throughput parity or be actively improved. See [spec](docs/specifications/training-canary-spec.md) for the full parity enforcement protocol.
 
 ## Model & Dataset
 
-- **Model**: Qwen2.5-Coder-1.5B-Instruct (same model as qwen-coder-deploy)
-- **Dataset**: 50-sample code instruction subset (deterministic, checked in)
-- **Steps**: 100 (canary), 1000 (extended)
-- **Sequence length**: 512 tokens
-
-## Results
-
-Results are JSON files in `results/`, tracked in git. Format:
-
-```json
-{
-  "canary": "unsloth",
-  "backend": "cuda",
-  "host": "yoga",
-  "gpu": "RTX 4060 Laptop",
-  "timestamp": "2026-03-31T12:00:00Z",
-  "config": { "batch_size": 4, "seq_len": 512, "steps": 100, "lr": 2e-4 },
-  "metrics": {
-    "throughput_samples_sec": 12.5,
-    "tokens_per_sec": 6400,
-    "peak_vram_mb": 5200,
-    "final_loss": 1.23,
-    "step_time_ms": { "mean": 320, "p50": 315, "p95": 340, "p99": 355 },
-    "wall_time_sec": 34.2
-  }
-}
-```
+- **Model**: Qwen2.5-Coder-1.5B-Instruct (1.78B params)
+- **Dataset**: 50 code instruction pairs (deterministic, `prompts/canary-dataset.yaml`)
+- **Config**: 100 steps, batch=4 (yoga) / 16 (gx10), seq_len=512, lr=2e-4, seed=42
 
 ## Specification
 
