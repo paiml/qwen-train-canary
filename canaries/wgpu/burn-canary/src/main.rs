@@ -92,7 +92,7 @@ fn main() {
               args.steps, args.batch_size, args.seq_len, args.hidden);
 
     // Create model
-    let model: CanaryModel<Backend> = CanaryModel::new(&device, args.hidden, args.vocab);
+    let mut model: CanaryModel<Backend> = CanaryModel::new(&device, args.hidden, args.vocab);
     let mut optim = AdamConfig::new().with_epsilon(1e-8).init::<Backend, CanaryModel<Backend>>();
 
     let mut step_times = Vec::with_capacity(args.steps);
@@ -103,8 +103,8 @@ fn main() {
     for step in 0..args.steps {
         let step_start = Instant::now();
 
-        // Synthetic input: random integers as "token embeddings" projected to hidden dim
-        // In a real canary this would load from the dataset, but we're measuring WGPU throughput
+        // Synthetic input: random data projected to hidden dim
+        // Measures WGPU compute shader throughput, not model quality
         let input: Tensor<Backend, 2> = Tensor::random(
             [args.batch_size, args.hidden],
             burn::tensor::Distribution::Normal(0.0, 1.0),
@@ -119,12 +119,13 @@ fn main() {
         // Forward + loss
         let output = model.forward(input);
         let loss = (output - targets).powf_scalar(2.0).mean();
-        let loss_val: f64 = loss.clone().into_data().to_vec::<f64>().unwrap()[0];
+        let loss_scalar = loss.clone().into_scalar();
+        let loss_val: f64 = loss_scalar as f64;
 
         // Backward + optimize
         let grads = loss.backward();
         let grads = GradientsParams::from_grads(grads, &model);
-        let model = optim.step(args.lr, model, grads);
+        model = optim.step(args.lr, model, grads);
 
         let step_ms = step_start.elapsed().as_secs_f64() * 1000.0;
         step_times.push(step_ms);
