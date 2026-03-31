@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import statistics
 import time
 import os
 import socket
@@ -11,9 +12,25 @@ from datetime import datetime, timezone
 import torch
 from unsloth import FastLanguageModel
 from datasets import Dataset
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 from transformers import TrainingArguments
+from transformers import TrainerCallback
 import yaml
+
+
+class StepTimerCallback(TrainerCallback):
+    """Capture per-step wall time for latency percentiles."""
+
+    def __init__(self):
+        self.step_times = []
+        self._step_start = None
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        self._step_start = time.perf_counter()
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if self._step_start is not None:
+            self.step_times.append((time.perf_counter() - self._step_start) * 1000)
 
 
 def load_canary_dataset(path: str, seq_len: int) -> Dataset:
@@ -97,6 +114,8 @@ def main():
         report_to="none",
     )
 
+    timer = StepTimerCallback()
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -104,6 +123,7 @@ def main():
         args=training_args,
         dataset_text_field="text",
         max_seq_length=args.seq_len,
+        callbacks=[timer],
     )
 
     # Reset peak memory tracking
@@ -120,6 +140,16 @@ def main():
     samples_per_sec = (args.batch_size * args.steps) / wall_time
     tokens_per_sec = (args.batch_size * args.seq_len * args.steps) / wall_time
 
+    # Step time percentiles
+    st = timer.step_times if timer.step_times else [0.0]
+    sorted_st = sorted(st)
+    step_time_ms = {
+        "mean": round(statistics.mean(st), 1),
+        "p50": round(sorted_st[len(sorted_st) // 2], 1),
+        "p95": round(sorted_st[int(len(sorted_st) * 0.95)], 1),
+        "p99": round(sorted_st[int(len(sorted_st) * 0.99)], 1),
+    }
+
     output = {
         "canary": "unsloth",
         "backend": "cuda",
@@ -133,15 +163,18 @@ def main():
             "steps": args.steps,
             "lr": args.lr,
             "seed": args.seed,
+            "dtype": "bf16" if torch.cuda.is_bf16_supported() else "fp16",
+            "optimizer": "adamw_8bit",
+            "quantization": "nf4",
             "lora_rank": args.lora_rank,
             "lora_alpha": args.lora_alpha,
-            "quantization": "nf4",
         },
         "metrics": {
             "throughput_samples_sec": round(samples_per_sec, 2),
             "tokens_per_sec": round(tokens_per_sec, 1),
             "peak_vram_mb": peak_vram,
             "final_loss": round(train_loss, 4),
+            "step_time_ms": step_time_ms,
             "wall_time_sec": round(wall_time, 2),
         },
     }
@@ -151,9 +184,10 @@ def main():
         json.dump(output, f, indent=2)
 
     print(f"Canary complete: {args.steps} steps in {wall_time:.1f}s")
-    print(f"  throughput: {tokens_per_sec:.0f} tok/s")
+    print(f"  throughput: {tokens_per_sec:.0f} tok/s ({samples_per_sec:.1f} samples/s)")
     print(f"  peak VRAM: {peak_vram} MB")
     print(f"  final loss: {train_loss:.4f}")
+    print(f"  step time: {step_time_ms['mean']:.1f}ms mean, {step_time_ms['p95']:.1f}ms p95")
     print(f"  output: {args.output}")
 
 
