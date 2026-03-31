@@ -21,7 +21,7 @@
 
 | PMAT | Item | Expected Impact |
 |------|------|----------------|
-| PMAT-426 | Torch.compile() canary (PyTorch 2.x graph mode) | +20-40% throughput |
+| PMAT-426 | Torch.compile() canary (PyTorch 2.x graph mode) | DONE: -11% at 100 steps (F-RD-01 falsified). Compile cost dominates short runs. |
 | PMAT-427 | Flash Attention 2 for training (if not default) | +15-25% step time |
 | PMAT-428 | Gradient accumulation canary (batch=1, accum=4) | Memory vs throughput tradeoff |
 | PMAT-429 | DeepSpeed ZeRO Stage 2 canary | Enable full FT on 8 GB |

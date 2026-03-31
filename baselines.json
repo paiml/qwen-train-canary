@@ -4,6 +4,11 @@
     "peak_vram_mb": 3600,
     "final_loss": 2.0
   },
+  "unsloth@gx10-a5b5": {
+    "tokens_per_sec": 13600,
+    "peak_vram_mb": 10300,
+    "final_loss": 2.0
+  },
   "pytorch": {
     "tokens_per_sec": 4000,
     "peak_vram_mb": 51000,

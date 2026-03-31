@@ -120,7 +120,9 @@ def main():
         with open(path) as f:
             result = json.load(f)
         canary = result.get("canary", "unknown")
-        baseline = baselines.get(canary, {})
+        host = result.get("host", "unknown")
+        # Host-specific baseline lookup: try "canary@host" first, fall back to "canary"
+        baseline = baselines.get(f"{canary}@{host}", baselines.get(canary, {}))
         score = score_result(result, baseline)
         score["file"] = os.path.basename(path)
         scores.append(score)

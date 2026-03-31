@@ -279,10 +279,10 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 | Canary | yoga (8GB) | gx10 (120GB) | intel (8GB) |
 |--------|-----------|-------------|------------|
-| unsloth | 5,000-7,000 | 8,000-12,000 | N/A |
-| pytorch | N/A (F-EXEC-02) | 6,000-10,000 | N/A |
-| cublas | N/A (F-EXEC-02) | 6,000-10,000 | N/A |
-| wgpu | N/A | N/A | 50-200 |
+| unsloth | **6,697** (measured, batch=4) | **13,660** (measured, batch=16) | N/A |
+| pytorch | N/A (F-EXEC-02) | **4,055** (measured, batch=16) | N/A |
+| cublas | N/A (F-EXEC-02) | **4,010/4,027** (measured, batch=16) | N/A |
+| wgpu | N/A | N/A | TBD (PMAT-431) |
 
 ---
 
@@ -355,7 +355,10 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Date | What Happened | Resolution |
 |----|-------|------|---------------|------------|
-| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM even at batch=2 + 8-bit optimizer + gradient checkpointing. Model weights (3.5GB bf16) + gradients (3.5GB) = 7GB floor — no room for optimizer states or activations on 8GB. Full fine-tune of 1.5B is fundamentally impossible on 8GB VRAM. | pytorch/cublas canaries deferred to gx10 (120GB). Yoga runs unsloth (QLoRA) only — the actual production training path. QLoRA fits comfortably at 3.5GB. |
+| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM even at batch=2 + 8-bit optimizer + gradient checkpointing. Model (3.5GB) + gradients (3.5GB) = 7GB floor. | pytorch/cublas deferred to gx10. Yoga runs unsloth only. |
+| F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
+| F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
+| F-WL-03 | cuBLAS parity <0.01 | 2026-03-31 | CONFIRMED: 0.000000 divergence on gx10. Perfect parity. | GEMM backends numerically identical on Blackwell. |
 
 ### Falsification Protocol
 

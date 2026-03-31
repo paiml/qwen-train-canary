@@ -1,5 +1,5 @@
 {
-  "canary": "pytorch",
+  "canary": "pytorch-compile",
   "backend": "cuda",
   "host": "gx10-a5b5",
   "gpu": {

@@ -166,7 +166,7 @@ def main():
     samples_per_sec = (args.batch_size * args.steps) / wall_time
 
     output = {
-        "canary": "pytorch",
+        "canary": "pytorch-compile" if args.compile else "pytorch",
         "backend": "cuda" if torch.cuda.is_available() else "cpu",
         "host": socket.gethostname(),
         "gpu": get_gpu_info(),
