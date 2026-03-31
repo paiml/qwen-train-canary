@@ -54,7 +54,7 @@ make score-json            # JSON scorecards to results/
 | Batch size | 4 | 4 |
 | Seq length | 512 | 512 |
 | Learning rate | 2e-4 | 2e-4 |
-| Dataset | 500 samples | 500 samples |
+| Dataset | 50 samples | 50 samples |
 | Warmup | 10 steps | 50 steps |
 
 ## Key Files
@@ -63,7 +63,7 @@ make score-json            # JSON scorecards to results/
 - `canaries/pytorch/train.py` — PyTorch baseline canary script
 - `canaries/cublas/train.py` — cuBLAS parity canary (default vs cuBLAS GEMM)
 - `canaries/wgpu/train.py` — Burn/WGPU canary script
-- `prompts/canary-dataset.yaml` — Deterministic training dataset (500 samples)
+- `prompts/canary-dataset.yaml` — Deterministic training dataset (50 samples)
 - `forjar-yoga.yaml` — Yoga deployment (CUDA canaries)
 - `forjar-intel-wgpu.yaml` — Intel deployment (WGPU canary)
 - `forjar-gx10.yaml` — GB10 deployment
@@ -83,7 +83,7 @@ A canary **passes** if:
 
 - **Model**: `Qwen/Qwen2.5-Coder-1.5B-Instruct` (HuggingFace)
 - **GGUF**: Not used — training requires full-precision or LoRA-compatible weights
-- **Dataset**: `prompts/canary-dataset.yaml` — 500 code instruction pairs, deterministic
+- **Dataset**: `prompts/canary-dataset.yaml` — 50 seed samples, deterministic
 - **Unsloth**: QLoRA with 4-bit quantization (NF4), rank=16, alpha=32
 - **PyTorch**: Full fine-tune, AdamW, cosine schedule
 - **cuBLAS**: Same as PyTorch but runs twice (default backend, then cuBLAS-forced) to detect parity gaps

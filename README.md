@@ -4,12 +4,15 @@
 
 Canary benchmarks for **training performance** across GPU backends. We take Qwen2.5-Coder-1.5B and run small, fast fine-tuning workloads to detect performance regressions and compare backends.
 
-Three canary workloads, two backends:
+**Primary target: Yoga** (RTX 4060 Laptop, 8 GB VRAM). All baselines calibrated here first.
+
+Four canary workloads:
 
 | Canary | Backend | What It Measures |
 |--------|---------|-----------------|
 | **unsloth** (QLoRA) | CUDA | Optimized LoRA fine-tuning throughput |
 | **pytorch** (full fine-tune) | CUDA | Baseline PyTorch training loop |
+| **cublas** (parity gate) | CUDA | GEMM backend numerical parity (runs model 2x) |
 | **wgpu** (burn) | WGPU/Vulkan | Non-NVIDIA training viability |
 
 ## Why Canaries?
@@ -24,14 +27,15 @@ A canary is a short, reproducible training run (~100 steps) that produces consis
 ## Hardware Targets
 
 ```
-Yoga (RTX 4060 Laptop, 8GB, sm_89)     gx10 (Grace Blackwell GB10, 120GB, sm_121)
-├── unsloth QLoRA canary                ├── unsloth QLoRA canary (large batch)
-├── pytorch baseline canary             ├── pytorch baseline canary
-└── Clock-locked at 1900 MHz            └── 120 GB unified memory
+Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (SECONDARY — GB10, 120GB, sm_121)
+├── unsloth QLoRA canary                   ├── unsloth QLoRA (batch=16)
+├── pytorch baseline canary                ├── pytorch baseline
+├── cublas parity gate                     └── 120 GB unified memory
+└── Clock-locked at 1900 MHz
 
-Intel (192.168.50.100, Radeon W5700X)
+Intel (SECONDARY — Radeon W5700X, 8GB)
 ├── wgpu/burn training canary
-└── Vulkan backend, 8GB VRAM
+└── Vulkan backend
 ```
 
 ## Quick Start
@@ -43,6 +47,7 @@ make canary-yoga
 # Run individual canaries
 make canary-unsloth      # QLoRA fine-tune (yoga, ~2 min)
 make canary-pytorch      # PyTorch baseline (yoga, ~3 min)
+make canary-cublas       # cuBLAS parity gate (yoga, ~4 min)
 make canary-wgpu         # WGPU/burn training (intel, ~5 min)
 
 # Compare results
@@ -66,7 +71,7 @@ Each canary produces:
 ## Model & Dataset
 
 - **Model**: Qwen2.5-Coder-1.5B-Instruct (same model as qwen-coder-deploy)
-- **Dataset**: 500-sample code instruction subset (deterministic, checked in)
+- **Dataset**: 50-sample code instruction subset (deterministic, checked in)
 - **Steps**: 100 (canary), 1000 (extended)
 - **Sequence length**: 512 tokens
 
@@ -92,3 +97,7 @@ Results are JSON files in `results/`, tracked in git. Format:
   }
 }
 ```
+
+## Specification
+
+Full spec with falsification conditions: [docs/specifications/training-canary-spec.md](docs/specifications/training-canary-spec.md)
