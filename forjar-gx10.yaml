@@ -53,6 +53,13 @@ resources:
     path: /home/noah/qwen-train-canary/canaries/cublas
     depends_on: [canary-dirs]
 
+  apr-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/apr
+    depends_on: [canary-dirs]
+
   # --- Canary scripts ---
   unsloth-train:
     type: file
@@ -98,6 +105,21 @@ resources:
     path: /home/noah/qwen-train-canary/canaries/cublas/requirements.txt
     source: canaries/cublas/requirements.txt
     depends_on: [cublas-dir]
+
+  apr-train:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/apr/train.py
+    source: canaries/apr/train.py
+    mode: "0755"
+    depends_on: [apr-dir]
+
+  apr-reqs:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/apr/requirements.txt
+    source: canaries/apr/requirements.txt
+    depends_on: [apr-dir]
 
   # --- Dataset ---
   canary-dataset:

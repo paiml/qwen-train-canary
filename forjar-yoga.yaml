@@ -46,6 +46,13 @@ resources:
     path: /home/noah/qwen-train-canary/canaries/cublas
     depends_on: [canary-dirs]
 
+  apr-dir:
+    type: file
+    machine: yoga
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/apr
+    depends_on: [canary-dirs]
+
   wgpu-dir:
     type: file
     machine: yoga
@@ -113,6 +120,21 @@ resources:
     path: /home/noah/qwen-train-canary/canaries/wgpu/requirements.txt
     source: canaries/wgpu/requirements.txt
     depends_on: [wgpu-dir]
+
+  apr-train:
+    type: file
+    machine: yoga
+    path: /home/noah/qwen-train-canary/canaries/apr/train.py
+    source: canaries/apr/train.py
+    mode: "0755"
+    depends_on: [apr-dir]
+
+  apr-reqs:
+    type: file
+    machine: yoga
+    path: /home/noah/qwen-train-canary/canaries/apr/requirements.txt
+    source: canaries/apr/requirements.txt
+    depends_on: [apr-dir]
 
   # --- Dataset ---
   canary-dataset:
