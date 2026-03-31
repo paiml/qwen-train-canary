@@ -1,0 +1,77 @@
+metadata:
+  version: 1.0.0
+  created: '2026-03-31'
+  author: PAIML Engineering
+  description: Chunked GPU lm_head GEMM for VRAM-constrained training
+  references:
+  - Rajbhandari et al. (2020) ZeRO — Memory Optimizations (activation partitioning)
+
+equations:
+  chunked_logits:
+    formula: logits[s,v] = sum_c(hidden[s,:] @ embed_T[:,chunk_c]) for vocab chunks c
+    domain: hidden in R^{seq_len x hidden}, embed_T in R^{hidden x vocab}
+    codomain: logits in R^{seq_len x vocab}
+    invariants:
+    - Chunked result equals monolithic result (bitwise for fp32)
+    - Peak VRAM per chunk <= chunk_size * seq_len * sizeof(f32)
+    - All chunks fit in available VRAM headroom
+    preconditions:
+    - free_vram >= chunk_size * seq_len * 4 bytes
+    - chunk_size divides vocab_size (or last chunk is smaller)
+    postconditions:
+    - logits.shape == (seq_len, vocab_size)
+    - logits.is_finite().all()
+
+  chunked_loss:
+    formula: loss = -sum_s(log(softmax(logits[s])[target[s]])) / num_tokens
+    domain: logits in R^{seq_len x vocab}, targets in Z^{seq_len}
+    codomain: loss in R, loss >= 0
+    invariants:
+    - Streaming softmax across chunks produces same result as full softmax
+    - Numerical stability via log-sum-exp trick per chunk
+    preconditions:
+    - All logit chunks have been computed
+    postconditions:
+    - loss.is_finite()
+    - loss > 0
+
+proof_obligations:
+- type: invariant
+  property: Chunk equivalence
+  formal: chunked_logits(H, E_T, C) == H @ E_T for all valid C
+  applies_to: chunked_logits
+
+- type: bound
+  property: VRAM per chunk
+  formal: peak_alloc <= chunk_vocab * max_seq_len * 4
+  applies_to: chunked_logits
+
+falsification_tests:
+- id: FALSIFY-CHUNK-001
+  rule: Chunked GEMM matches monolithic
+  prediction: max|chunked - monolithic| < 1e-6 for fp32
+  test: Compare chunk sizes 8K,16K,32K against full 151936 on gx10 (enough VRAM for both)
+  if_fails: Accumulation order or chunk boundary causes divergence
+
+- id: FALSIFY-CHUNK-002
+  rule: Fits in 8GB VRAM headroom
+  prediction: Chunk of 8192 vocab * 512 seq * 4 bytes = 16MB fits in remaining ~1.2GB
+  test: Run on yoga after model+blocks loaded, check cuMemGetInfo before/after
+  if_fails: Chunk too large or fragmentation prevents allocation
+
+kani_harnesses:
+- id: KANI-CHUNK-001
+  obligation: Chunk equivalence
+  property: Chunked matmul produces same result as full matmul
+  bound: 4
+  strategy: stub_float
+  solver: cadical
+  harness: verify_chunked_gemm_equivalence
+
+qa_gate:
+  id: F-CHUNK-GATE-001
+  name: Chunked lm_head Contract
+  description: GPU chunked lm_head produces correct logits on VRAM-constrained hardware
+  checks:
+  - chunk_equivalence
+  - vram_fits
