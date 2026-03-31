@@ -382,7 +382,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
 | F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
 | F-WL-03 | cuBLAS parity <0.01 | 2026-03-31 | CONFIRMED: 0.000000 divergence on gx10. Perfect parity. | GEMM backends numerically identical on Blackwell. |
-| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Three failures: (1) yoga sm_89: CPU fallback 36 tok/s [trueno#231]. (2) gx10 sm_121: NaN/Inf loss [aprender#563]. (3) intel: 147 compile errors without CUDA [aprender#564]. Contract: cuda-training-forward-v1.yaml (5/5 falsified). | Tracked: paiml/trueno#231, paiml/aprender#563, paiml/aprender#564. |
+| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. 5 upstream fixes landed (VRAM init, buffer guards, routing, CPU lm_head). Throughput: 36→123 tok/s. Last blocker: context thread affinity. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565. |
 
 ### Falsification Protocol
 
