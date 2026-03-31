@@ -49,7 +49,7 @@ def get_gpu_info() -> dict:
         return {"device": "cpu"}
     return {
         "device": torch.cuda.get_device_name(0),
-        "vram_total_mb": torch.cuda.get_device_properties(0).total_mem // (1024 * 1024),
+        "vram_total_mb": torch.cuda.get_device_properties(0).total_memory // (1024 * 1024),
         "cuda_version": torch.version.cuda,
         "compute_capability": f"{torch.cuda.get_device_capability(0)[0]}.{torch.cuda.get_device_capability(0)[1]}",
     }
@@ -83,7 +83,7 @@ def main():
 
     # Gradient checkpointing required on <=8GB VRAM (yoga: full FT exceeds 8GB without it)
     if torch.cuda.is_available():
-        vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         if vram_gb <= 16:
             model.gradient_checkpointing_enable()
 
