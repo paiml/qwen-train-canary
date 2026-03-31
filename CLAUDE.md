@@ -10,22 +10,21 @@ Uses **forjar** for declarative deployment and deterministic canary datasets for
 ## Architecture
 
 ```
-Yoga (PRIMARY canary target)             gx10 (Grace Blackwell GB10)
-├── unsloth QLoRA    (CUDA, sm_89)       ├── unsloth QLoRA    (CUDA, sm_121)
-├── pytorch baseline (CUDA, sm_89)       ├── pytorch baseline (CUDA, sm_121)
-├── RTX 4060 Laptop, 8GB VRAM           └── 120 GB unified memory
-└── Clock-locked 1900 MHz
+Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (SECONDARY — GB10, 120GB, sm_121)
+├── unsloth QLoRA canary                   ├── unsloth QLoRA (batch=16)
+├── Clock-locked 1900 MHz                  ├── pytorch full fine-tune
+└── F-EXEC-02: full FT impossible on 8GB   └── cublas parity gate
 
-Intel (192.168.50.100, WGPU target)
-├── wgpu/burn canary (Vulkan, W5700X)
-└── Radeon Pro W5700X, 8GB VRAM
+Intel (SECONDARY — Radeon W5700X, 8GB)
+├── wgpu/burn training canary
+└── Vulkan backend
 ```
 
 ## Commands
 
 ```bash
 # Yoga canaries (CUDA)
-make canary-yoga           # All CUDA canaries (unsloth + pytorch + cublas)
+make canary-yoga           # Yoga canary (unsloth QLoRA only — full FT deferred to gx10)
 make canary-unsloth        # Unsloth QLoRA only (~2 min)
 make canary-pytorch        # PyTorch baseline only (~3 min)
 make canary-cublas         # cuBLAS parity gate (~4 min, runs model twice)
