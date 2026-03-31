@@ -66,6 +66,7 @@ def main():
     parser.add_argument("--method", default="qlora", choices=["qlora", "lora", "full"])
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--gpu-backend", default="auto", choices=["auto", "cuda", "wgpu"])
+    parser.add_argument("--model-path", default=None, help="Local path to APR/GGUF model file")
     args = parser.parse_args()
 
     # Check apr is available
@@ -88,11 +89,35 @@ def main():
     except Exception:
         vram_gb = 8.0
 
+    # Resolve model file: explicit path, local search, or import from HuggingFace
+    model_path = args.model_path or args.model
+    if not os.path.exists(model_path):
+        # Try common local paths
+        for candidate in [
+            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr"),
+            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"),
+        ]:
+            if os.path.exists(candidate):
+                model_path = candidate
+                break
+        else:
+            # Import from HuggingFace
+            print(f"Model not found locally, importing from {args.model}...")
+            import_cmd = [apr_bin, "import", f"hf://{args.model}"]
+            result = subprocess.run(import_cmd, capture_output=True, text=True, check=False, timeout=600)
+            if result.returncode == 0:
+                # Parse imported path from output
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip().endswith((".apr", ".gguf")):
+                        model_path = line.strip()
+                        break
+
+    print(f"Using model: {model_path}")
+
     # Build apr finetune command
-    # apr finetune expects a model file or HF ID
     cmd = [
         apr_bin, "finetune",
-        args.model,
+        model_path,
         "--method", args.method,
         "--rank", str(args.rank),
         "--data", jsonl_path,

@@ -173,6 +173,7 @@ canary-apr:
 		sudo nvidia-smi -lgc 1900,1900 && \
 		python3 canaries/apr/train.py \
 			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
 			--steps $(CANARY_STEPS) \
 			--batch-size $(CANARY_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
