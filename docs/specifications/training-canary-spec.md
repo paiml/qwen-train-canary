@@ -41,6 +41,8 @@
 
 Competitive benchmark for fine-tuning throughput across five training runtimes — the training analog of qwen-coder-deploy's inference runtime comparison. Five canary workloads exercise distinct training paths for Qwen2.5-Coder-1.5B-Instruct.
 
+**Parity mandate:** Gaps are not findings to document — they are defects to fix. When a runtime falls behind (apr adapter-init-only, wgpu not running, torch.compile regressing), the response is to fix the runtime, not to record the gap and move on. The canary exists to drive parity across all five runtimes. A runtime that cannot match the throughput leader on the same hardware is broken until fixed.
+
 **Yoga is the initial primary target.** All baselines, thresholds, and falsification conditions are calibrated against the RTX 4060 Laptop (8 GB VRAM, sm_89). Secondary targets (gx10, intel) validate at larger batch sizes and alternative backends.
 
 ### Chain of Reasoning
@@ -387,6 +389,18 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 1. **Before accepting any baseline:** Run the falsification condition. A claim that has never been tested is an assumption, not a fact.
 2. **On falsification:** Update this register, revise or retract the claim, open a PMAT item for the fix.
 3. **Quarterly review:** Re-run all P0 falsification conditions. Staleness = risk.
+
+### Parity Enforcement
+
+A gap between runtimes is a **defect**, not a finding. The response to every gap is:
+
+1. **Measure** the gap (canary comparison on same hardware)
+2. **Root-cause** the deficit (profile, trace, bisect)
+3. **Fix** the slower runtime (patch the code, not the spec)
+4. **Re-measure** until parity is achieved or the gap is proven fundamental
+
+Acceptable gaps: hardware limitations (8GB VRAM ceiling), missing backends (WGPU on NVIDIA).
+Unacceptable gaps: missing features (apr not training), unoptimized paths (torch.compile overhead), untested runtimes (burn not building).
 
 ---
 
