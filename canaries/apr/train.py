@@ -122,7 +122,8 @@ def main():
         "--rank", str(args.rank),
         "--data", jsonl_path,
         "--learning-rate", str(args.lr),
-        "--epochs", "1",
+        # Match unsloth: 100 steps at 50 samples / batch_size = ~8 epochs
+        "--epochs", str(max(1, (args.steps * args.batch_size) // max(num_samples, 1))),
         "--vram", f"{vram_gb:.1f}",
         "--max-seq-len", str(args.seq_len),
         "--gpu-backend", args.gpu_backend,
