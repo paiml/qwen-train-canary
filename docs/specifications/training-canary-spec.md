@@ -382,7 +382,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
 | F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
 | F-WL-03 | cuBLAS parity <0.01 | 2026-03-31 | CONFIRMED: 0.000000 divergence on gx10. Perfect parity. | GEMM backends numerically identical on Blackwell. |
-| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | apr trains at 36 tok/s vs unsloth 6,697 tok/s (186x deficit). Root cause: CUDA forward fails silently, falls back to CPU every step. Loss stuck at 11.93 (not converging). | Fix entrenar CUDA forward path. The training loop works — the GPU dispatch is broken. |
+| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | apr trains at 36 tok/s vs unsloth 6,697 tok/s (186x deficit). Root cause chain: (1) cuLinkCreate fails with CUDA_ERROR_INVALID_VALUE on sm_89/driver 590.48 (2) falls to legacy JIT (3) CUDA forward in entrenar fails (4) falls back to CPU for every training step. Loss stuck at 11.93. | Fix trueno PTX cache cuLinkCreate for CUDA 13.1 driver. Then fix entrenar CUDA forward to not silently fall back. |
 
 ### Falsification Protocol
 
