@@ -32,6 +32,9 @@ CANARY_SEQ_LEN := 512
 CANARY_LR := 2e-4
 CANARY_SEED := 42
 
+# Full fine-tune batch (F-EXEC-02: batch=4 OOMs on 8GB with bf16 + 8-bit optimizer)
+FT_BATCH := 2
+
 # cuBLAS parity uses fewer steps (runs the model twice)
 CUBLAS_STEPS := 50
 
@@ -68,7 +71,7 @@ canary-pytorch:
 		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
-			--batch-size $(CANARY_BATCH) \
+			--batch-size $(FT_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
@@ -81,7 +84,7 @@ canary-cublas:
 		~/venvs/pytorch-canary/bin/python canaries/cublas/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CUBLAS_STEPS) \
-			--batch-size $(CANARY_BATCH) \
+			--batch-size $(FT_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
