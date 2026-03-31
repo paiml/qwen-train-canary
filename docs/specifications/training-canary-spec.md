@@ -258,8 +258,8 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 | Canary | Metric | Baseline | Tolerance | Gate |
 |--------|--------|----------|-----------|------|
-| unsloth | tokens_per_sec | 5,000 | -10% | >= 4,500 |
-| unsloth | peak_vram_mb | 7,000 | +5% | <= 7,350 |
+| unsloth | tokens_per_sec | 6,700 | -10% | >= 6,030 |
+| unsloth | peak_vram_mb | 3,600 | +5% | <= 3,780 |
 | unsloth | final_loss | 2.0 | -- | <= 2.0 |
 | pytorch | tokens_per_sec | 3,000 | -10% | >= 2,700 |
 | pytorch | peak_vram_mb | 8,000 | +5% | <= 8,400 |
