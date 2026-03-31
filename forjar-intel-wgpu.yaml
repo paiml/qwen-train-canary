@@ -11,27 +11,50 @@ machines:
     transport: ssh
 
 resources:
-  sync-canaries:
-    type: task
+  # --- Directory structure ---
+  canary-dirs:
+    type: file
     machine: intel
-    command: "mkdir -p ~/qwen-train-canary/canaries ~/qwen-train-canary/prompts"
-    completion_check: "test -d ~/qwen-train-canary/canaries"
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries
 
-  copy-scripts:
-    type: copy
+  wgpu-dir:
+    type: file
     machine: intel
-    source: "canaries/"
-    destination: "~/qwen-train-canary/canaries/"
-    depends_on: [sync-canaries]
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/wgpu
+    depends_on: [canary-dirs]
 
-  copy-dataset:
-    type: copy
+  prompts-dir:
+    type: file
     machine: intel
-    source: "prompts/canary-dataset.yaml"
-    destination: "~/qwen-train-canary/prompts/canary-dataset.yaml"
-    depends_on: [sync-canaries]
+    state: directory
+    path: /home/noah/qwen-train-canary/prompts
 
-  # Verify Vulkan is available
+  # --- Files ---
+  wgpu-train:
+    type: file
+    machine: intel
+    path: /home/noah/qwen-train-canary/canaries/wgpu/train.py
+    source: canaries/wgpu/train.py
+    mode: "0755"
+    depends_on: [wgpu-dir]
+
+  wgpu-reqs:
+    type: file
+    machine: intel
+    path: /home/noah/qwen-train-canary/canaries/wgpu/requirements.txt
+    source: canaries/wgpu/requirements.txt
+    depends_on: [wgpu-dir]
+
+  canary-dataset:
+    type: file
+    machine: intel
+    path: /home/noah/qwen-train-canary/prompts/canary-dataset.yaml
+    source: prompts/canary-dataset.yaml
+    depends_on: [prompts-dir]
+
+  # --- Verify Vulkan ---
   check-vulkan:
     type: task
     machine: intel

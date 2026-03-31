@@ -14,25 +14,25 @@ resources:
   setup-dirs:
     type: task
     machine: gx10
-    command: "mkdir -p ~/qwen-train-canary/canaries ~/qwen-train-canary/prompts ~/qwen-train-canary/results"
-    completion_check: "test -d ~/qwen-train-canary/results"
+    command: "mkdir -p /home/noah/qwen-train-canary/canaries /home/noah/qwen-train-canary/prompts /home/noah/qwen-train-canary/results"
+    completion_check: "test -d /home/noah/qwen-train-canary/results"
 
   setup-unsloth-venv:
     type: task
     machine: gx10
     command: |
-      test -d ~/venvs/unsloth/bin || uv venv ~/venvs/unsloth
-      uv pip install -q --python ~/venvs/unsloth/bin/python -r ~/qwen-train-canary/canaries/unsloth/requirements.txt
-    completion_check: "~/venvs/unsloth/bin/python -c 'import unsloth' 2>/dev/null"
+      test -d /home/noah/venvs/unsloth/bin || uv venv /home/noah/venvs/unsloth
+      uv pip install -q --python /home/noah/venvs/unsloth/bin/python -r /home/noah/qwen-train-canary/canaries/unsloth/requirements.txt
+    completion_check: "/home/noah/venvs/unsloth/bin/python -c 'import unsloth' 2>/dev/null"
     depends_on: [setup-dirs]
 
   setup-pytorch-venv:
     type: task
     machine: gx10
     command: |
-      test -d ~/venvs/pytorch-canary/bin || uv venv ~/venvs/pytorch-canary
-      uv pip install -q --python ~/venvs/pytorch-canary/bin/python -r ~/qwen-train-canary/canaries/pytorch/requirements.txt
-    completion_check: "~/venvs/pytorch-canary/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null"
+      test -d /home/noah/venvs/pytorch-canary/bin || uv venv /home/noah/venvs/pytorch-canary
+      uv pip install -q --python /home/noah/venvs/pytorch-canary/bin/python -r /home/noah/qwen-train-canary/canaries/pytorch/requirements.txt
+    completion_check: "/home/noah/venvs/pytorch-canary/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null"
     depends_on: [setup-dirs]
 
 policy:
