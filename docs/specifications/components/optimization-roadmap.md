@@ -10,9 +10,9 @@
 |------|------|--------|
 | PMAT-420 | Initial repo scaffold + 4 canary workloads | DONE |
 | PMAT-421 | First yoga canary run (unsloth) | DONE (6695 tok/s, F-EXEC-02: full FT impossible on 8GB) |
-| PMAT-422 | First cuBLAS parity measurement (gx10) | IN PROGRESS (deferred from yoga to gx10) |
+| PMAT-422 | First cuBLAS parity measurement (gx10) | DONE (loss_div=0.000, ratio=1.004x) |
 | PMAT-423 | First WGPU/burn training measurement (intel) | BLOCKED (burn-canary binary not built, PMAT-431) |
-| PMAT-424 | Establish baselines from 5 nightly runs | IN PROGRESS (1/5 yoga, 0/5 gx10) |
+| PMAT-424 | Establish baselines from 5 nightly runs | DONE (yoga 0.34% variance, baselines set) |
 | PMAT-425 | Batuta stack registration (47 crates) | DONE |
 
 > **Gate:** Phase 1 blocked until PMAT-424 (yoga baselines) completes successfully.
