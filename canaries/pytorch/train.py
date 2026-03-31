@@ -71,6 +71,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataset", default="prompts/canary-dataset.yaml")
     parser.add_argument("--output", default="/tmp/canary-pytorch.json")
+    parser.add_argument("--compile", action="store_true", help="Enable torch.compile (PMAT-426)")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -92,6 +93,10 @@ def main():
         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         if vram_gb <= 16:
             model.gradient_checkpointing_enable()
+
+    # torch.compile for graph-mode optimization (PMAT-426)
+    if args.compile:
+        model = torch.compile(model)
 
     model.train()
 
@@ -176,6 +181,7 @@ def main():
             "dtype": "bf16" if torch.cuda.is_bf16_supported() else "fp16",
             "optimizer": optim_name,
             "quantization": "none",
+            "compiled": args.compile,
         },
         "metrics": {
             "throughput_samples_sec": round(samples_per_sec, 2),

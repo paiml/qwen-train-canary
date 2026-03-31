@@ -163,6 +163,25 @@ canary-cublas-gx10:
 	scp gx10:/tmp/canary-cublas-gx10-$(DATE).json results/
 
 # ============================================================================
+# Phase 1: torch.compile canary (PMAT-426)
+# ============================================================================
+
+.PHONY: canary-compile-gx10
+
+canary-compile-gx10:
+	ssh gx10 'cd ~/qwen-train-canary && \
+		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+			--model $(MODEL_ID) \
+			--steps $(CANARY_STEPS) \
+			--batch-size 16 \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--compile \
+			--output /tmp/canary-compile-gx10-$(DATE).json'
+	scp gx10:/tmp/canary-compile-gx10-$(DATE).json results/
+
+# ============================================================================
 # Reports & Scoring
 # ============================================================================
 
