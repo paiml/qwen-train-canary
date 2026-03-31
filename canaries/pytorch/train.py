@@ -80,6 +80,13 @@ def main():
         torch_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
         trust_remote_code=True,
     ).to(device)
+
+    # Gradient checkpointing required on <=8GB VRAM (yoga: full FT exceeds 8GB without it)
+    if torch.cuda.is_available():
+        vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        if vram_gb <= 16:
+            model.gradient_checkpointing_enable()
+
     model.train()
 
     # Dataset & dataloader

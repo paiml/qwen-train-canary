@@ -154,12 +154,18 @@ def main():
 
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
 
+    # Enable gradient checkpointing on <=16GB VRAM (yoga: full FT exceeds 8GB)
+    vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+    use_grad_ckpt = vram_gb <= 16
+
     # --- Run 1: Default backend ---
     print("=== Default backend ===")
     torch.manual_seed(args.seed)
     model_default = AutoModelForCausalLM.from_pretrained(
         args.model, torch_dtype=dtype, trust_remote_code=True
     ).to(device)
+    if use_grad_ckpt:
+        model_default.gradient_checkpointing_enable()
     default_metrics = run_training(model_default, dataloader, device, args, "default")
     del model_default
     torch.cuda.empty_cache()
@@ -175,6 +181,8 @@ def main():
     model_cublas = AutoModelForCausalLM.from_pretrained(
         args.model, torch_dtype=dtype, trust_remote_code=True
     ).to(device)
+    if use_grad_ckpt:
+        model_cublas.gradient_checkpointing_enable()
     cublas_metrics = run_training(model_cublas, dataloader, device, args, "cublas")
     del model_cublas
     torch.cuda.empty_cache()
