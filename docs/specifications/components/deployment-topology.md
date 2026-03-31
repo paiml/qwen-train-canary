@@ -1,0 +1,65 @@
+# Deployment Topology
+
+**Parent:** [Training Canary Spec](../training-canary-spec.md)
+
+---
+
+## Forjar Configurations
+
+| Config | Host | Purpose |
+|--------|------|---------|
+| `forjar-yoga.yaml` | yoga (SSH) | Deploy scripts, create uv venvs, lock clocks |
+| `forjar-yoga-teardown.yaml` | yoga (SSH) | Kill training, reset clocks |
+| `forjar-intel-wgpu.yaml` | intel (SSH) | Deploy WGPU scripts, verify Vulkan |
+| `forjar-gx10.yaml` | gx10 (local) | Setup venvs locally |
+
+**Yoga is deployed first.** Intel and gx10 deployments are deferred until yoga canaries pass.
+
+## Virtual Environment Strategy
+
+All Python dependencies installed via **uv** (not pip):
+
+```yaml
+# forjar-yoga.yaml
+command: |
+  test -d ~/venvs/unsloth/bin || uv venv ~/venvs/unsloth
+  uv pip install -q --python ~/venvs/unsloth/bin/python -r requirements.txt
+```
+
+Two venvs per CUDA host:
+1. `~/venvs/unsloth` -- unsloth + dependencies (bitsandbytes, peft, trl)
+2. `~/venvs/pytorch-canary` -- minimal PyTorch + transformers (shared by pytorch + cublas)
+
+## Nightly Pipeline
+
+```
+scripts/nightly.sh [cuda|wgpu|gx10|all]
+  ├── run_cuda_canaries()     # yoga: deploy -> unsloth -> pytorch -> cublas -> teardown
+  ├── run_wgpu_canaries()     # intel: deploy -> wgpu (deferred until PMAT-431)
+  ├── run_gx10_canaries()     # gx10: deploy -> unsloth -> pytorch -> cublas (deferred until PMAT-424)
+  └── make score              # Score all results against baselines
+```
+
+**Default:** `scripts/nightly.sh cuda` runs yoga only until secondaries are enabled.
+
+## Scope Boundaries
+
+**In scope:**
+- Fine-tuning throughput measurement (tokens/sec, samples/sec)
+- Memory regression detection (peak VRAM)
+- Numerical parity between GEMM backends (cuBLAS canary)
+- Cross-platform training feasibility (WGPU)
+- Deterministic, reproducible benchmarks
+
+**Out of scope:**
+- Training to convergence (canary=100 steps, not full training)
+- Evaluation metrics (BLEU, HumanEval, etc.)
+- Multi-GPU / distributed training (FSDP, DeepSpeed)
+- Inference performance (see qwen-coder-deploy)
+
+## Falsification Conditions
+
+| ID | Condition | Action |
+|----|-----------|--------|
+| F-DT-01 | If forjar deploy to yoga fails | SSH or venv setup broken -- fix before canary |
+| F-DT-02 | If nightly.sh hangs >30 min on any single canary | Process leak or OOM hang -- add timeout |
