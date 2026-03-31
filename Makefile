@@ -50,7 +50,9 @@ deploy-yoga:
 teardown-yoga:
 	forjar apply -f forjar-yoga-teardown.yaml
 
-canary-yoga: canary-unsloth canary-pytorch canary-cublas
+# F-EXEC-02: Full fine-tune (pytorch/cublas) needs >8GB — deferred to gx10
+# Yoga runs QLoRA (unsloth) only — the production training path
+canary-yoga: canary-unsloth
 
 canary-unsloth:
 	ssh yoga 'cd ~/qwen-train-canary && \

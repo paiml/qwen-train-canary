@@ -280,8 +280,8 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 | Canary | yoga (8GB) | gx10 (120GB) | intel (8GB) |
 |--------|-----------|-------------|------------|
 | unsloth | 5,000-7,000 | 8,000-12,000 | N/A |
-| pytorch | 3,000-4,000 | 6,000-10,000 | N/A |
-| cublas | 3,000-4,000 | 6,000-10,000 | N/A |
+| pytorch | N/A (F-EXEC-02) | 6,000-10,000 | N/A |
+| cublas | N/A (F-EXEC-02) | 6,000-10,000 | N/A |
 | wgpu | N/A | N/A | 50-200 |
 
 ---
@@ -355,7 +355,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Date | What Happened | Resolution |
 |----|-------|------|---------------|------------|
-| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM at optimizer.step() even at batch=2. Model (3.5GB bf16) + AdamW states (2x3.5GB) = 10.5GB minimum, exceeds 8GB regardless of batch or gradient checkpointing. | Auto-switch to AdamW 8-bit (bitsandbytes) on VRAM <= 16GB. Reduces optimizer states from 7GB to ~1.75GB. pytorch/cublas canaries now use 8-bit optimizer on yoga, fp32 on gx10. |
+| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM even at batch=2 + 8-bit optimizer + gradient checkpointing. Model weights (3.5GB bf16) + gradients (3.5GB) = 7GB floor — no room for optimizer states or activations on 8GB. Full fine-tune of 1.5B is fundamentally impossible on 8GB VRAM. | pytorch/cublas canaries deferred to gx10 (120GB). Yoga runs unsloth (QLoRA) only — the actual production training path. QLoRA fits comfortably at 3.5GB. |
 
 ### Falsification Protocol
 
