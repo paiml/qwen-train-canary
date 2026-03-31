@@ -150,7 +150,7 @@ All initial baselines and falsification conditions target yoga. Secondary target
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | Precision | bf16 (sm_89+) / fp16 | Native mixed precision |
-| Optimizer | AdamW (weight_decay=0.01) | Standard PyTorch |
+| Optimizer | AdamW 8-bit (yoga) / AdamW (gx10) | 8-bit required on <=16GB (F-EXEC-02) |
 | LR schedule | CosineAnnealingLR | T_max=steps |
 | Gradient clipping | 1.0 | Prevent divergence in short runs |
 | Gradient checkpointing | Auto (on if VRAM <= 16 GB) | Full FT exceeds 8 GB without it |
@@ -355,7 +355,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Date | What Happened | Resolution |
 |----|-------|------|---------------|------------|
-| -- | -- | -- | No falsified claims yet (v2.0.0) | -- |
+| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM at optimizer.step() even at batch=2. Model (3.5GB bf16) + AdamW states (2x3.5GB) = 10.5GB minimum, exceeds 8GB regardless of batch or gradient checkpointing. | Auto-switch to AdamW 8-bit (bitsandbytes) on VRAM <= 16GB. Reduces optimizer states from 7GB to ~1.75GB. pytorch/cublas canaries now use 8-bit optimizer on yoga, fp32 on gx10. |
 
 ### Falsification Protocol
 

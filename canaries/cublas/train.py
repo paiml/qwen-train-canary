@@ -22,6 +22,12 @@ from torch.utils.data import DataLoader, Dataset as TorchDataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import yaml
 
+try:
+    import bitsandbytes as bnb
+    HAS_BNB = True
+except ImportError:
+    HAS_BNB = False
+
 
 class CanaryDataset(TorchDataset):
     """Simple text dataset from canary YAML."""
@@ -66,7 +72,11 @@ def get_gpu_info() -> dict:
 def run_training(model, dataloader, device, args, label: str) -> dict:
     """Run a training loop and collect metrics."""
     model.train()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    use_8bit = torch.cuda.get_device_properties(0).total_memory / (1024**3) <= 16
+    if use_8bit and HAS_BNB:
+        optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=args.lr, weight_decay=0.01)
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.steps)
 
     torch.cuda.reset_peak_memory_stats()

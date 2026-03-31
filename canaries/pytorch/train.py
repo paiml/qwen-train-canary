@@ -14,6 +14,12 @@ from torch.utils.data import DataLoader, Dataset as TorchDataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import yaml
 
+try:
+    import bitsandbytes as bnb
+    HAS_BNB = True
+except ImportError:
+    HAS_BNB = False
+
 
 class CanaryDataset(TorchDataset):
     """Simple text dataset from canary YAML."""
@@ -93,8 +99,14 @@ def main():
     dataset = CanaryDataset(args.dataset, tokenizer, args.seq_len)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    # Optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    # Optimizer — use 8-bit on constrained VRAM (F-EXEC-02: full FT OOMs with fp32 optimizer states)
+    use_8bit = torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / (1024**3) <= 16
+    if use_8bit and HAS_BNB:
+        optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=args.lr, weight_decay=0.01)
+        optim_name = "adamw_8bit"
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+        optim_name = "adamw"
 
     # Cosine schedule
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.steps)
@@ -162,7 +174,7 @@ def main():
             "lr": args.lr,
             "seed": args.seed,
             "dtype": "bf16" if torch.cuda.is_bf16_supported() else "fp16",
-            "optimizer": "adamw",
+            "optimizer": optim_name,
             "quantization": "none",
         },
         "metrics": {
