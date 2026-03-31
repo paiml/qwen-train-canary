@@ -1,0 +1,40 @@
+version: "1.0"
+name: qwen-train-canary-gx10
+description: "Deploy training canary on Grace Blackwell GB10 (sm_121, 120 GB)"
+
+machines:
+  gx10:
+    hostname: gx10
+    addr: 127.0.0.1
+    user: noah
+    arch: aarch64
+    transport: local
+
+resources:
+  setup-dirs:
+    type: task
+    machine: gx10
+    command: "mkdir -p ~/qwen-train-canary/canaries ~/qwen-train-canary/prompts ~/qwen-train-canary/results"
+    completion_check: "test -d ~/qwen-train-canary/results"
+
+  setup-unsloth-venv:
+    type: task
+    machine: gx10
+    command: |
+      test -d ~/venvs/unsloth/bin || uv venv ~/venvs/unsloth
+      uv pip install -q --python ~/venvs/unsloth/bin/python -r ~/qwen-train-canary/canaries/unsloth/requirements.txt
+    completion_check: "~/venvs/unsloth/bin/python -c 'import unsloth' 2>/dev/null"
+    depends_on: [setup-dirs]
+
+  setup-pytorch-venv:
+    type: task
+    machine: gx10
+    command: |
+      test -d ~/venvs/pytorch-canary/bin || uv venv ~/venvs/pytorch-canary
+      uv pip install -q --python ~/venvs/pytorch-canary/bin/python -r ~/qwen-train-canary/canaries/pytorch/requirements.txt
+    completion_check: "~/venvs/pytorch-canary/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null"
+    depends_on: [setup-dirs]
+
+policy:
+  failure: stop_on_first
+  lock_file: true

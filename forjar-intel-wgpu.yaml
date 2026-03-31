@@ -1,0 +1,43 @@
+version: "1.0"
+name: qwen-train-canary-intel-wgpu
+description: "Deploy WGPU training canary to intel (Radeon Pro W5700X)"
+
+machines:
+  intel:
+    hostname: intel
+    addr: 192.168.50.100
+    user: noah
+    arch: x86_64
+    transport: ssh
+
+resources:
+  sync-canaries:
+    type: task
+    machine: intel
+    command: "mkdir -p ~/qwen-train-canary/canaries ~/qwen-train-canary/prompts"
+    completion_check: "test -d ~/qwen-train-canary/canaries"
+
+  copy-scripts:
+    type: copy
+    machine: intel
+    source: "canaries/"
+    destination: "~/qwen-train-canary/canaries/"
+    depends_on: [sync-canaries]
+
+  copy-dataset:
+    type: copy
+    machine: intel
+    source: "prompts/canary-dataset.yaml"
+    destination: "~/qwen-train-canary/prompts/canary-dataset.yaml"
+    depends_on: [sync-canaries]
+
+  # Verify Vulkan is available
+  check-vulkan:
+    type: task
+    machine: intel
+    command: "vulkaninfo --summary 2>/dev/null | head -5 || echo 'vulkaninfo not found'"
+    completion_check: "vulkaninfo --summary 2>/dev/null | grep -qi 'device\\|gpu'"
+
+policy:
+  failure: stop_on_first
+  lock_file: true

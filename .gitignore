@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Venvs
+venv/
+.venv/
+
+# Training artifacts
+*.pt
+*.bin
+*.safetensors
+checkpoints/
+/tmp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# State
+state/

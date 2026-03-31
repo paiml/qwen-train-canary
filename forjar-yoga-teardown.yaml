@@ -1,0 +1,29 @@
+version: "1.0"
+name: qwen-train-canary-yoga-teardown
+description: "Clean up training canary on yoga"
+
+machines:
+  yoga:
+    hostname: yoga
+    addr: 192.168.50.38
+    user: noah
+    arch: x86_64
+    transport: ssh
+
+resources:
+  # Kill any running training processes
+  kill-training:
+    type: task
+    machine: yoga
+    command: "pkill -f 'canaries/.*/train.py' 2>/dev/null || true"
+    completion_check: "! pgrep -f 'canaries/.*/train.py' >/dev/null 2>&1"
+
+  # Reset GPU clocks
+  reset-clocks:
+    type: task
+    machine: yoga
+    command: "sudo nvidia-smi -rgc 2>/dev/null || true"
+    depends_on: [kill-training]
+
+policy:
+  failure: continue

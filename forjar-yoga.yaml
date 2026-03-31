@@ -1,0 +1,64 @@
+version: "1.0"
+name: qwen-train-canary-yoga
+description: "Deploy training canary scripts to yoga (RTX 4060 Laptop)"
+
+machines:
+  yoga:
+    hostname: yoga
+    addr: 192.168.50.38
+    user: noah
+    arch: x86_64
+    transport: ssh
+
+resources:
+  # Sync canary scripts to yoga
+  sync-canaries:
+    type: task
+    machine: yoga
+    command: "mkdir -p ~/qwen-train-canary/canaries ~/qwen-train-canary/prompts"
+    completion_check: "test -d ~/qwen-train-canary/canaries"
+
+  copy-scripts:
+    type: copy
+    machine: yoga
+    source: "canaries/"
+    destination: "~/qwen-train-canary/canaries/"
+    depends_on: [sync-canaries]
+
+  copy-dataset:
+    type: copy
+    machine: yoga
+    source: "prompts/canary-dataset.yaml"
+    destination: "~/qwen-train-canary/prompts/canary-dataset.yaml"
+    depends_on: [sync-canaries]
+
+  # Install Python dependencies (unsloth venv)
+  setup-unsloth-venv:
+    type: task
+    machine: yoga
+    command: |
+      test -d ~/venvs/unsloth/bin || uv venv ~/venvs/unsloth
+      uv pip install -q --python ~/venvs/unsloth/bin/python -r ~/qwen-train-canary/canaries/unsloth/requirements.txt
+    completion_check: "~/venvs/unsloth/bin/python -c 'import unsloth' 2>/dev/null"
+    depends_on: [copy-scripts]
+
+  # Install Python dependencies (pytorch venv)
+  setup-pytorch-venv:
+    type: task
+    machine: yoga
+    command: |
+      test -d ~/venvs/pytorch-canary/bin || uv venv ~/venvs/pytorch-canary
+      uv pip install -q --python ~/venvs/pytorch-canary/bin/python -r ~/qwen-train-canary/canaries/pytorch/requirements.txt
+    completion_check: "~/venvs/pytorch-canary/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null"
+    depends_on: [copy-scripts]
+
+  # Lock GPU clocks for reproducibility
+  lock-clocks:
+    type: task
+    machine: yoga
+    command: "sudo nvidia-smi -lgc 1900,1900 2>/dev/null || true"
+    completion_check: "nvidia-smi --query-gpu=clocks.current.graphics --format=csv,noheader 2>/dev/null | grep -q '[0-9]'"
+
+policy:
+  failure: stop_on_first
+  lock_file: true

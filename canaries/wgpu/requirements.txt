@@ -1,0 +1,5 @@
+# WGPU canary uses burn-canary Rust binary (built separately)
+# PyTorch Vulkan fallback:
+torch>=2.4.0
+transformers>=4.44.0
+pyyaml>=6.0
