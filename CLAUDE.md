@@ -2,8 +2,9 @@
 
 ## Project Overview
 
-Training performance canary benchmarks for Qwen2.5-Coder-1.5B across CUDA and WGPU backends.
-Four canary workloads: unsloth (QLoRA), pytorch (baseline full fine-tune), cublas (parity gate), wgpu (burn framework).
+Competitive fine-tuning benchmarks for Qwen2.5-Coder-1.5B across five training runtimes.
+Like qwen-coder-deploy compares inference runtimes, this project compares training paths head-to-head.
+Five canary workloads: **apr** (Sovereign Stack/entrenar), unsloth (QLoRA), pytorch (full FT), cublas (parity gate), wgpu (burn).
 
 Uses **forjar** for declarative deployment and deterministic canary datasets for reproducibility.
 
@@ -11,7 +12,8 @@ Uses **forjar** for declarative deployment and deterministic canary datasets for
 
 ```
 Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (SECONDARY — GB10, 120GB, sm_121)
-├── unsloth QLoRA canary                   ├── unsloth QLoRA (batch=16)
+├── apr QLoRA (Sovereign Stack)            ├── apr QLoRA (batch=16)
+├── unsloth QLoRA (Python baseline)        ├── unsloth QLoRA (batch=16)
 ├── Clock-locked 1900 MHz                  ├── pytorch full fine-tune
 └── F-EXEC-02: full FT impossible on 8GB   └── cublas parity gate
 
@@ -24,7 +26,9 @@ Intel (SECONDARY — Radeon W5700X, 8GB)
 
 ```bash
 # Yoga canaries (CUDA)
-make canary-yoga           # Yoga canary (unsloth QLoRA only — full FT deferred to gx10)
+make canary-yoga           # Yoga canaries (apr + unsloth QLoRA)
+make canary-apr            # APR fine-tune canary (Sovereign Stack, yoga)
+make canary-apr-gx10       # APR fine-tune canary (gx10)
 make canary-unsloth        # Unsloth QLoRA only (~2 min)
 make canary-pytorch        # PyTorch baseline only (~3 min)
 make canary-cublas         # cuBLAS parity gate (~4 min, runs model twice)
@@ -58,6 +62,7 @@ make score-json            # JSON scorecards to results/
 
 ## Key Files
 
+- `canaries/apr/train.py` — APR fine-tune canary (Sovereign Stack, wraps `apr finetune`)
 - `canaries/unsloth/train.py` — Unsloth QLoRA canary script
 - `canaries/pytorch/train.py` — PyTorch baseline canary script
 - `canaries/cublas/train.py` — cuBLAS parity canary (default vs cuBLAS GEMM)

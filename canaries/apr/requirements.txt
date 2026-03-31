@@ -1,0 +1,3 @@
+# APR canary requires `apr` binary (cargo install aprender)
+# Python deps are minimal — apr handles training natively
+pyyaml>=6.0

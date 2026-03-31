@@ -51,8 +51,8 @@ teardown-yoga:
 	forjar apply -f forjar-yoga-teardown.yaml
 
 # F-EXEC-02: Full fine-tune (pytorch/cublas) needs >8GB — deferred to gx10
-# Yoga runs QLoRA (unsloth) only — the production training path
-canary-yoga: canary-unsloth
+# Yoga runs QLoRA: apr (Sovereign Stack) + unsloth (Python baseline)
+canary-yoga: canary-apr canary-unsloth
 
 canary-unsloth:
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -161,6 +161,39 @@ canary-cublas-gx10:
 			--seed $(CANARY_SEED) \
 			--output /tmp/canary-cublas-gx10-$(DATE).json'
 	scp gx10:/tmp/canary-cublas-gx10-$(DATE).json results/
+
+# ============================================================================
+# APR fine-tune (Sovereign Stack — aprender/entrenar)
+# ============================================================================
+
+.PHONY: canary-apr canary-apr-gx10
+
+canary-apr:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--steps $(CANARY_STEPS) \
+			--batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--output /tmp/canary-apr-$(DATE).json'
+	scp yoga:/tmp/canary-apr-$(DATE).json results/
+
+canary-apr-gx10:
+	ssh gx10 'cd ~/qwen-train-canary && \
+		python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--steps $(CANARY_STEPS) \
+			--batch-size 16 \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--output /tmp/canary-apr-gx10-$(DATE).json'
+	scp gx10:/tmp/canary-apr-gx10-$(DATE).json results/
 
 # ============================================================================
 # Phase 1: torch.compile canary (PMAT-426)

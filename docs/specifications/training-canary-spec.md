@@ -39,9 +39,9 @@
 
 ### What This Is
 
-Performance specification for training canary benchmarks that detect regressions in fine-tuning throughput, memory usage, and numerical correctness. Four canary workloads exercise distinct training paths for Qwen2.5-Coder-1.5B-Instruct.
+Competitive benchmark for fine-tuning throughput across five training runtimes — the training analog of qwen-coder-deploy's inference runtime comparison. Five canary workloads exercise distinct training paths for Qwen2.5-Coder-1.5B-Instruct.
 
-**Yoga is the initial primary target.** All baselines, thresholds, and falsification conditions are calibrated against the RTX 4060 Laptop (8 GB VRAM, sm_89). Secondary targets (gx10, intel) are validated after yoga baselines stabilize.
+**Yoga is the initial primary target.** All baselines, thresholds, and falsification conditions are calibrated against the RTX 4060 Laptop (8 GB VRAM, sm_89). Secondary targets (gx10, intel) validate at larger batch sizes and alternative backends.
 
 ### Chain of Reasoning
 
@@ -49,14 +49,17 @@ Performance specification for training canary benchmarks that detect regressions
 
 > **F-EXEC-01:** If a canary fails to detect an artificially injected 15% throughput slowdown on yoga, the entire regression detection methodology is falsified.
 
-**Step 2: Why four workloads?** Each canary isolates a different bottleneck:
+**Step 2: Why five workloads?** Each canary isolates a different bottleneck. Like qwen-coder-deploy compares realizr/ollama/llama.cpp/vLLM/wgpu for inference, we compare training runtimes head-to-head:
 
-| Canary | Bottleneck | Why It Matters |
-|--------|-----------|---------------|
-| **unsloth** | QLoRA adapter + 4-bit quant | Production fine-tuning path. Regression = unsloth API or quantization broke. |
-| **pytorch** | Raw training loop throughput | Baseline with no optimizations. Isolates PyTorch/CUDA from library issues. |
-| **cublas** | GEMM backend numerical parity | Runs SAME loop twice. Detects silent numerical divergence. |
-| **wgpu** | Non-NVIDIA training viability | Burn framework via Vulkan on AMD. Cross-platform feasibility. |
+| Canary | Runtime | Bottleneck | Why It Matters |
+|--------|---------|-----------|---------------|
+| **apr** | aprender/entrenar (Rust) | Sovereign Stack training | Native Rust QLoRA via trueno SIMD. The target to beat. |
+| **unsloth** | unsloth (Python) | QLoRA + 4-bit quant | Best-known Python QLoRA. Production fine-tuning path. |
+| **pytorch** | PyTorch (Python) | Raw training loop | Baseline with no optimizations. Isolates framework overhead. |
+| **cublas** | PyTorch (Python) | GEMM backend parity | Runs SAME loop twice. Detects silent numerical divergence. |
+| **wgpu** | burn (Rust) | Non-NVIDIA training | Burn framework via Vulkan on AMD. Cross-platform feasibility. |
+
+> **F-WL-06:** If apr throughput < unsloth throughput on same hardware, the Sovereign Stack training path has a throughput deficit. Action: profile entrenar hot path, check trueno GEMM performance.
 
 **Step 3: What constitutes a regression?** Three gates:
 
@@ -127,6 +130,23 @@ All initial baselines and falsification conditions target yoga. Secondary target
 ---
 
 ## 3. Canary Workloads
+
+### 3.0 APR Fine-Tune Canary (Sovereign Stack)
+
+**File:** `canaries/apr/train.py` | **Backend:** CUDA via trueno | **Duration:** TBD
+
+The **target to beat**. APR fine-tune uses aprender's native Rust training engine (entrenar) with trueno SIMD-accelerated tensor operations. Like realizr is the SSC inference engine, entrenar is the SSC training engine.
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Runtime | `apr finetune` (Rust binary) | Native Rust, no Python overhead |
+| Quantization | NF4 (4-bit) | QLoRA via trueno fused NF4 kernels |
+| LoRA rank/alpha | 16 / 32 (or auto) | Matches unsloth config for fair comparison |
+| Optimizer | AdamW | entrenar native implementation |
+| Output | APR + safetensors checkpoints | Dual format for SSC and HF compatibility |
+
+> **F-WL-06:** If apr throughput < unsloth throughput on same hardware, the Sovereign Stack training path has a throughput deficit. Profile entrenar hot path.
+> **F-WL-07:** If apr produces different loss trajectory than unsloth/pytorch for same data, numerical divergence in trueno GEMM.
 
 ### 3.1 Unsloth QLoRA Canary
 
@@ -277,12 +297,13 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 ### Expected Throughput (Yoga Primary)
 
-| Canary | yoga (8GB) | gx10 (120GB) | intel (8GB) |
-|--------|-----------|-------------|------------|
-| unsloth | **6,697** (measured, batch=4) | **13,660** (measured, batch=16) | N/A |
-| pytorch | N/A (F-EXEC-02) | **4,055** (measured, batch=16) | N/A |
-| cublas | N/A (F-EXEC-02) | **4,010/4,027** (measured, batch=16) | N/A |
-| wgpu | N/A | N/A | TBD (PMAT-431) |
+| Canary | Runtime | yoga (8GB) | gx10 (120GB) | intel (8GB) |
+|--------|---------|-----------|-------------|------------|
+| **apr** | entrenar (Rust) | TBD | TBD | TBD (wgpu) |
+| unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
+| pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
+| cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** | N/A |
+| wgpu | burn (Rust) | N/A | N/A | TBD (PMAT-431) |
 
 ---
 
