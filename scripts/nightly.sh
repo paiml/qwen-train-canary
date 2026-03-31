@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # nightly.sh — Automated training canary pipeline
-# Usage: bash scripts/nightly.sh [cuda|wgpu|gx10|all]
+# Usage: bash scripts/nightly.sh [yoga|gx10|wgpu|all]
+#
+# Default: yoga (QLoRA canary on RTX 4060L)
+# F-EXEC-02: full fine-tune (pytorch/cublas) runs on gx10 only
 set -euo pipefail
 
-MODE="${1:-cuda}"
+MODE="${1:-yoga}"
 DATE=$(date +%Y%m%d)
 RESULTS_DIR="results"
 
@@ -12,31 +15,39 @@ echo "Mode: $MODE"
 
 mkdir -p "$RESULTS_DIR"
 
-run_cuda_canaries() {
+run_yoga_canaries() {
     echo ""
-    echo "--- CUDA Canaries (yoga) ---"
+    echo "--- Yoga Canaries (RTX 4060L, QLoRA only) ---"
 
     echo "Deploying to yoga..."
     make deploy-yoga
 
-    echo "Running unsloth canary..."
+    echo "Running unsloth QLoRA canary..."
     make canary-unsloth
     echo "  -> results/canary-unsloth-$DATE.json"
-
-    echo "Running pytorch canary..."
-    make canary-pytorch
-    echo "  -> results/canary-pytorch-$DATE.json"
-
-    echo "Running cuBLAS parity canary..."
-    make canary-cublas
-    echo "  -> results/canary-cublas-$DATE.json"
 
     make teardown-yoga
 }
 
+run_gx10_canaries() {
+    echo ""
+    echo "--- GB10 Canaries (full FT + parity) ---"
+
+    echo "Deploying to gx10..."
+    make deploy-gx10
+
+    echo "Running pytorch canary..."
+    make canary-pytorch-gx10
+    echo "  -> results/canary-pytorch-gx10-$DATE.json"
+
+    echo "Running cuBLAS parity canary..."
+    make canary-cublas-gx10
+    echo "  -> results/canary-cublas-gx10-$DATE.json"
+}
+
 run_wgpu_canaries() {
     echo ""
-    echo "--- WGPU Canaries (intel) ---"
+    echo "--- WGPU Canaries (intel, Vulkan) ---"
 
     echo "Deploying to intel..."
     make deploy-wgpu
@@ -46,35 +57,23 @@ run_wgpu_canaries() {
     echo "  -> results/canary-wgpu-$DATE.json"
 }
 
-run_gx10_canaries() {
-    echo ""
-    echo "--- GB10 Canaries (gx10) ---"
-
-    echo "Deploying to gx10..."
-    make deploy-gx10
-
-    echo "Running all gx10 canaries..."
-    make canary-gx10
-    echo "  -> results/canary-*-gx10-$DATE.json"
-}
-
 case "$MODE" in
-    cuda)
-        run_cuda_canaries
-        ;;
-    wgpu)
-        run_wgpu_canaries
+    yoga)
+        run_yoga_canaries
         ;;
     gx10)
         run_gx10_canaries
         ;;
-    all)
-        run_cuda_canaries
+    wgpu)
         run_wgpu_canaries
+        ;;
+    all)
+        run_yoga_canaries
         run_gx10_canaries
+        # run_wgpu_canaries  # PMAT-423: blocked until burn-canary built
         ;;
     *)
-        echo "Usage: $0 [cuda|wgpu|gx10|all]"
+        echo "Usage: $0 [yoga|gx10|wgpu|all]"
         exit 1
         ;;
 esac
