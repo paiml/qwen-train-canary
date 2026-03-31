@@ -25,15 +25,41 @@ def format_table(results: list[dict]) -> str:
     ]
     for r in results:
         m = r.get("metrics", {})
-        lines.append(
-            f"| {r.get('canary', '?')} "
-            f"| {r.get('backend', '?')} "
-            f"| {r.get('host', '?')} "
-            f"| {m.get('tokens_per_sec', '?')} "
-            f"| {m.get('peak_vram_mb', '?')} "
-            f"| {m.get('final_loss', '?')} "
-            f"| {m.get('wall_time_sec', '?')} |"
-        )
+        canary = r.get("canary", "?")
+
+        # cuBLAS parity canary has nested metrics — extract default run
+        if canary == "cublas" and "default" in m:
+            dm = m.get("default", {})
+            parity = m.get("parity", {})
+            lines.append(
+                f"| cublas (default) "
+                f"| {r.get('backend', '?')} "
+                f"| {r.get('host', '?')} "
+                f"| {dm.get('tokens_per_sec', '?')} "
+                f"| {dm.get('peak_vram_mb', '?')} "
+                f"| {dm.get('final_loss', '?')} "
+                f"| {dm.get('wall_time_sec', '?')} |"
+            )
+            cm = m.get("cublas", {})
+            lines.append(
+                f"| cublas (forced) "
+                f"| {r.get('backend', '?')} "
+                f"| {r.get('host', '?')} "
+                f"| {cm.get('tokens_per_sec', '?')} "
+                f"| {cm.get('peak_vram_mb', '?')} "
+                f"| {cm.get('final_loss', '?')} "
+                f"| {cm.get('wall_time_sec', '?')} |"
+            )
+        else:
+            lines.append(
+                f"| {canary} "
+                f"| {r.get('backend', '?')} "
+                f"| {r.get('host', '?')} "
+                f"| {m.get('tokens_per_sec', '?')} "
+                f"| {m.get('peak_vram_mb', '?')} "
+                f"| {m.get('final_loss', '?')} "
+                f"| {m.get('wall_time_sec', '?')} |"
+            )
     return "\n".join(lines)
 
 
