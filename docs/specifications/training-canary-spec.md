@@ -305,7 +305,7 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 | unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
 | pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** | N/A |
-| wgpu | burn (Rust) | N/A | N/A | TBD (PMAT-431) |
+| wgpu | burn (Rust) | N/A | N/A | **4,180** (measured, Vulkan) |
 
 ---
 

@@ -11,7 +11,7 @@
 | PMAT-420 | Initial repo scaffold + 4 canary workloads | DONE |
 | PMAT-421 | First yoga canary run (unsloth) | DONE (6695 tok/s, F-EXEC-02: full FT impossible on 8GB) |
 | PMAT-422 | First cuBLAS parity measurement (gx10) | DONE (loss_div=0.000, ratio=1.004x) |
-| PMAT-423 | First WGPU/burn training measurement (intel) | BLOCKED (burn-canary binary not built, PMAT-431) |
+| PMAT-423 | First WGPU/burn training measurement (intel) | DONE (4,180 tok/s, Vulkan, Radeon W5700X) |
 | PMAT-424 | Establish baselines from 5 nightly runs | DONE (yoga 0.34% variance, baselines set) |
 | PMAT-425 | Batuta stack registration (47 crates) | DONE |
 
@@ -31,7 +31,7 @@
 
 | PMAT | Item | Expected Impact |
 |------|------|----------------|
-| PMAT-431 | burn-canary Rust binary (MVP) | Enable WGPU canary |
+| PMAT-431 | burn-canary Rust binary (MVP) | DONE (4,180 tok/s on Radeon W5700X via Vulkan) |
 | PMAT-432 | WGPU compute shader optimization | 2-5x throughput |
 | PMAT-433 | WGPU vs CUDA numerical parity | Cross-backend convergence |
 | PMAT-434 | Apple Metal backend canary (M-series) | macOS training feasibility |
