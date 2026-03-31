@@ -55,7 +55,7 @@ Competitive benchmark for fine-tuning throughput across five training runtimes â
 
 | Canary | Runtime | Bottleneck | Why It Matters |
 |--------|---------|-----------|---------------|
-| **apr** | aprender/entrenar (Rust) | Sovereign Stack training | Native Rust QLoRA via trueno SIMD. The target to beat. |
+| **apr** | aprender/entrenar (Rust) | Sovereign Stack training | Native Rust QLoRA. CUDA (trueno PTX) or wgpu (Vulkan). Target to beat. |
 | **unsloth** | unsloth (Python) | QLoRA + 4-bit quant | Best-known Python QLoRA. Production fine-tuning path. |
 | **pytorch** | PyTorch (Python) | Raw training loop | Baseline with no optimizations. Isolates framework overhead. |
 | **cublas** | PyTorch (Python) | GEMM backend parity | Runs SAME loop twice. Detects silent numerical divergence. |
