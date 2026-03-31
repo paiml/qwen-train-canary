@@ -124,8 +124,10 @@ canary-wgpu:
 deploy-gx10:
 	forjar apply -f forjar-gx10.yaml
 
-canary-gx10:
-	cd ~/qwen-train-canary && \
+canary-gx10: canary-unsloth-gx10 canary-pytorch-gx10 canary-cublas-gx10
+
+canary-unsloth-gx10:
+	ssh gx10 'cd ~/qwen-train-canary && \
 		~/venvs/unsloth/bin/python canaries/unsloth/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
@@ -133,7 +135,11 @@ canary-gx10:
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
-			--output results/canary-unsloth-gx10-$(DATE).json && \
+			--output /tmp/canary-unsloth-gx10-$(DATE).json'
+	scp gx10:/tmp/canary-unsloth-gx10-$(DATE).json results/
+
+canary-pytorch-gx10:
+	ssh gx10 'cd ~/qwen-train-canary && \
 		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
@@ -141,7 +147,11 @@ canary-gx10:
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
-			--output results/canary-pytorch-gx10-$(DATE).json && \
+			--output /tmp/canary-pytorch-gx10-$(DATE).json'
+	scp gx10:/tmp/canary-pytorch-gx10-$(DATE).json results/
+
+canary-cublas-gx10:
+	ssh gx10 'cd ~/qwen-train-canary && \
 		~/venvs/pytorch-canary/bin/python canaries/cublas/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CUBLAS_STEPS) \
@@ -149,7 +159,8 @@ canary-gx10:
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
-			--output results/canary-cublas-gx10-$(DATE).json
+			--output /tmp/canary-cublas-gx10-$(DATE).json'
+	scp gx10:/tmp/canary-cublas-gx10-$(DATE).json results/
 
 # ============================================================================
 # Reports & Scoring

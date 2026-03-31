@@ -5,35 +5,126 @@ description: "Deploy training canary on Grace Blackwell GB10 (sm_121, 120 GB)"
 machines:
   gx10:
     hostname: gx10
-    addr: 127.0.0.1
+    addr: 192.168.50.187
     user: noah
     arch: aarch64
-    transport: local
+    transport: ssh
 
 resources:
-  setup-dirs:
-    type: task
+  # --- Directory structure ---
+  canary-dirs:
+    type: file
     machine: gx10
-    command: "mkdir -p /home/noah/qwen-train-canary/canaries /home/noah/qwen-train-canary/prompts /home/noah/qwen-train-canary/results"
-    completion_check: "test -d /home/noah/qwen-train-canary/results"
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries
 
+  prompts-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/prompts
+    depends_on: [canary-dirs]
+
+  results-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/results
+    depends_on: [canary-dirs]
+
+  unsloth-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/unsloth
+    depends_on: [canary-dirs]
+
+  pytorch-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/pytorch
+    depends_on: [canary-dirs]
+
+  cublas-dir:
+    type: file
+    machine: gx10
+    state: directory
+    path: /home/noah/qwen-train-canary/canaries/cublas
+    depends_on: [canary-dirs]
+
+  # --- Canary scripts ---
+  unsloth-train:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/unsloth/train.py
+    source: canaries/unsloth/train.py
+    mode: "0755"
+    depends_on: [unsloth-dir]
+
+  unsloth-reqs:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/unsloth/requirements.txt
+    source: canaries/unsloth/requirements.txt
+    depends_on: [unsloth-dir]
+
+  pytorch-train:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/pytorch/train.py
+    source: canaries/pytorch/train.py
+    mode: "0755"
+    depends_on: [pytorch-dir]
+
+  pytorch-reqs:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/pytorch/requirements.txt
+    source: canaries/pytorch/requirements.txt
+    depends_on: [pytorch-dir]
+
+  cublas-train:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/cublas/train.py
+    source: canaries/cublas/train.py
+    mode: "0755"
+    depends_on: [cublas-dir]
+
+  cublas-reqs:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/canaries/cublas/requirements.txt
+    source: canaries/cublas/requirements.txt
+    depends_on: [cublas-dir]
+
+  # --- Dataset ---
+  canary-dataset:
+    type: file
+    machine: gx10
+    path: /home/noah/qwen-train-canary/prompts/canary-dataset.yaml
+    source: prompts/canary-dataset.yaml
+    depends_on: [prompts-dir]
+
+  # --- Python venvs ---
   setup-unsloth-venv:
     type: task
     machine: gx10
     command: |
-      test -d /home/noah/venvs/unsloth/bin || uv venv /home/noah/venvs/unsloth
-      uv pip install -q --python /home/noah/venvs/unsloth/bin/python -r /home/noah/qwen-train-canary/canaries/unsloth/requirements.txt
+      test -d /home/noah/venvs/unsloth/bin || /home/noah/.local/bin/uv venv /home/noah/venvs/unsloth
+      /home/noah/.local/bin/uv pip install -q --python /home/noah/venvs/unsloth/bin/python -r /home/noah/qwen-train-canary/canaries/unsloth/requirements.txt
     completion_check: "/home/noah/venvs/unsloth/bin/python -c 'import unsloth' 2>/dev/null"
-    depends_on: [setup-dirs]
+    depends_on: [unsloth-reqs]
 
   setup-pytorch-venv:
     type: task
     machine: gx10
     command: |
-      test -d /home/noah/venvs/pytorch-canary/bin || uv venv /home/noah/venvs/pytorch-canary
-      uv pip install -q --python /home/noah/venvs/pytorch-canary/bin/python -r /home/noah/qwen-train-canary/canaries/pytorch/requirements.txt
+      test -d /home/noah/venvs/pytorch-canary/bin || /home/noah/.local/bin/uv venv /home/noah/venvs/pytorch-canary
+      /home/noah/.local/bin/uv pip install -q --python /home/noah/venvs/pytorch-canary/bin/python -r /home/noah/qwen-train-canary/canaries/pytorch/requirements.txt
     completion_check: "/home/noah/venvs/pytorch-canary/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null"
-    depends_on: [setup-dirs]
+    depends_on: [pytorch-reqs]
 
 policy:
   failure: stop_on_first
