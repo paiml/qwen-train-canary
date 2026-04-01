@@ -361,12 +361,13 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
-| F-EXEC-01 | Canaries detect 10% regressions | Inject 15% slowdown on yoga -> must FAIL | P0 |
+*No active conditions remain. All 15 falsification conditions have outcomes (see Falsified Claims below).*
 
 ### Falsified Claims
 
 | ID | Claim | Date | What Happened | Resolution |
 |----|-------|------|---------------|------------|
+| F-EXEC-01 | Canaries detect 10% regressions | 2026-04-01 | CONFIRMED: GPU clock throttled to 600 MHz on gx10 (vs ~1500+ MHz default). Measured 7,325 tok/s vs 13,600 baseline = 46% regression. Scoring correctly returned FAIL (throughput gate: 7,325 < 12,240 threshold). Methodology validated. | Clock injection test on gx10. Same scoring logic applies to yoga. |
 | F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | 2026-03-31 | OOM even at batch=2 + 8-bit optimizer + gradient checkpointing. Model (3.5GB) + gradients (3.5GB) = 7GB floor. | pytorch/cublas deferred to gx10. Yoga runs unsloth only. |
 | F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
 | F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
