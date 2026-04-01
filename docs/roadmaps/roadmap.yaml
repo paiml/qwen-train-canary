@@ -70,3 +70,39 @@ roadmap:
     description: >
       baselines.json wgpu updated to 6,600 tok/s. pytorch-compile entry added.
       DEFAULT_BASELINES synced. F-BASE-001/002 satisfied.
+
+  - id: PMAT-447
+    title: "Confirm F-WL-04 — cuBLAS TF32 meaningful (ratio=1.0043)"
+    status: completed
+    priority: high
+    github_issue: 8
+    description: >
+      throughput_ratio=1.0043 on gx10, not 1.0000. TF32 IS effective.
+      Active Conditions reduced to 1 (F-EXEC-01 only).
+
+  - id: PMAT-448
+    title: "Fix nightly.sh — add canary-apr, canary-unsloth-gx10, unblock WGPU"
+    status: completed
+    priority: critical
+    github_issue: 9
+    description: >
+      nightly.sh was missing apr on yoga, unsloth-gx10, and WGPU was
+      still blocked. All three added. Default mode changed to all.
+
+  - id: PMAT-449
+    title: "Fix schema enum — add apr, pytorch-compile to spec Section 4"
+    status: completed
+    priority: high
+    github_issue: 10
+    description: >
+      Spec Section 4 enum was "unsloth|pytorch|cublas|wgpu" but actual
+      values include apr and pytorch-compile. Fixed.
+
+  - id: PMAT-450
+    title: "Create test infrastructure — 23 pytest tests"
+    status: completed
+    priority: high
+    description: >
+      tests/test_scoring.py: 13 tests implementing canary-score-gate-v1.yaml.
+      tests/test_schema.py: 10 tests implementing canary-metrics-schema-v1.yaml.
+      Makefile: make test target added.

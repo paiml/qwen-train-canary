@@ -10,7 +10,7 @@ Competitive fine-tuning benchmarks for **Qwen2.5-Coder-1.5B** across five traini
 
 | Runtime | Engine | yoga (8GB) | gx10 (120GB) | intel (Vulkan) |
 |---------|--------|-----------|-------------|---------------|
-| **apr** | entrenar (Rust) | training... | building | — |
+| **apr** | entrenar (Rust) | **~42 tok/s** (loss 4.86→3.27) | TBD | — |
 | **unsloth** | Python QLoRA | **6,697 tok/s** | **13,660 tok/s** | — |
 | **pytorch** | Python full FT | OOM (F-EXEC-02) | **4,055 tok/s** | — |
 | **cublas** | Python parity | OOM | **4,027 tok/s** | divergence: 0.000 |
@@ -54,7 +54,9 @@ make canary-compile-gx10   # torch.compile comparison
 # Intel (WGPU/Vulkan)
 make canary-wgpu           # burn/WGPU training
 
-# Scoring & profiling
+# Scoring, validation & testing
+make test                  # 23 pytest tests (schema + scoring)
+make validate-schema       # JSON schema validation (F-MET-01)
 make score                 # Pass/fail against baselines
 make report                # Markdown comparison table
 make profile-yoga          # apr roofline analysis
@@ -70,6 +72,8 @@ make nsys-yoga             # NVIDIA kernel timeline
 **F-HW-01 (confirmed):** Locked clocks give 0.34% throughput variance. VRAM and loss are perfectly deterministic.
 
 **F-WL-03 (confirmed):** cuBLAS parity is perfect on Blackwell. Zero loss divergence, 1.004x throughput ratio.
+
+**F-WL-06 (apr learning):** 15 upstream fixes across trueno/aprender/entrenar. Pipeline IS LEARNING (loss 4.86→3.27). CPU lm_head bottleneck limits throughput to ~42 tok/s — next fix target.
 
 **WGPU parity:** burn/Vulkan at 6,730 tok/s matches unsloth/CUDA at 6,697 tok/s on equivalent hidden dim. Vulkan compute shaders are competitive for training.
 
