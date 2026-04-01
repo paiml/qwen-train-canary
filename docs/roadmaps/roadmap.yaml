@@ -37,3 +37,12 @@ roadmap:
     description: >
       Section 5 wgpu baseline is 100 tok/s (pre-measurement estimate).
       Measured 6,730 tok/s on Qwen-sized (hidden=1536, vocab=32000) synthetic WGPU canary.
+
+  - id: PMAT-443
+    title: "Fix falsification register duplicates — conditions in both Active and Falsified tables"
+    status: completed
+    priority: P1
+    github_issue: 5
+    description: >
+      F-EXEC-02, F-HW-01, F-WL-03 appear in both Active Conditions and Falsified Claims.
+      F-HW-02, F-WL-05, F-WL-01, F-WL-02 are confirmed by data but still listed Active.
