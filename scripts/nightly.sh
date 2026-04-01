@@ -2,11 +2,11 @@
 # nightly.sh — Automated training canary pipeline
 # Usage: bash scripts/nightly.sh [yoga|gx10|wgpu|all]
 #
-# Default: yoga (QLoRA canary on RTX 4060L)
-# F-EXEC-02: full fine-tune (pytorch/cublas) runs on gx10 only
+# Default: all (run all three target hosts)
+# Note: Full fine-tune (pytorch/cublas) OOMs on yoga 8GB (F-EXEC-02 falsified)
 set -euo pipefail
 
-MODE="${1:-yoga}"
+MODE="${1:-all}"
 DATE=$(date +%Y%m%d)
 RESULTS_DIR="results"
 
@@ -26,15 +26,23 @@ run_yoga_canaries() {
     make canary-unsloth
     echo "  -> results/canary-unsloth-$DATE.json"
 
+    echo "Running apr fine-tune canary..."
+    make canary-apr
+    echo "  -> results/canary-apr-$DATE.json"
+
     make teardown-yoga
 }
 
 run_gx10_canaries() {
     echo ""
-    echo "--- GB10 Canaries (full FT + parity) ---"
+    echo "--- GB10 Canaries (full FT + parity + QLoRA) ---"
 
     echo "Deploying to gx10..."
     make deploy-gx10
+
+    echo "Running unsloth QLoRA canary..."
+    make canary-unsloth-gx10
+    echo "  -> results/canary-unsloth-gx10-$DATE.json"
 
     echo "Running pytorch canary..."
     make canary-pytorch-gx10
@@ -47,9 +55,9 @@ run_gx10_canaries() {
 
 run_wgpu_canaries() {
     echo ""
-    echo "--- WGPU Canaries (intel, Vulkan) ---"
+    echo "--- WGPU Canaries (Vulkan, synthetic Qwen-sized MLP) ---"
 
-    echo "Deploying to intel..."
+    echo "Deploying to wgpu host..."
     make deploy-wgpu
 
     echo "Running wgpu canary..."
@@ -70,7 +78,7 @@ case "$MODE" in
     all)
         run_yoga_canaries
         run_gx10_canaries
-        # run_wgpu_canaries  # PMAT-423: blocked until burn-canary built
+        run_wgpu_canaries
         ;;
     *)
         echo "Usage: $0 [yoga|gx10|wgpu|all]"

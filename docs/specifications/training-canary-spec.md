@@ -230,8 +230,8 @@ Every canary produces JSON conforming to:
 
 ```json
 {
-  "canary": "unsloth|pytorch|cublas|wgpu",
-  "backend": "cuda|wgpu|vulkan|cpu",
+  "canary": "apr|unsloth|pytorch|pytorch-compile|cublas|wgpu",
+  "backend": "cuda|wgpu|vulkan|cpu|metal",
   "host": "string",
   "gpu": {
     "device": "string",
@@ -362,7 +362,6 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
 | F-EXEC-01 | Canaries detect 10% regressions | Inject 15% slowdown on yoga -> must FAIL | P0 |
-| F-WL-04 | cuBLAS test is meaningful | ratio=1.0000 exactly -> TF32 flag not effective | P1 |
 
 ### Falsified Claims
 
@@ -379,6 +378,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. **15 upstream fixes landed** (14 core pipeline + entrenar#316 NF4 forward NaN FIXED 2026-04-01). Pipeline IS LEARNING: loss 4.86→3.27 confirmed. Active work: convergence rate + eliminate CPU lm_head bottleneck for throughput. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565, entrenar#316. Refs: paiml/qwen-train-canary#1 (PMAT-439). |
 | F-MET-01 | Metrics schema valid | 2026-04-01 | TRIGGERED then FIXED: wgpu results missing `timestamp` field (burn binary doesn't emit it, Python wrapper does). Fixed by adding timestamp to existing results. Schema validator (`validate_schema.py`) now runs as `make score` prerequisite. 11/11 results pass. | Contract: canary-metrics-schema-v1.yaml. Validator: scripts/validate_schema.py. Refs: paiml/qwen-train-canary#7 (PMAT-444). |
 | F-SC-01 | Scoring logic correct | 2026-04-01 | CONFIRMED: 5 falsification injection tests pass. 15% slowdown → FAIL, 5% variance → PASS, 10% VRAM → FAIL, cuBLAS div 0.02 → FAIL, cuBLAS ratio 0.94 → FAIL. All match canary-score-gate-v1.yaml contract predictions. | Contract: canary-score-gate-v1.yaml. Baselines: wgpu 100→6600, pytorch-compile added. Refs: PMAT-445. |
+| F-WL-04 | cuBLAS test is meaningful | 2026-04-01 | CONFIRMED: throughput_ratio=1.0043 on gx10, not 1.0000 exactly. TF32 flag IS taking effect (0.43% speedup on Blackwell). cuBLAS test differentiates backend behavior. | Measured: canary-cublas-gx10-20260331.json. Refs: paiml/qwen-train-canary#8 (PMAT-447). |
 
 ### Falsification Protocol
 
