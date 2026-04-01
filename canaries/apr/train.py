@@ -137,7 +137,9 @@ def main():
     print(f"Running: {' '.join(cmd)}")
     t0 = time.perf_counter()
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=1200)
+    # APR throughput is ~42 tok/s (CPU lm_head bottleneck) — needs ~5000s for 100 steps.
+    # Allow 7200s (2 hours) with margin. Reduce steps if this is too slow.
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=7200)
 
     wall_time = time.perf_counter() - t0
 

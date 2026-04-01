@@ -116,3 +116,12 @@ roadmap:
       apr and wgpu baselines lack peak_vram_mb. score.py was defaulting to
       float('inf') which silently passes. Now skips VRAM check when baseline
       omits it. 2 new tests added (25 total).
+
+  - id: PMAT-452
+    title: "Validate F-EXEC-01 — inject GPU throttle, verify scoring detects regression"
+    status: completed
+    priority: critical
+    description: >
+      GPU clock injection test on gx10. Throttled to 600 MHz.
+      Measured 7,325 tok/s vs 13,600 baseline = 46% regression.
+      Scoring returned FAIL. LAST active condition — all 15 resolved.
