@@ -9,10 +9,14 @@ import sys
 
 
 # Default baselines (overridden by baselines.json if present)
+# Keep in sync with baselines.json — see canary-score-gate-v1.yaml F-BASE-002
 DEFAULT_BASELINES = {
-    "unsloth": {"tokens_per_sec": 5000, "peak_vram_mb": 7000, "final_loss": 2.0},
-    "pytorch": {"tokens_per_sec": 3000, "peak_vram_mb": 8000, "final_loss": 2.0},
-    "wgpu": {"tokens_per_sec": 100, "peak_vram_mb": 7000, "final_loss": 2.5},
+    "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 2.0},
+    "pytorch": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0},
+    "pytorch-compile": {"tokens_per_sec": 3500, "peak_vram_mb": 35000, "final_loss": 2.0},
+    "cublas": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0,
+               "max_loss_divergence": 0.01, "min_throughput_ratio": 0.95},
+    "wgpu": {"tokens_per_sec": 6600, "final_loss": 2.5},
 }
 
 THROUGHPUT_TOLERANCE = 0.10  # 10% regression threshold

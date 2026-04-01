@@ -5,7 +5,7 @@ roadmap:
   - id: PMAT-439
     title: "Fix F-WL-06 falsification register — stale APR state (5 fixes → 15, learning)"
     status: completed
-    priority: P0
+    priority: critical
     github_issue: 1
     description: >
       training-canary-spec.md F-WL-06 resolution shows 5-fix state and 36→123 tok/s.
@@ -14,7 +14,7 @@ roadmap:
   - id: PMAT-440
     title: "Fix optimization-roadmap P0 — 'loss stays at 11.93' contradicts pipeline learning"
     status: completed
-    priority: P0
+    priority: critical
     github_issue: 2
     description: >
       optimization-roadmap.md P0 says loss=11.93 and #316 worked-around.
@@ -23,7 +23,7 @@ roadmap:
   - id: PMAT-441
     title: "Fix deployment-topology.md stale deferred-until notes (PMAT-424/431 both DONE)"
     status: completed
-    priority: P1
+    priority: high
     github_issue: 3
     description: >
       Nightly pipeline prose says gx10/wgpu deferred until PMAT-424/431.
@@ -32,7 +32,7 @@ roadmap:
   - id: PMAT-442
     title: "Update wgpu baseline threshold from 100 to measured 6,730 tok/s (Qwen-sized synthetic)"
     status: completed
-    priority: P1
+    priority: high
     github_issue: 4
     description: >
       Section 5 wgpu baseline is 100 tok/s (pre-measurement estimate).
@@ -41,8 +41,33 @@ roadmap:
   - id: PMAT-443
     title: "Fix falsification register duplicates — conditions in both Active and Falsified tables"
     status: completed
-    priority: P1
+    priority: high
     github_issue: 5
     description: >
       F-EXEC-02, F-HW-01, F-WL-03 appear in both Active Conditions and Falsified Claims.
       F-HW-02, F-WL-05, F-WL-01, F-WL-02 are confirmed by data but still listed Active.
+
+  - id: PMAT-444
+    title: "Validate F-MET-01 — canary metrics schema validation"
+    status: open
+    priority: critical
+    description: >
+      F-MET-01 untested: no schema validator exists. wgpu results missing gpu field.
+      pytorch-compile result uses canary name not in baselines. Design provable contract,
+      build validator, run against all results/.
+
+  - id: PMAT-445
+    title: "Validate F-SC-01 — score-gate logic correctness"
+    status: open
+    priority: critical
+    description: >
+      F-SC-01 untested: score-gate never verified against a known bad result.
+      baselines.json wgpu still at 100 tok/s (stale). DEFAULT_BASELINES in score.py stale.
+
+  - id: PMAT-446
+    title: "Fix baselines.json — wgpu 100→6600, add pytorch-compile entry"
+    status: open
+    priority: high
+    description: >
+      baselines.json wgpu is 100 tok/s but spec baseline is 6,600.
+      Missing pytorch-compile entry causes canary-compile-gx10 result to be unscored.

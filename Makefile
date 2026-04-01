@@ -251,12 +251,15 @@ nsys-yoga:
 # Reports & Scoring
 # ============================================================================
 
-.PHONY: report score score-json score-gate
+.PHONY: report score score-json score-gate validate-schema
 
 report:
 	python scripts/report.py --results-dir results/ --output performance.md
 
-score:
+validate-schema:
+	python3 scripts/validate_schema.py results/
+
+score: validate-schema
 	python scripts/score.py --results-dir results/ --baselines baselines.json
 
 score-json:
