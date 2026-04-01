@@ -114,7 +114,7 @@ All initial baselines and falsification conditions target yoga. Secondary target
 | CUDA | 13.0 |
 | Network | localhost (runs locally) |
 
-**Deferred until:** Yoga baselines established (PMAT-424 complete). Canary uses batch=16.
+**Active** (PMAT-424 DONE). Canary uses batch=16. Measured: pytorch 4,055 tok/s, unsloth 13,660 tok/s, cublas 0.000 divergence.
 
 ### Intel (SECONDARY -- WGPU/Vulkan)
 
@@ -275,7 +275,7 @@ cuBLAS canary adds `metrics.default`, `metrics.cublas`, and `metrics.parity` -- 
 
 ## 5. Baseline Thresholds
 
-All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after 5 consecutive nightly runs with <5% variance (PMAT-424).
+All baselines established from measured data (PMAT-424 DONE, 0.34% variance on yoga). gx10 and wgpu baselines added from 2026-03-31 measurements.
 
 | Canary | Metric | Baseline | Tolerance | Gate |
 |--------|--------|----------|-----------|------|
@@ -363,8 +363,6 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 |----|-------|------------------------|----------|
 | F-EXEC-01 | Canaries detect 10% regressions | Inject 15% slowdown on yoga -> must FAIL | P0 |
 | F-WL-04 | cuBLAS test is meaningful | ratio=1.0000 exactly -> TF32 flag not effective | P1 |
-| F-MET-01 | Metrics schema valid | JSON validation failure -> fix canary output | P0 |
-| F-SC-01 | Scoring logic correct | score-gate passes bad result -> fix scoring | P0 |
 
 ### Falsified Claims
 
@@ -379,6 +377,8 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-HW-02 | WGPU training feasible on W5700X | 2026-03-31 | CONFIRMED: burn-canary binary running, 6,730 tok/s on Qwen-sized synthetic (PMAT-431 DONE). Real model loading (HF safetensors) pending. | WGPU training path viable. |
 | F-WL-05 | WGPU deployment works | 2026-03-31 | CONFIRMED: burn-canary binary found and producing results. 6,730 tok/s on hidden=1536 synthetic. | WGPU deployment operational. |
 | F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. **15 upstream fixes landed** (14 core pipeline + entrenar#316 NF4 forward NaN FIXED 2026-04-01). Pipeline IS LEARNING: loss 4.86→3.27 confirmed. Active work: convergence rate + eliminate CPU lm_head bottleneck for throughput. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565, entrenar#316. Refs: paiml/qwen-train-canary#1 (PMAT-439). |
+| F-MET-01 | Metrics schema valid | 2026-04-01 | TRIGGERED then FIXED: wgpu results missing `timestamp` field (burn binary doesn't emit it, Python wrapper does). Fixed by adding timestamp to existing results. Schema validator (`validate_schema.py`) now runs as `make score` prerequisite. 11/11 results pass. | Contract: canary-metrics-schema-v1.yaml. Validator: scripts/validate_schema.py. Refs: paiml/qwen-train-canary#7 (PMAT-444). |
+| F-SC-01 | Scoring logic correct | 2026-04-01 | CONFIRMED: 5 falsification injection tests pass. 15% slowdown → FAIL, 5% variance → PASS, 10% VRAM → FAIL, cuBLAS div 0.02 → FAIL, cuBLAS ratio 0.94 → FAIL. All match canary-score-gate-v1.yaml contract predictions. | Contract: canary-score-gate-v1.yaml. Baselines: wgpu 100→6600, pytorch-compile added. Refs: PMAT-445. |
 
 ### Falsification Protocol
 
@@ -410,7 +410,8 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-426-430 | Phase 1: Throughput optimization | 5 |
 | PMAT-431-434 | Phase 2: WGPU maturity | 4 |
 | PMAT-435-438 | Phase 3: Advanced canaries | 4 |
-| **Total** | | **19** |
+| PMAT-439-446 | Spec audit + schema/scoring validation | 8 |
+| **Total** | | **27** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -418,7 +419,8 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 
 | Gate | Tool | Threshold |
 |------|------|-----------|
-| Canary pass/fail | `make score` | All yoga canaries PASS |
+| Schema validation | `make validate-schema` | All results pass (F-MET-01) |
+| Canary pass/fail | `make score` | All canaries PASS (includes schema) |
 | CI gate | `make score-gate` | Exit 0 |
 | Nightly regression | `scripts/nightly.sh` | Yoga passes first, then secondaries |
 

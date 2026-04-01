@@ -49,25 +49,24 @@ roadmap:
 
   - id: PMAT-444
     title: "Validate F-MET-01 — canary metrics schema validation"
-    status: open
+    status: completed
     priority: critical
     description: >
-      F-MET-01 untested: no schema validator exists. wgpu results missing gpu field.
-      pytorch-compile result uses canary name not in baselines. Design provable contract,
-      build validator, run against all results/.
+      F-MET-01 TRIGGERED then FIXED: wgpu missing timestamp. Schema validator built,
+      11/11 results pass. Contract: canary-metrics-schema-v1.yaml.
 
   - id: PMAT-445
     title: "Validate F-SC-01 — score-gate logic correctness"
-    status: open
+    status: completed
     priority: critical
     description: >
-      F-SC-01 untested: score-gate never verified against a known bad result.
-      baselines.json wgpu still at 100 tok/s (stale). DEFAULT_BASELINES in score.py stale.
+      F-SC-01 CONFIRMED: 5 falsification injection tests pass. 15% slowdown→FAIL,
+      5% variance→PASS, 10% VRAM→FAIL, cuBLAS div→FAIL, cuBLAS ratio→FAIL.
 
   - id: PMAT-446
     title: "Fix baselines.json — wgpu 100→6600, add pytorch-compile entry"
-    status: open
+    status: completed
     priority: high
     description: >
-      baselines.json wgpu is 100 tok/s but spec baseline is 6,600.
-      Missing pytorch-compile entry causes canary-compile-gx10 result to be unscored.
+      baselines.json wgpu updated to 6,600 tok/s. pytorch-compile entry added.
+      DEFAULT_BASELINES synced. F-BASE-001/002 satisfied.
