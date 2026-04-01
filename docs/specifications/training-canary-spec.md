@@ -435,3 +435,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 2.0.0 | 2026-03-31 | Refactor: 500-line cap, component specs, falsification-first, yoga primary | PMAT-420 |
 | 3.0.0 | 2026-04-01 | 5-runtime competitive comparison, parity mandate, 14 upstream fixes, measured baselines across 3 hosts, apr pipeline verified complete | PMAT-420 |
 | 3.1.0 | 2026-04-01 | Fix 15 (entrenar#316 NF4 forward NaN) landed — APR IS LEARNING (loss 4.86→3.27); spec audit: F-WL-06 updated, roadmap P0 updated, wgpu baseline corrected, deferred notes removed | PMAT-439/440/441/442 |
+| 3.2.0 | 2026-04-01 | All 15 falsification conditions resolved. Schema validator + 25 pytest tests. F-EXEC-01 CONFIRMED (GPU clock injection). Fresh gx10 results (unsloth 16,118 tok/s). APR canary timeout fixed. nightly.sh complete (all 3 hosts, 5 canaries). score.py VRAM skip for baselines lacking peak_vram_mb. | PMAT-443-453 |

@@ -121,7 +121,18 @@ roadmap:
     title: "Validate F-EXEC-01 — inject GPU throttle, verify scoring detects regression"
     status: completed
     priority: critical
+    github_issue: null
     description: >
       GPU clock injection test on gx10. Throttled to 600 MHz.
       Measured 7,325 tok/s vs 13,600 baseline = 46% regression.
       Scoring returned FAIL. LAST active condition — all 15 resolved.
+
+  - id: PMAT-453
+    title: "Fix APR canary timeout + backend field + collect fresh gx10 results"
+    status: completed
+    priority: high
+    github_issue: 12
+    description: >
+      APR timeout 1200s → 7200s (needs ~5000s at 42 tok/s). APR backend
+      'auto' → 'cuda' in JSON output. Fresh gx10 results: unsloth 16,118 tok/s,
+      pytorch 4,017, cublas 0.000 divergence.
