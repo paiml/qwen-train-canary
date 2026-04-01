@@ -55,11 +55,10 @@ Competitive benchmark for fine-tuning throughput across five training runtimes â
 
 | Canary | Runtime | Bottleneck | Why It Matters |
 |--------|---------|-----------|---------------|
-| **apr** | aprender/entrenar (Rust) | Sovereign Stack training | Native Rust QLoRA. CUDA (trueno PTX) or wgpu (Vulkan). Target to beat. |
-| **unsloth** | unsloth (Python) | QLoRA + 4-bit quant | Best-known Python QLoRA. Production fine-tuning path. |
-| **pytorch** | PyTorch (Python) | Raw training loop | Baseline with no optimizations. Isolates framework overhead. |
+| **apr** | aprender/entrenar (Rust) | Sovereign Stack training | **The runtime to improve.** Native Rust QLoRA via trueno. |
+| **unsloth** | unsloth (Python) | QLoRA + 4-bit quant | **The throughput target to beat.** Best-known Python QLoRA. |
+| **pytorch** | PyTorch (Python) | Raw training loop | Baseline. Isolates framework overhead. |
 | **cublas** | PyTorch (Python) | GEMM backend parity | Runs SAME loop twice. Detects silent numerical divergence. |
-| **wgpu** | burn (Rust) | Non-NVIDIA training | Burn framework via Vulkan on AMD. Cross-platform feasibility. |
 
 > **F-WL-06:** If apr throughput < unsloth throughput on same hardware, the Sovereign Stack training path has a throughput deficit. Action: profile entrenar hot path, check trueno GEMM performance.
 
@@ -301,11 +300,10 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | intel (8GB) |
 |--------|---------|-----------|-------------|------------|
-| **apr** | entrenar (Rust) | **~36** (pipeline complete, gradients flow, 14 fixes, Q4K convergence issue) | TBD | TBD (wgpu) |
+| **apr** | entrenar (Rust) | **~36** (pipeline complete, gradients flow, 14 fixes) | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
 | pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** | N/A |
-| wgpu | burn (Rust) | N/A | N/A | **6,730** (measured, hidden=1536, Vulkan) |
 
 ---
 
