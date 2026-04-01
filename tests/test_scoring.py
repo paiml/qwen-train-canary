@@ -109,6 +109,31 @@ def test_loss_at_baseline_passes():
     assert score["checks"]["loss"]["pass"]
 
 
+# --- VRAM skip when baseline omits peak_vram_mb ---
+
+
+def test_vram_skipped_when_baseline_omits():
+    """VRAM check should be absent when baseline lacks peak_vram_mb (apr, wgpu)."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 50, "peak_vram_mb": 9999, "final_loss": 3.0},
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 4.0}  # no peak_vram_mb
+    score = score_result(result, baseline)
+    assert "vram" not in score["checks"], "VRAM should be skipped when baseline omits it"
+    assert score["pass"]
+
+
+def test_vram_checked_when_baseline_includes():
+    """VRAM check should be present when baseline includes peak_vram_mb."""
+    result = {
+        "canary": "unsloth",
+        "metrics": {"tokens_per_sec": 6700, "peak_vram_mb": 3515, "final_loss": 0.15},
+    }
+    score = score_result(result, UNSLOTH_BASELINE)
+    assert "vram" in score["checks"]
+
+
 # --- cuBLAS parity gate (C-SCORE-004) ---
 
 

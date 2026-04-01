@@ -50,14 +50,15 @@ def score_result(result: dict, baseline: dict) -> dict:
         "pass": tok_s >= base_tok * (1 - THROUGHPUT_TOLERANCE),
     }
 
-    # VRAM regression check
-    vram = m.get("peak_vram_mb", 0)
-    base_vram = baseline.get("peak_vram_mb", float("inf"))
-    checks["vram"] = {
-        "value": vram,
-        "baseline": base_vram,
-        "pass": vram <= base_vram * (1 + VRAM_TOLERANCE),
-    }
+    # VRAM regression check — skip when baseline omits peak_vram_mb (apr, wgpu)
+    if "peak_vram_mb" in baseline:
+        vram = m.get("peak_vram_mb", 0)
+        base_vram = baseline["peak_vram_mb"]
+        checks["vram"] = {
+            "value": vram,
+            "baseline": base_vram,
+            "pass": vram <= base_vram * (1 + VRAM_TOLERANCE),
+        }
 
     # Loss convergence check
     loss = m.get("final_loss", float("inf"))

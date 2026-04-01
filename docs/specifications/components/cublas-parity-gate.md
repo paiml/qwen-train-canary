@@ -40,6 +40,8 @@ TF32 uses 10-bit mantissa (vs FP32's 23-bit) for matmul. On sm_89+ this is the p
 | `max_step_divergence` | < 0.05 | Max per-step loss difference (catches early divergence) |
 | `throughput_ratio` | 0.95-1.05 | cuBLAS / default throughput ratio |
 | `vram_delta_mb` | < 200 | Absolute VRAM difference |
+| `numerically_equivalent` | true | Computed: loss_divergence <= 0.01 |
+| `perf_equivalent` | true | Computed: throughput_ratio in [0.95, 1.05] |
 
 ## cuBLAS Parity JSON Extension
 

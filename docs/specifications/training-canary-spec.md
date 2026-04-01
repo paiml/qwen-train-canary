@@ -410,8 +410,8 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-426-430 | Phase 1: Throughput optimization | 5 |
 | PMAT-431-434 | Phase 2: WGPU maturity | 4 |
 | PMAT-435-438 | Phase 3: Advanced canaries | 4 |
-| PMAT-439-446 | Spec audit + schema/scoring validation | 8 |
-| **Total** | | **27** |
+| PMAT-439-451 | Spec audit, schema/scoring validation, test infrastructure | 13 |
+| **Total** | | **32** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 

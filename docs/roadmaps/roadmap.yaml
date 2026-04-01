@@ -106,3 +106,13 @@ roadmap:
       tests/test_scoring.py: 13 tests implementing canary-score-gate-v1.yaml.
       tests/test_schema.py: 10 tests implementing canary-metrics-schema-v1.yaml.
       Makefile: make test target added.
+
+  - id: PMAT-451
+    title: "Fix score.py VRAM handling — skip when baseline omits peak_vram_mb"
+    status: completed
+    priority: high
+    github_issue: 11
+    description: >
+      apr and wgpu baselines lack peak_vram_mb. score.py was defaulting to
+      float('inf') which silently passes. Now skips VRAM check when baseline
+      omits it. 2 new tests added (25 total).

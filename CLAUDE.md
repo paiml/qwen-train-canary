@@ -64,15 +64,20 @@ make score-json            # JSON scorecards to results/
 
 - `canaries/apr/train.py` — APR fine-tune canary (Sovereign Stack, wraps `apr finetune`)
 - `canaries/unsloth/train.py` — Unsloth QLoRA canary script
-- `canaries/pytorch/train.py` — PyTorch baseline canary script
+- `canaries/pytorch/train.py` — PyTorch baseline canary (`--compile` for torch.compile variant, PMAT-426)
 - `canaries/cublas/train.py` — cuBLAS parity canary (default vs cuBLAS GEMM)
 - `canaries/wgpu/train.py` — Burn/WGPU canary script
 - `prompts/canary-dataset.yaml` — Deterministic training dataset (50 samples)
+- `scripts/score.py` — Scoring gate (pass/fail against baselines)
+- `scripts/validate_schema.py` — JSON schema validator (F-MET-01)
+- `scripts/nightly.sh` — Automated nightly canary pipeline (all 3 targets)
+- `tests/test_scoring.py` — 15 scoring falsification tests
+- `tests/test_schema.py` — 10 schema falsification tests
+- `baselines.json` — Measured baselines for all canary types
+- `results/` — JSON benchmark results (git-tracked)
 - `forjar-yoga.yaml` — Yoga deployment (CUDA canaries)
 - `forjar-intel-wgpu.yaml` — Intel deployment (WGPU canary)
 - `forjar-gx10.yaml` — GB10 deployment
-- `results/` — JSON benchmark results (git-tracked)
-- `scripts/nightly.sh` — Automated nightly canary pipeline
 
 ## Testing
 

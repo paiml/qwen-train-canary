@@ -67,7 +67,10 @@ canary-unsloth:
 			--output /tmp/canary-unsloth-$(DATE).json'
 	scp yoga:/tmp/canary-unsloth-$(DATE).json results/
 
+# WARNING: canary-pytorch and canary-cublas OOM on yoga 8GB (F-EXEC-02 falsified).
+# Use canary-pytorch-gx10 and canary-cublas-gx10 instead.
 canary-pytorch:
+	@echo "WARNING: F-EXEC-02 — full fine-tune OOMs on yoga 8GB. Use 'make canary-pytorch-gx10' instead." >&2
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
 		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
@@ -81,6 +84,7 @@ canary-pytorch:
 	scp yoga:/tmp/canary-pytorch-$(DATE).json results/
 
 canary-cublas:
+	@echo "WARNING: F-EXEC-02 — cuBLAS parity OOMs on yoga 8GB. Use 'make canary-cublas-gx10' instead." >&2
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
 		~/venvs/pytorch-canary/bin/python canaries/cublas/train.py \
