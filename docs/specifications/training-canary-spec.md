@@ -124,7 +124,7 @@ All initial baselines and falsification conditions target yoga. Secondary target
 | API | Vulkan 1.3 (Mesa RADV) |
 | Host | Intel CPU, 64 GB RAM, LAN 192.168.50.100 |
 
-**Deferred until:** burn-canary binary is operational (PMAT-431). Expected: 50-200 tok/s.
+**Active** (PMAT-431 DONE). Measured: **6,730 tok/s** at Qwen-sized synthetic (hidden=1536, vocab=32000). Real model loading (HF safetensors/APR format) is the next milestone — see [optimization-roadmap.md P2](components/optimization-roadmap.md).
 
 > **F-HW-02:** If WGPU throughput = 0 or burn-canary crashes on intel, the WGPU training feasibility claim is falsified.
 
@@ -288,9 +288,10 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 | cublas | tokens_per_sec | 3,000 | -10% | >= 2,700 |
 | cublas | loss_divergence | 0.01 | -- | <= 0.01 |
 | cublas | throughput_ratio | 0.95 | -- | >= 0.95 |
-| wgpu | tokens_per_sec | 100 | -10% | >= 90 |
-| wgpu | peak_vram_mb | 7,000 | +5% | <= 7,350 |
-| wgpu | final_loss | 2.5 | -- | <= 2.5 |
+| wgpu (synthetic) | tokens_per_sec | 6,600 | -10% | >= 5,940 |
+| wgpu (synthetic) | final_loss | 2.5 | -- | <= 2.5 |
+
+**WGPU note:** The wgpu baseline (6,600 tok/s) is for the synthetic MLP at Qwen hidden/vocab scale (hidden=1536, vocab=32000), measured 2026-03-31. Real Qwen model loading is not yet supported by burn; a separate baseline will be established once real model weights load (PMAT-442).
 
 **Baseline update policy:** After 5 consecutive nightly runs with <5% variance, update to the median observed value. Floor to nearest 100 for tok/s, ceil to nearest 100 for VRAM.
 
@@ -298,12 +299,13 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 ### Expected Throughput (Yoga Primary)
 
-| Canary | Runtime | yoga (8GB) | gx10 (120GB) | intel (8GB) |
+| Canary | Runtime | yoga (8GB) | gx10 (120GB) | wgpu/Vulkan |
 |--------|---------|-----------|-------------|------------|
-| **apr** | entrenar (Rust) | **~42** (LEARNING! loss 4.86→3.27, 15 fixes) | TBD | N/A |
+| **apr** | entrenar (Rust) | **~42** tok/s (LEARNING: loss 4.86→3.27, 15 fixes, 2026-04-01) | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
 | pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
-| cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** | N/A |
+| cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** (measured) | N/A |
+| **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
 ---
 

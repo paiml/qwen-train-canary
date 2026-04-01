@@ -13,7 +13,7 @@
 | `forjar-intel-wgpu.yaml` | intel (SSH) | Deploy WGPU scripts, verify Vulkan |
 | `forjar-gx10.yaml` | gx10 (local) | Setup venvs locally |
 
-**Yoga is deployed first.** Intel and gx10 deployments are deferred until yoga canaries pass.
+**All three targets are active.** Yoga baselines established (PMAT-424 DONE, 0.34% variance). gx10 and WGPU canaries have measured results in `results/`.
 
 ## Virtual Environment Strategy
 
@@ -35,12 +35,13 @@ Two venvs per CUDA host:
 ```
 scripts/nightly.sh [cuda|wgpu|gx10|all]
   ├── run_cuda_canaries()     # yoga: deploy -> unsloth -> pytorch -> cublas -> teardown
-  ├── run_wgpu_canaries()     # intel: deploy -> wgpu (deferred until PMAT-431)
-  ├── run_gx10_canaries()     # gx10: deploy -> unsloth -> pytorch -> cublas (deferred until PMAT-424)
+  ├── run_wgpu_canaries()     # wgpu: deploy -> burn-canary binary (PMAT-431 DONE, active)
+  ├── run_gx10_canaries()     # gx10: deploy -> unsloth -> pytorch -> cublas (PMAT-424 DONE, active)
   └── make score              # Score all results against baselines
 ```
 
-**Default:** `scripts/nightly.sh cuda` runs yoga only until secondaries are enabled.
+**Default:** `scripts/nightly.sh all` — all three targets active as of 2026-04-01.
+Note: WGPU results carry host="mac-server" (the Vulkan build host); spec refers to this as "intel".
 
 ## Scope Boundaries
 

@@ -4,7 +4,7 @@ github_repo: paiml/qwen-train-canary
 roadmap:
   - id: PMAT-439
     title: "Fix F-WL-06 falsification register — stale APR state (5 fixes → 15, learning)"
-    status: in_progress
+    status: completed
     priority: P0
     github_issue: 1
     description: >
@@ -13,7 +13,7 @@ roadmap:
 
   - id: PMAT-440
     title: "Fix optimization-roadmap P0 — 'loss stays at 11.93' contradicts pipeline learning"
-    status: in_progress
+    status: completed
     priority: P0
     github_issue: 2
     description: >
@@ -22,7 +22,7 @@ roadmap:
 
   - id: PMAT-441
     title: "Fix deployment-topology.md stale deferred-until notes (PMAT-424/431 both DONE)"
-    status: in_progress
+    status: completed
     priority: P1
     github_issue: 3
     description: >
@@ -31,7 +31,7 @@ roadmap:
 
   - id: PMAT-442
     title: "Update wgpu baseline threshold from 100 to measured 6,730 tok/s (Qwen-sized synthetic)"
-    status: in_progress
+    status: completed
     priority: P1
     github_issue: 4
     description: >
