@@ -1,6 +1,6 @@
 {
   "canary": "apr",
-  "backend": "auto",
+  "backend": "cuda",
   "host": "yoga",
   "gpu": {
     "device": "NVIDIA GeForce RTX 4060 Laptop GPU",

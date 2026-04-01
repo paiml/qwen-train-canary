@@ -177,7 +177,7 @@ def main():
 
     output = {
         "canary": "apr",
-        "backend": args.gpu_backend,
+        "backend": "cuda" if args.gpu_backend == "auto" else args.gpu_backend,
         "host": socket.gethostname(),
         "gpu": get_gpu_info(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
