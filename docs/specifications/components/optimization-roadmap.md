@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-14 fixes landed in entrenar/trueno/aprender. Pipeline verified complete.
+**15 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 4.86→3.27, 2026-04-01).
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -61,6 +61,7 @@
 | 12 | Inference forward + save layer inputs | entrenar | GPU backward enabled |
 | 13 | Gradient upload via trainer.upload | entrenar | Non-zero backward gradients |
 | 14 | Grad buffer re-allocation at seq_len | entrenar | Size-compatible backward |
+| 15 | NF4 forward NaN fix (entrenar#316) | entrenar | Loss now decreasing: 4.86→3.27 |
 
 ### Tickets
 
@@ -68,10 +69,10 @@
 |--------|-------|--------|
 | paiml/trueno#231 | cuLinkCreate on sm_89 | Open (workaround: legacy JIT) |
 | paiml/trueno#232 | cuMemcpy context | Fixed upstream |
-| paiml/aprender#563 | CUDA training forward | Partially fixed (14 fixes) |
+| paiml/aprender#563 | CUDA training forward | Partially fixed (15 fixes) |
 | paiml/aprender#564 | CUDA-free compilation | Open |
 | paiml/aprender#565 | WgpuInstructPipeline sig | Fixed |
-| paiml/entrenar#316 | NF4 forward NaN | Worked around (inference forward) |
+| paiml/entrenar#316 | NF4 forward NaN | **FIXED** (2026-04-01, fix #15) |
 
 ### Contracts
 
@@ -82,29 +83,28 @@
 
 ## Recommended Next Steps
 
-### P0: APR convergence (loss not decreasing)
+### P0: APR throughput optimization (convergence NOW WORKING)
 
-The pipeline is complete but loss stays at 11.93. Root cause: Q4K dequantized
-weights produce near-uniform logits. Three fix paths:
+**Status as of 2026-04-01:** Pipeline IS LEARNING. Loss trajectory: 11.93 → 4.86 → 3.27.
+Fix #15 (entrenar#316 NF4 forward NaN) resolved the convergence blocker.
 
-1. **Use FP16 model for training** — `apr import` the HF model in FP16 instead of Q4K.
-   Q4K is designed for inference speed, not training. FP16 weights produce differentiated
-   logits that LoRA can learn from. This is how unsloth works (NF4 quant via bitsandbytes,
-   not Q4K GGUF).
+~~The pipeline is complete but loss stays at 11.93.~~ *(Resolved: fix #15)*
 
-2. **Fix NF4 training forward NaN** (entrenar#316) — the pre-allocated scratch buffer
-   path produces NaN after 28 layers. Fixing this would enable the full GPU pipeline
-   (2000+ tok/s) instead of the inference-forward workaround (36 tok/s).
+The NF4 forward NaN was the root cause of near-uniform logits. With fix #15, loss is
+decreasing across steps. Current bottleneck is **throughput** — CPU lm_head path is
+limiting tok/s. Active work targets:
 
-3. **Use NF4 via bitsandbytes-style quantization** — the model weights should be loaded
-   in full precision then quantized to NF4 during training (like unsloth). Current path
-   loads pre-quantized Q4K weights which lose precision at initialization.
+1. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck (biggest throughput gain)
+2. **Fix copy_from_host_at** (trueno#232) → eliminate fresh alloc per step
+3. **cuBLAS tensor cores** for training GEMMs (currently PTX naive kernels)
+
+~~Fix NF4 training forward NaN (entrenar#316)~~ — **DONE** (fix #15, 2026-04-01)
 
 ### P1: Throughput optimization
 
-Once convergence works:
+Now that convergence works:
 
-1. **Fix NF4 forward NaN** → full GPU pipeline (36→2000+ tok/s)
+1. **Chunked GPU lm_head** → eliminate CPU bottleneck (current ~42 tok/s → target 2000+ tok/s)
 2. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck
 3. **Fix copy_from_host_at** (trueno#232) → eliminate fresh alloc per step
 4. **cuBLAS tensor cores** for training GEMMs (currently PTX naive kernels)

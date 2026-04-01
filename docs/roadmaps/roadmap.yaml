@@ -1,0 +1,39 @@
+roadmap_version: '1.0'
+github_enabled: true
+github_repo: paiml/qwen-train-canary
+roadmap:
+  - id: PMAT-439
+    title: "Fix F-WL-06 falsification register — stale APR state (5 fixes → 15, learning)"
+    status: in_progress
+    priority: P0
+    github_issue: 1
+    description: >
+      training-canary-spec.md F-WL-06 resolution shows 5-fix state and 36→123 tok/s.
+      Actual: 15 fixes landed, pipeline IS LEARNING (loss 4.86→3.27), entrenar#316 FIXED.
+
+  - id: PMAT-440
+    title: "Fix optimization-roadmap P0 — 'loss stays at 11.93' contradicts pipeline learning"
+    status: in_progress
+    priority: P0
+    github_issue: 2
+    description: >
+      optimization-roadmap.md P0 says loss=11.93 and #316 worked-around.
+      Actual: loss 4.86→3.27, #316 FIXED, pipeline actively converging.
+
+  - id: PMAT-441
+    title: "Fix deployment-topology.md stale deferred-until notes (PMAT-424/431 both DONE)"
+    status: in_progress
+    priority: P1
+    github_issue: 3
+    description: >
+      Nightly pipeline prose says gx10/wgpu deferred until PMAT-424/431.
+      Both are DONE. Also wgpu result host=mac-server vs spec intel.
+
+  - id: PMAT-442
+    title: "Update wgpu baseline threshold from 100 to measured 6,730 tok/s (Qwen-sized synthetic)"
+    status: in_progress
+    priority: P1
+    github_issue: 4
+    description: >
+      Section 5 wgpu baseline is 100 tok/s (pre-measurement estimate).
+      Measured 6,730 tok/s on Qwen-sized (hidden=1536, vocab=32000) synthetic WGPU canary.

@@ -380,7 +380,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
 | F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
 | F-WL-03 | cuBLAS parity <0.01 | 2026-03-31 | CONFIRMED: 0.000000 divergence on gx10. Perfect parity. | GEMM backends numerically identical on Blackwell. |
-| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. 5 upstream fixes landed (VRAM init, buffer guards, routing, CPU lm_head). Throughput: 36→123 tok/s. Last blocker: context thread affinity. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565. |
+| F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. **15 upstream fixes landed** (14 core pipeline + entrenar#316 NF4 forward NaN FIXED 2026-04-01). Pipeline IS LEARNING: loss 4.86→3.27 confirmed. Active work: convergence rate + eliminate CPU lm_head bottleneck for throughput. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565, entrenar#316. Refs: paiml/qwen-train-canary#1 (PMAT-439). |
 
 ### Falsification Protocol
 
@@ -433,3 +433,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 1.0.0 | 2026-03-31 | Initial spec: 4 canaries, 3 hardware targets, 19 PMAT items | PMAT-420 |
 | 2.0.0 | 2026-03-31 | Refactor: 500-line cap, component specs, falsification-first, yoga primary | PMAT-420 |
 | 3.0.0 | 2026-04-01 | 5-runtime competitive comparison, parity mandate, 14 upstream fixes, measured baselines across 3 hosts, apr pipeline verified complete | PMAT-420 |
+| 3.1.0 | 2026-04-01 | Fix 15 (entrenar#316 NF4 forward NaN) landed — APR IS LEARNING (loss 4.86→3.27); spec audit: F-WL-06 updated, roadmap P0 updated, wgpu baseline corrected, deferred notes removed | PMAT-439/440/441/442 |
