@@ -14,7 +14,7 @@
 | bitsandbytes | >=0.43.0 | NF4 quantization | CUDA version compat |
 | trl | >=0.9.0 | SFTTrainer | API changes |
 | peft | >=0.12.0 | LoRA implementation | Adapter format changes |
-| burn | TBD | WGPU training | Immature, expect breakage |
+| burn | latest (git) | WGPU training | Synthetic MLP working (6,730 tok/s); real model loading TBD |
 | uv | latest | Package management | N/A (stable) |
 | forjar | latest | Deployment | N/A (PAIML internal) |
 

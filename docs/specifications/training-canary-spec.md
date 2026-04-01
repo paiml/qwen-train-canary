@@ -87,7 +87,7 @@ The cuBLAS canary adds:
 
 ### Yoga (PRIMARY -- RTX 4060 Laptop)
 
-All initial baselines and falsification conditions target yoga. Secondary targets are deferred until yoga Phase 0 completes (PMAT-424).
+All initial baselines and falsification conditions target yoga. Secondary targets (gx10, wgpu) are active — Phase 0 complete (PMAT-424 DONE, 0.34% variance confirmed).
 
 | Property | Value |
 |----------|-------|
