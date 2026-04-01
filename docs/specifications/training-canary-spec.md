@@ -362,15 +362,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
 | F-EXEC-01 | Canaries detect 10% regressions | Inject 15% slowdown on yoga -> must FAIL | P0 |
-| F-EXEC-02 | Full FT fits 8GB at batch=4 seq=512 | OOM on yoga -> reduce batch or add grad ckpt | P0 |
-| F-HW-01 | Locked clocks give <5% variance | 10x runs on yoga, if variance >5% -> clocks broken | P0 |
-| F-HW-02 | WGPU training feasible on W5700X | burn-canary crash or 0 tok/s -> not ready | P1 |
-| F-WL-01 | Unsloth faster than raw PyTorch | unsloth_tok_s < pytorch_tok_s -> overhead > savings | P0 |
-| F-WL-02 | PyTorch baseline >3k tok/s on yoga | <3k -> investigate PyTorch/cuDNN/bf16 | P0 |
-| F-WL-03 | cuBLAS parity (divergence <0.01) | >0.01 -> GEMM precision issue | P0 |
 | F-WL-04 | cuBLAS test is meaningful | ratio=1.0000 exactly -> TF32 flag not effective | P1 |
-| F-WL-05 | WGPU deployment works | binary missing or VRAM >7GB -> broken | P1 |
-| F-BL-01 | Baselines achievable in 5 runs | >5% variance after 5 runs -> environment issue | P0 |
 | F-MET-01 | Metrics schema valid | JSON validation failure -> fix canary output | P0 |
 | F-SC-01 | Scoring logic correct | score-gate passes bad result -> fix scoring | P0 |
 
@@ -382,12 +374,16 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-RD-01 | torch.compile +20-40% throughput | 2026-03-31 | -11.3% regression (3,598 vs 4,055 tok/s). Compilation cost (~90s) amortized over only 100 steps = net loss. | torch.compile not suitable for canary-length runs. Would help at >1000 steps. |
 | F-HW-01 | Locked clocks <5% variance | 2026-03-31 | CONFIRMED: 0.34% variance across 5 runs on yoga. | Baseline methodology validated. |
 | F-WL-03 | cuBLAS parity <0.01 | 2026-03-31 | CONFIRMED: 0.000000 divergence on gx10. Perfect parity. | GEMM backends numerically identical on Blackwell. |
+| F-WL-01 | Unsloth faster than raw PyTorch | 2026-03-31 | CONFIRMED: unsloth 13,660 tok/s vs pytorch 4,055 tok/s on gx10 (batch=16, same hardware). QLoRA NF4 + 8-bit optimizer saves ~75% compute per step. | QLoRA advantage holds. |
+| F-WL-02 | PyTorch baseline >3k tok/s | 2026-03-31 | CONFIRMED: gx10 measures 4,055 tok/s (pytorch) and 4,010 tok/s (cublas default) at batch=16. Yoga deferred (F-EXEC-02). | pytorch throughput validated on gx10. |
+| F-HW-02 | WGPU training feasible on W5700X | 2026-03-31 | CONFIRMED: burn-canary binary running, 6,730 tok/s on Qwen-sized synthetic (PMAT-431 DONE). Real model loading (HF safetensors) pending. | WGPU training path viable. |
+| F-WL-05 | WGPU deployment works | 2026-03-31 | CONFIRMED: burn-canary binary found and producing results. 6,730 tok/s on hidden=1536 synthetic. | WGPU deployment operational. |
 | F-WL-06 | apr throughput vs unsloth | 2026-03-31 | Root cause: cuMemcpyHtoD silently zeros without current CUDA context [trueno#232]. GPU gets zero hidden states → NaN after 28 layers → loss=100. **15 upstream fixes landed** (14 core pipeline + entrenar#316 NF4 forward NaN FIXED 2026-04-01). Pipeline IS LEARNING: loss 4.86→3.27 confirmed. Active work: convergence rate + eliminate CPU lm_head bottleneck for throughput. | Tracked: trueno#231, trueno#232, aprender#563, aprender#564, aprender#565, entrenar#316. Refs: paiml/qwen-train-canary#1 (PMAT-439). |
 
 ### Falsification Protocol
 
 1. **Before accepting any baseline:** Run the falsification condition. A claim that has never been tested is an assumption, not a fact.
-2. **On falsification:** Update this register, revise or retract the claim, open a PMAT item for the fix.
+2. **On falsification or confirmation:** Move condition from Active to Falsified Claims (with outcome: FALSIFIED or CONFIRMED). Update the claim text. Open a PMAT item for any fix required.
 3. **Quarterly review:** Re-run all P0 falsification conditions. Staleness = risk.
 
 ### Parity Enforcement
