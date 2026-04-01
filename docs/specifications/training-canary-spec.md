@@ -300,7 +300,7 @@ All baselines calibrated against **yoga** (RTX 4060 Laptop). To be updated after
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | intel (8GB) |
 |--------|---------|-----------|-------------|------------|
-| **apr** | entrenar (Rust) | **~36** (pipeline complete, NF4 forward NaN on ALL hw) | **NaN** (same issue) | N/A |
+| **apr** | entrenar (Rust) | **~42** (LEARNING! loss 4.86→3.27, 15 fixes) | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
 | pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** | N/A |
