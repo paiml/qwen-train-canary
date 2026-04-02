@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-**15 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 4.86→3.27, 2026-04-01).
+**21 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02).
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -62,6 +62,12 @@
 | 13 | Gradient upload via trainer.upload | entrenar | Non-zero backward gradients |
 | 14 | Grad buffer re-allocation at seq_len | entrenar | Size-compatible backward |
 | 15 | NF4 forward NaN fix (entrenar#316) | entrenar | Loss now decreasing: 4.86→3.27 |
+| 16 | Scratch zeroing per-step (cuMemsetD32Async) | entrenar | Cross-step NaN eliminated |
+| 17 | gemm_forward_bt (BT GEMM for lm_head) | entrenar | GPU-resident lm_head forward |
+| 18 | Dual-backend NF4 (cuBLAS/fused PTX) | entrenar | Backend comparison enabled |
+| 19 | Logits trace removal (296MB D2H blocker) | entrenar | Unblocked GPU pipeline |
+| 20 | TF32 tensor core cuBLAS handle | entrenar | Tensor cores tested |
+| 21 | Zero training state backward buffers (PMAT-453) | entrenar | Multi-epoch NaN cascade fixed |
 
 ### Tickets
 
@@ -88,7 +94,7 @@
 | Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth |
 |---------|-----------|-------------|------------|
 | **unsloth** QLoRA | **6,628** | **16,118** | baseline |
-| **apr** QLoRA (Q4K) | **44** | TBD | **0.7%** (151x gap) |
+| **apr** QLoRA (NF4) | **43** (canary) | TBD | **0.6%** (154x gap) |
 | **pytorch** full FT | OOM | **4,017** | 24.9% (4x, expected) |
 | **cublas** parity | OOM | **4,000** | 0.000 divergence |
 | **wgpu** synthetic | — | — | 6,730 (Vulkan) |
@@ -234,27 +240,29 @@ The fp32 CudaTransformerBlock (per-block scratch) works. The NF4 block
 (shared scratch C-SCRATCH-001) fails. The shared scratch is used for BOTH
 forward and backward, and may not be properly reset between training steps.
 
-**TRAINING WORKING (2026-04-02):** APR NF4 QLoRA training on yoga 8GB — 30+ steps, all finite loss!
+**TRAINING WORKING (2026-04-02):** APR NF4 QLoRA training on yoga 8GB — 43 tok/s canary confirmed.
 Full GPU pipeline: embed → 28 NF4 layers → BT GEMM lm_head → fused cross-entropy.
-Root cause of multi-step NaN was backward gradient contamination of shared scratch
-buffers (C-SCRATCH-001). Fix: zero 13 forward scratch buffers at start of each forward.
-PyTorch/unsloth allocate fresh tensors — entrenar's scratch reuse optimization violated
-this invariant.
+Root cause chain: (1) backward gradient contamination of CudaBlockScratch (C-SCRATCH-001) — 
+fixed by zeroing 21 scratch buffers per forward. (2) Multi-epoch NaN cascade from
+InstructGpuTrainingState backward buffers (grad_buf_a/b, grad_hidden_buf, output_scratch,
+logits_buf) — fixed by zeroing 5 training state buffers per forward (PMAT-453).
+(3) L5 violations: `let _ =` on copy_from_buffer silenced GPU errors — all 4 fixed.
 
 **Filed:** entrenar#318 (10+ comments with progressive diagnosis).
-**Upstream fixes pushed (6 commits, 3 repos):**
+**Upstream fixes pushed (21 commits, 3 repos):**
 - trueno 4a7838a4: copy_to_host partial readback
 - entrenar f9845e07: VRAM embedding 1780→890MB
 - entrenar c605ea16: make_current in NF4 forward
 - entrenar 475256c6: direct_transpose_upload (skip NF4 roundtrip)
 - entrenar a515d2f9: original fp32 upload (no NF4, no transpose)
 - aprender ba0e392f: respect --rank 16 flag
+- entrenar 8966424b: zero training state GPU buffers + L5 violations (PMAT-453)
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
 tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
 
-### Parity Roadmap: 186 → 6,628 tok/s (35x gap)
+### Parity Roadmap: 43 → 6,628 tok/s (154x gap)
 
 Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with CPU-side NF4 dequant
 and H2D scratch zeroing, while unsloth uses fused Triton kernels that stay entirely on GPU.
