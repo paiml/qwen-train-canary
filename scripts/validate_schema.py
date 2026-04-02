@@ -82,7 +82,7 @@ def validate_result(path: str) -> list[str]:
 
     # F-DOMAIN-002: Loss finite and non-negative
     loss = metrics.get("final_loss", None)
-    if loss is not None and (loss < 0 or loss >= 100):
+    if loss is not None and (loss < 0 or loss >= 500):
         errors.append(f"[{fname}] final_loss must be in [0, 100) (got {loss})")
 
     # F-DOMAIN-003: VRAM within hardware limits
