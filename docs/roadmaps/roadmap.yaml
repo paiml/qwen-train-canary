@@ -146,3 +146,22 @@ roadmap:
       APR canary had final_loss=0, peak_vram_mb=0 because apr finetune
       doesn't emit structured training metrics. Fixed wrapper to parse
       stderr for VRAM and loss patterns. Filed upstream: aprender#566.
+
+  - id: PMAT-455
+    title: "Trace APR NaN root cause — trueno NF4 zeros V-projection weights"
+    status: completed
+    priority: critical
+    description: >
+      Diagnostic chain: apr profile (inference OK), apr trace stderr
+      (11/196 tensors all-zero, all V-proj shape 256x1536), H-PARITY-001
+      FALSIFIED (FP16 same NaN), H-PARITY-002 CONFIRMED (96% GPU without NF4).
+      Filed: trueno#233, aprender#566. Contract: apr-training-parity-v1.yaml.
+
+  - id: PMAT-456
+    title: "Fix cuBLAS throughput_ratio upper bound (spec 0.95-1.05, was only >= 0.95)"
+    status: completed
+    priority: high
+    github_issue: 14
+    description: >
+      score.py only checked lower bound. Added max_throughput_ratio=1.05.
+      ratio=1.10 now correctly fails. 26 tests total.
