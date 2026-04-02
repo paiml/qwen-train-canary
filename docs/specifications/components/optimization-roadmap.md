@@ -234,7 +234,12 @@ The fp32 CudaTransformerBlock (per-block scratch) works. The NF4 block
 (shared scratch C-SCRATCH-001) fails. The shared scratch is used for BOTH
 forward and backward, and may not be properly reset between training steps.
 
-**Filed:** entrenar#318 (7 comments with progressive diagnosis).
+**BREAKTHROUGH (2026-04-02):** First APR NF4 training loss = 15.91 on yoga 8GB!
+Full GPU pipeline working: embed → 28 NF4 layers → BT GEMM lm_head → loss.
+Step 1 computes finite loss and runs backward. Step 2+ NaN from backward
+corrupting shared scratch. Fix: isolate forward/backward scratch state.
+
+**Filed:** entrenar#318 (10+ comments with progressive diagnosis).
 **Upstream fixes pushed (6 commits, 3 repos):**
 - trueno 4a7838a4: copy_to_host partial readback
 - entrenar f9845e07: VRAM embedding 1780→890MB
