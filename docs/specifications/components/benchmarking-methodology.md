@@ -90,34 +90,113 @@ Full fine-tune exceeds 8 GB -- pytorch/cublas canaries auto-enable gradient chec
 | Normalization | RMSNorm |
 | Position encoding | RoPE (base 1,000,000) |
 
+## Diagnostic Discipline
+
+Six approved diagnostic methods, in strict priority order. Use higher-numbered
+methods ONLY when lower-numbered methods are insufficient. No ad-hoc printf
+debugging. No `let _ =` on any Result. No guessing.
+
+### A. Source Code Reading (pmat query)
+
+**ALWAYS first.** Read the code before forming any hypothesis. Use `pmat query`
+(never grep/glob) for semantic, quality-annotated, cross-project search.
+
+```bash
+pmat query "forward NaN attention" --include-source --include-project ../entrenar
+pmat query --regex "fn\s+rms_norm" --include-project ../trueno --limit 5
+pmat query "CudaNf4TransformerBlock forward" --include-source
+```
+
+If pmat query finds the function, READ IT. Understand the data flow before
+running anything. Most bugs are visible in the code.
+
+### B. Brick Profiling (`apr profile --granular`)
+
+Per-operation GPU timing with roofline analysis. Identifies which brick
+(RMSNorm, QkvProjection, AttentionScore, etc.) is the bottleneck and
+whether it's compute-bound or memory-bound.
+
+```bash
+apr profile model.apr --granular --perf-grade --json --warmup 1 --measure 3 --tokens 16
+```
+
+Produces: per-brick timing, bottleneck classification, efficiency grade,
+kernel launch overhead, roofline analysis. Grade D or below = needs optimization.
+
+### C. Layer Tracing (`apr trace`, `apr finetune` stderr)
+
+Per-layer data flow: weight statistics (nonzero counts), tensor shapes,
+anomaly detection (NaN, zero tensors, shape mismatches).
+
+```bash
+apr trace model.apr --verbose --json            # inference layer trace
+apr finetune model.apr ... 2>&1 | grep TRACE    # training weight upload trace
+```
+
+Training stderr traces show per-tensor dequant quality (`nonzero=N`), upload
+verification, and GPU memory state. Use to verify weights survive upload.
+
+### D. NVIDIA Tooling (nsys, ncu) — fallback only
+
+Use ONLY when A-C are insufficient to identify a specific GPU kernel issue.
+
+```bash
+nsys profile -o /tmp/trace -t cuda,nvtx --duration 30 apr finetune ...
+ncu --target-processes all apr finetune ...   # per-kernel roofline
+```
+
+### E. Sister Project Approaches (qwen-coder-deploy)
+
+The inference project (qwen-coder-deploy) uses the same model on the same
+hardware via realizr. When entrenar's training path has a bug, compare with
+realizr's inference path to isolate whether the issue is in:
+- Model loading (shared: aprender format reader)
+- Weight layout (different: realizr uses PTX GEMM, entrenar uses cuBLAS)
+- Attention (different: realizr has production-optimized kernels)
+
+Key comparison: `apr profile` on Q4K shows 151 tok/s inference. Same model,
+same GPU, same weights. If inference works but training doesn't, the bug is
+in entrenar's training-specific code path.
+
+### F. Provable Contracts — L5 Enforcement ONLY
+
+ALL diagnostic findings MUST be recorded in provable-contracts YAML:
+- Hypotheses with falsification conditions (test BEFORE investing effort)
+- DIAG protocol results (operation-level postconditions)
+- Measured evidence (not assumptions)
+
+**L5 = compiler-enforced.** The Rust compiler's `#[must_use]` on `Result` is
+the enforcement mechanism. NEVER circumvent it:
+- `let _ =` on a `Result` is BANNED — it silences compiler enforcement
+- `.unwrap()` or `?` REQUIRED on all GPU operations
+- If a diagnostic produces uniform zeros from multiple independent buffers,
+  the diagnostic is broken (silenced error), not the data
+
+Contract: `apr-training-parity-v1.yaml` defines the hypothesis tree and
+DIAG protocol. Every hypothesis must be FALSIFIED or CONFIRMED before
+investing engineering effort.
+
 ## Measurement Stack
 
-Mirrors qwen-coder-deploy's layered profiling approach. Canary wall-clock throughput is the top-level metric; deeper layers diagnose WHY a runtime is slow.
-
-| Layer | Tool | Target | What It Measures |
+| Layer | Tool | Method | What It Measures |
 |-------|------|--------|------------------|
-| **Throughput** | canary scripts | `make canary-yoga` | tok/s, VRAM, loss (regression gate) |
-| **Roofline** | `apr profile --granular` | `make profile-yoga` | Compute vs memory bound per brick |
-| **Layer trace** | `apr trace --verbose` | `make trace-yoga` | Per-layer data flow, anomalies |
-| **GPU kernels** | `nsys profile` | `make nsys-yoga` | Kernel timeline, occupancy, stalls |
-| **Kernel roofline** | `ncu` | manual | Per-kernel bandwidth vs compute |
-
-### When to use each layer
-
-- **Throughput only**: Nightly regression detection. If PASS, done.
-- **Roofline**: When throughput regresses >10%. Identifies compute-bound vs memory-bound bottleneck.
-- **Layer trace**: When roofline shows unexpected pattern. Identifies which layer is slow.
-- **nsys/ncu**: When layer trace identifies a specific kernel. Full GPU pipeline analysis.
+| **Throughput** | canary scripts | A (read) + B (profile) | tok/s, VRAM, loss (regression gate) |
+| **Brick profiling** | `apr profile --granular` | B | Per-operation timing, roofline, grade |
+| **Layer trace** | `apr trace` / stderr | C | Weight quality, tensor shapes, anomalies |
+| **Per-stage validation** | instrumented forward | A + F | Post-op non-zero check (`.unwrap()`) |
+| **GPU kernels** | `nsys` / `ncu` | D (fallback) | Kernel timeline, occupancy, stalls |
+| **Cross-runtime comparison** | qwen-coder-deploy | E | Inference vs training path isolation |
 
 ### Parity diagnosis protocol
 
 When Runtime A is slower than Runtime B on same hardware:
-1. Run both at throughput layer — confirm gap
-2. Run roofline on both — compare compute utilization
-3. Trace the slower runtime — find the hot layer
-4. Profile the hot layer's kernels — identify the root cause
-5. Fix the root cause in the slower runtime's code
-6. Re-measure — confirm parity
+1. **Read the code** (A) — understand both forward paths via `pmat query`
+2. **Profile both** (B) — `apr profile --granular` on both runtimes
+3. **Trace the slower** (C) — `apr trace` or stderr analysis
+4. **Form hypothesis** (F) — record in provable-contract with falsification test
+5. **Test hypothesis** (F) — run the falsification test, never guess
+6. **Fix the code** (A) — in the upstream repo, not just this project
+7. **Re-measure** (B) — confirm parity improvement with canary
 
 ## Falsification Conditions
 
