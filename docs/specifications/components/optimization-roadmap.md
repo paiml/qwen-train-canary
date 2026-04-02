@@ -216,7 +216,17 @@ this. Inference path (realizr, same Q4K model, 151 tok/s) works fine — so the 
 weights are correct. The bug is in how entrenar's NF4 block applies RMSNorm or
 accumulates residuals.
 
-**Filed:** entrenar#318. **Fix:** debug RMSNorm output scale at layer 14.
+**Root cause (traced 2026-04-02):** Q4K dequantized weights have sufficient precision
+for single-pass inference (realizr: 151 tok/s) but compound numerical errors through
+28 cuBLAS GEMM residual layers in training. Error grows ~100x per 14 layers until NaN.
+Direct fp32 upload (bypassing NF4 roundtrip) doesn't help — the Q4K→fp32 weights
+themselves are the problem. FP16 model works on gx10 (96% GPU, no NaN) but OOMs on yoga.
+
+**Fix path for yoga 8GB:** mixed-precision (bf16) cuBLAS GEMM or activation clamping.
+**Fix path for gx10 120GB:** use FP16 model (already works, 96% GPU).
+
+**Filed:** entrenar#318. **Upstream fixes pushed:** direct_transpose_upload (475256c6),
+make_current (c605ea16), VRAM halving (f9845e07), trueno partial readback (4a7838a4).
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
