@@ -268,14 +268,23 @@ and H2D scratch zeroing, while unsloth uses fused Triton kernels that stay entir
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
 
-**Measured GPU utilization: 7% during training** (nvidia-smi, 1-second intervals).
-The GPU is 93% idle — waiting for CPU-side kernel launch overhead.
-`apr profile` showed 84.2% launch overhead on inference. Training is even worse
-(~400 launches per forward+backward step).
+**Measured GPU utilization: 7%** (nvidia-smi). Root cause (revised): NOT kernel launch
+overhead (588 launches × 5μs = 3ms, negligible). The 93% idle is **CPU-bound work**:
+- CPU embedding lookup (151936×1536 matmul per sample)
+- CPU loss gradient through lm_head
+- CPU LoRA AdamW optimizer step
+- Dataset tokenization/iteration
 
-**Tier 3 (CUDA graphs) is the highest leverage fix.** Captures the entire 28-layer
-forward as a single graph, eliminating ~200 kernel launch round-trips per forward.
-Expected: 7%→50%+ GPU utilization, 187→1000+ tok/s.
+Also: cuBLAS uses SIMD (~2 TFLOPS) not tensor cores (~83 TFLOPS) due to ALB-076
+(TF32 + transposed backward = NaN at gradient magnitude ~1e5). BF16 backward
+would avoid this bug and use tensor cores.
+
+**Revised fix priorities:**
+1. **GPU embedding lookup** — `model.embed_tokens.forward()` at line 2006 runs on CPU
+   despite `embed_original` being on GPU. Use GPU embedding gather.
+2. **GPU LoRA optimizer** — AdamW on GPU (like bitsandbytes/unsloth's adamw_8bit)
+3. **BF16 backward GEMM** — enable tensor cores for backward (BF16 avoids ALB-076 NaN)
+4. **CUDA graphs** — pipeline GPU work to overlap with remaining CPU overhead
 
 **Tier 2** requires FP16 model (already exists on yoga: 3.4 GB). With the VRAM
 optimizations from this session (embedding halving, rank override), FP16 weights
