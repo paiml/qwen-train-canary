@@ -127,6 +127,7 @@ def main():
         "--vram", f"{vram_gb:.1f}",
         "--max-seq-len", str(args.seq_len),
         "--gpu-backend", args.gpu_backend,
+        "--model-size", "1.5B",
         "--output", "/tmp/canary-apr-adapter",
         "--json",
     ]
