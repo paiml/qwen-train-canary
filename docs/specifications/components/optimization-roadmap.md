@@ -327,7 +327,7 @@ but not another is broken. The canary must validate every backend combination.
 | **cuBLAS SIMD** | cuBLAS `DEFAULT_MATH` | **197 tok/s** (yoga) | `--gpu-backend cuda` |
 | **cuBLAS TF32** | cuBLAS tensor cores | 197 tok/s (memory-bound) | `--gpu-backend cuda` (current) |
 | **PTX naive** | Hand-written PTX GEMM | Fallback when no cuBLAS | PTX path auto-selected |
-| **NF4 fused PTX** | `gemm_nf4_forward` | 30 tok/s (6.5x slower, needs optimization) | Tested, not default |
+| **NF4 fused PTX** | `gemm_nf4_forward` | **33 tok/s** (23% slower, loss=15.80) | Canary confirmed |
 | **wgpu/Vulkan** | WGSL compute shaders | 6,730 tok/s synthetic, real model TBD | `--gpu-backend wgpu` |
 
 **Parity tests required:**
@@ -336,11 +336,12 @@ but not another is broken. The canary must validate every backend combination.
 3. Numerical parity: cuBLAS vs PTX vs NF4 fused must produce < 0.01 loss divergence
 4. New backends (wgpu training, Metal) must pass the same canary before merge
 
-**NF4 fused kernel finding (2026-04-02):**
-`gemm_nf4_forward` reads 8x less data (NF4 packed vs fp32) but runs 6.5x slower
-due to naive tiled PTX implementation. 100% GPU utilization (compute-bound) vs
-7% with cuBLAS (memory-bound). The kernel needs tensor core integration and
-better tiling to outperform cuBLAS — filed as trueno#234 optimization target.
+**NF4 fused kernel finding (2026-04-03 update):**
+`gemm_nf4_forward` reads 8x less data (NF4 packed vs fp32) but runs 23% slower
+(33 tok/s vs 43 tok/s cuBLAS). 100% GPU utilization (compute-bound) vs 7% with
+cuBLAS (memory-bound). Loss is lower (15.80 vs 16.80) — possibly from higher
+precision in the fused dequant path. Kernel needs tensor core integration and
+better tiling to beat cuBLAS — filed as trueno#234.
 
 ### P3: Cross-platform parity
 
