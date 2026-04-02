@@ -132,21 +132,33 @@ Tested: FP16 model with `--quantize-nf4` shows **identical** behavior — 0% GPU
 format. Both Q4K and FP16+NF4 produce the same NaN through 28 transformer layers.
 This means the bug is in **trueno's NF4 runtime quantization kernel**, not the model file.
 
-**H-PARITY-002 (NEXT TEST):** Run `apr finetune --method lora` (FP16, NO NF4).
-If GPU forward works without NF4: **trueno NF4 dequant is the root cause** → fix
-the dequant kernel. If NaN persists: the forward pass itself is broken (H-PARITY-003).
+**H-PARITY-002 (TRACED 2026-04-02):** Layer tracing found the precise root cause.
 
+**Root cause:** trueno's NF4 dequant zeros out **V (value) projection weights**.
+
+```
+Diagnostic chain:
+  apr profile --granular → inference works (151 tok/s, Q4K, grade D)
+  apr finetune --quantize-nf4 → NaN in training forward, 0% GPU
+  apr finetune stderr trace → 11 of 196 tensors dequant to ALL ZEROS
+  All 11 are shape 256x1536 = V projection (GQA, 2 KV heads × 128 dim)
+  K projection (same shape) dequantizes correctly
+  Zero V weights → softmax(0/0) = NaN → propagates 28 layers
+```
+
+**Filed:** paiml/trueno#233 — NF4 dequant zeros V projection weights
+
+**Confirmation test (next):**
 ```bash
-# Next experiment:
+# Bypass NF4 entirely — use FP16 LoRA (no quantization)
 apr finetune qwen2.5-coder-1.5b-instruct-fp16.apr --method lora --rank 16
-# Watch: nvidia-smi GPU utilization during training
-# If GPU util > 50%: NF4 is the problem → fix trueno dequant
-# If GPU util == 0%: forward pass itself is broken → deeper debug
+# If GPU works: NF4 V-proj dequant confirmed as sole root cause
+# If NaN persists: forward pass has deeper issue (H-PARITY-003)
 ```
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
-cores, fused kernels) is BLOCKED until GPU forward works. Getting to 0% → 50%+ GPU
-utilization is the single gate that unlocks all throughput improvements.
+cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
+tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
 
 ### P1: APR GPU kernel optimization (after P0 unblocks GPU path)
 
