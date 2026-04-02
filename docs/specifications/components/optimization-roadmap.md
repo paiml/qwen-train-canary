@@ -259,18 +259,23 @@ tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok
 Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with CPU-side NF4 dequant
 and H2D scratch zeroing, while unsloth uses fused Triton kernels that stay entirely on GPU.
 
-| Tier | Fix | Expected | Cumulative |
-|------|-----|----------|------------|
-| **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 (1.6x) | 300 tok/s |
-| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | 300→600 (2x) | 600 tok/s |
-| **3** | CUDA graphs (capture 28-layer forward, replay) | 600→1200 (2x) | 1,200 tok/s |
-| **4** | Fused NF4 dequant+GEMM kernels (like Triton) | 1200→3000 (2.5x) | 3,000 tok/s |
-| **5** | Fused attention + FFN blocks (196→56 launches) | 3000→5000 (1.7x) | 5,000 tok/s |
-| **6** | Flash attention + memory BW optimization | 5000→6000+ | **parity** |
+| Tier | Fix | Expected | Measured | Status |
+|------|-----|----------|----------|--------|
+| **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **187** | DONE — zeroing was NOT the bottleneck |
+| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →400 | — | Next |
+| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **Highest leverage** |
+| **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
+| **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
+| **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
 
-**Tier 1 is the immediate next step.** Add `cuMemsetD32Async` to trueno's driver
-bindings, replace `copy_from_host` zeroing in `zero_forward_buffers()` with a single
-GPU-side memset per buffer. Eliminates 40MB PCIe transfer per training step.
+**Measured GPU utilization: 7% during training** (nvidia-smi, 1-second intervals).
+The GPU is 93% idle — waiting for CPU-side kernel launch overhead.
+`apr profile` showed 84.2% launch overhead on inference. Training is even worse
+(~400 launches per forward+backward step).
+
+**Tier 3 (CUDA graphs) is the highest leverage fix.** Captures the entire 28-layer
+forward as a single graph, eliminating ~200 kernel launch round-trips per forward.
+Expected: 7%→50%+ GPU utilization, 187→1000+ tok/s.
 
 **Tier 2** requires FP16 model (already exists on yoga: 3.4 GB). With the VRAM
 optimizations from this session (embedding halving, rank override), FP16 weights
