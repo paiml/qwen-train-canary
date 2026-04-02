@@ -81,38 +81,98 @@
 | cuda-training-forward-v1.yaml | 5/5 falsified, 3 resolved |
 | chunked-lm-head-v1.yaml | Design complete, superseded by CPU lm_head |
 
+## Findings Summary (2026-04-01)
+
+### Measured Parity (tok/s)
+
+| Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth |
+|---------|-----------|-------------|------------|
+| **unsloth** QLoRA | **6,628** | **16,118** | baseline |
+| **apr** QLoRA (Q4K) | **44** | TBD | **0.7%** (151x gap) |
+| **pytorch** full FT | OOM | **4,017** | 24.9% (4x, expected) |
+| **cublas** parity | OOM | **4,000** | 0.000 divergence |
+| **wgpu** synthetic | — | — | 6,730 (Vulkan) |
+
+### Root Cause: APR 151x Parity Gap
+
+Five-whys analysis:
+
+1. **APR is 151x slower than unsloth** — 44 vs 6,628 tok/s on yoga
+2. **GPU at 0% utilization** — all compute is on CPU (493% CPU, 0% GPU)
+3. **CPU lm_head fallback** — `[CUDA] Skipping GPU embeddings (1780MB > 1228MB free)`
+4. **NaN in GPU forward** — `[CUDA] NaN in forward output — inference-style forward failed`
+5. **Q4K dequantized weights produce near-uniform logits** — Q4K is designed for inference
+   speed, not training. FP16 weights produce differentiated logits that LoRA can learn from.
+
+The model file format is the root cause. Unsloth loads HF safetensors in FP16 and
+quantizes to NF4 at runtime (bitsandbytes). APR loads a pre-quantized Q4K GGUF which
+has already lost the precision needed for training gradients.
+
+### Two Paths to Parity
+
+**Path 1: Safetensors training (Python stack)** — ALREADY AT PARITY
+
+The Python stack (unsloth, pytorch, cublas) uses HuggingFace safetensors models.
+No parity gap exists within this stack:
+- unsloth QLoRA: 6,628 tok/s (yoga) — the throughput target
+- pytorch full FT: 4,017 tok/s (gx10) — expected 4x slower (full precision vs QLoRA)
+- cublas parity: 0.000 loss divergence — GEMM backends identical
+
+**Path 2: APR training (Sovereign Stack)** — 151x gap, 3 fix tiers
+
 ## Recommended Next Steps
 
-### P0: APR throughput optimization (convergence NOW WORKING)
+### P0: Fix NF4 dequant NaN in trueno — the GPU forward blocker
 
-**Status as of 2026-04-01:** Pipeline IS LEARNING. Loss trajectory: 11.93 → 4.86 → 3.27.
-Fix #15 (entrenar#316 NF4 forward NaN) resolved the convergence blocker.
+**Contract: apr-training-parity-v1.yaml — hypothesis-driven, falsify-first**
 
-~~The pipeline is complete but loss stays at 11.93.~~ *(Resolved: fix #15)*
+~~**H-PARITY-001 (FALSIFIED 2026-04-02):** Switch from Q4K to FP16 model.~~
+Tested: FP16 model with `--quantize-nf4` shows **identical** behavior — 0% GPU,
+146% CPU, `[CUDA] NaN in forward output`. The NaN is NOT caused by the Q4K input
+format. Both Q4K and FP16+NF4 produce the same NaN through 28 transformer layers.
+This means the bug is in **trueno's NF4 runtime quantization kernel**, not the model file.
 
-The NF4 forward NaN was the root cause of near-uniform logits. With fix #15, loss is
-decreasing across steps. Current bottleneck is **throughput** — CPU lm_head path is
-limiting tok/s. Active work targets:
+**H-PARITY-002 (NEXT TEST):** Run `apr finetune --method lora` (FP16, NO NF4).
+If GPU forward works without NF4: **trueno NF4 dequant is the root cause** → fix
+the dequant kernel. If NaN persists: the forward pass itself is broken (H-PARITY-003).
 
-1. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck (biggest throughput gain)
+```bash
+# Next experiment:
+apr finetune qwen2.5-coder-1.5b-instruct-fp16.apr --method lora --rank 16
+# Watch: nvidia-smi GPU utilization during training
+# If GPU util > 50%: NF4 is the problem → fix trueno dequant
+# If GPU util == 0%: forward pass itself is broken → deeper debug
+```
+
+**Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
+cores, fused kernels) is BLOCKED until GPU forward works. Getting to 0% → 50%+ GPU
+utilization is the single gate that unlocks all throughput improvements.
+
+### P1: APR GPU kernel optimization (after P0 unblocks GPU path)
+
+Once FP16 model enables the GPU forward path:
+
+1. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck entirely
+   (if FP16 still falls back to CPU for embeddings)
 2. **Fix copy_from_host_at** (trueno#232) → eliminate fresh alloc per step
 3. **cuBLAS tensor cores** for training GEMMs (currently PTX naive kernels)
+4. **Emit structured training metrics** (aprender#566) → proper loss/VRAM tracking
 
-~~Fix NF4 training forward NaN (entrenar#316)~~ — **DONE** (fix #15, 2026-04-01)
+Expected impact: 2000 → 4000+ tok/s (parity with pytorch full FT baseline).
 
-### P1: Throughput optimization
+### P2: APR throughput parity with unsloth
 
-Now that convergence works:
+To match unsloth's 6,628 tok/s, APR needs:
+- Fused NF4 dequant + matmul kernels (like unsloth's custom Triton kernels)
+- Gradient checkpointing integration (unsloth saves 60% memory)
+- 8-bit optimizer (AdamW 8-bit via trueno, matching bitsandbytes)
 
-1. **Chunked GPU lm_head** → eliminate CPU bottleneck (current ~42 tok/s → target 2000+ tok/s)
-2. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck
-3. **Fix copy_from_host_at** (trueno#232) → eliminate fresh alloc per step
-4. **cuBLAS tensor cores** for training GEMMs (currently PTX naive kernels)
+This is the "beat unsloth" tier — requires trueno GEMM parity with Triton/cuBLAS.
 
-### P2: Cross-platform parity
+### P3: Cross-platform parity
 
 1. **wgpu/burn real model loading** — burn can't load HF safetensors/APR yet.
-   Current 6730 tok/s is on synthetic MLP. Real Qwen training on Vulkan needs
+   Current 6,730 tok/s is on synthetic MLP. Real Qwen training on Vulkan needs
    model loading support in burn or APR format reader.
 
 2. **entrenar CUDA-free compilation** (aprender#564) — enables wgpu-only builds

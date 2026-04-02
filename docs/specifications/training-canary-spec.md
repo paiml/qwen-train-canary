@@ -301,11 +301,14 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | wgpu/Vulkan |
 |--------|---------|-----------|-------------|------------|
-| **apr** | entrenar (Rust) | **~42** tok/s (LEARNING: loss 4.86→3.27, 15 fixes, 2026-04-01) | TBD | N/A |
-| unsloth | Python + bitsandbytes | **6,697** (measured) | **13,660** (measured) | N/A |
-| pytorch | Python + torch | N/A (F-EXEC-02) | **4,055** (measured) | N/A |
-| cublas | Python + torch | N/A (F-EXEC-02) | **4,010/4,027** (measured) | N/A |
+| **apr** (Q4K) | entrenar (Rust) | **44** tok/s (CPU lm_head, NaN in GPU fwd) | TBD | N/A |
+| **apr** (FP16+NF4) | entrenar (Rust) | **~44** (H-PARITY-001 FALSIFIED: same NaN as Q4K) | TBD | N/A |
+| unsloth | Python + bitsandbytes | **6,628** (2026-04-01) | **16,118** (2026-04-01) | N/A |
+| pytorch | Python + torch | N/A (F-EXEC-02) | **4,017** (2026-04-01) | N/A |
+| cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
+
+**Parity gap (APR):** 44 vs 6,628 = 0.7% (151x deficit). Root cause: trueno's NF4 runtime quantization produces NaN through 28 layers → CPU lm_head fallback → 0% GPU utilization. H-PARITY-001 (switch to FP16) FALSIFIED — same NaN with FP16+NF4. Next test: H-PARITY-002 (FP16 LoRA without NF4). See [optimization-roadmap.md](components/optimization-roadmap.md) P0 and contract `apr-training-parity-v1.yaml`.
 
 ---
 
