@@ -157,9 +157,21 @@ Comparison:   NF4 QLoRA = 0% GPU (CPU lm_head fallback)
 Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine without it
 ```
 
-The fix is in trueno's NF4 dequant kernel (paiml/trueno#233): V projection weights
-(shape 256×1536) dequantize to all zeros. Fix the dequant → 0% GPU → 96% GPU → 
-estimated 2000+ tok/s (limited by wgpu matmul vs cuBLAS).
+**Two bugs found, one fixed:**
+
+1. **trueno#233 (FIXED in local HEAD):** V-projection NF4 dequant produced all zeros
+   in crates.io release. Fixed in local entrenar — V-proj now dequants correctly
+   (nonzero=350K+). Needs crates.io publish.
+
+2. **entrenar#317 (NEW):** Even with correct dequant, NaN persists in the inference-style
+   CPU forward path. On yoga (8GB), GPU can't fit embeddings (1780MB > 1228MB free),
+   so lm_head runs on CPU via inference-style forward, which produces NaN.
+   On gx10 (120GB), everything fits on GPU → 96% utilization → works.
+
+**Three fix paths (any one unblocks yoga):**
+- Fix CPU inference-style forward NaN (entrenar#317)
+- Fix VRAM check: 1780MB claimed but FP16 embed is only 446MB
+- Chunked GPU lm_head: process vocab in 32K chunks on GPU
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
