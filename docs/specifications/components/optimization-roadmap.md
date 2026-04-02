@@ -178,12 +178,22 @@ Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine with
 | Training scratch buffers | ~1.5 GB | 7.1 GB |
 | CUDA overhead | ~0.5 GB | 7.6 GB |
 
-Embedding VRAM halved (1780→890MB, pushed to entrenar main), but optimizer OOMs:
-`[CUDA] NF4 LoRA optimizer init failed (layer 0): CUDA_ERROR_OUT_OF_MEMORY`
+**Three fixes landed upstream (2026-04-02), OOM resolved:**
+- entrenar f9845e07: Embedding VRAM 1780→890MB (single layout)
+- aprender ba0e392f: Rank override `--rank 16` respected (optimizer 0.05 GB)
+- entrenar (local): V-projection NF4 dequant fixed (nonzero=350K+)
 
-**Fix: 8-bit optimizer** (like unsloth's adamw_8bit). Halves optimizer 0.74→0.37 GB.
-With 8-bit optimizer + single-layout embedding: total 7.0 GB, fits 8 GB yoga.
-This is the same approach unsloth uses — `adamw_8bit` via bitsandbytes.
+**Training state initializes — no OOM.** But layer 0 forward produces ALL ZEROS:
+```
+[CUDA-FWD] layer 0: first8=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+```
+
+Weights are correct (dequant nonzero=350K+), input is non-zero (from embedding),
+but `CudaNf4TransformerBlock::forward` outputs zeros. The GEMM computation
+inside the NF4 block is not producing results. Filed: entrenar#318.
+
+**This is the final gate.** Fix the NF4 block forward → 0→non-zero output →
+loss computes → training runs → 44→2000+ tok/s.
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
