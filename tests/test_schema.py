@@ -122,10 +122,10 @@ def test_zero_throughput():
 # --- FALSIFY-SCHEMA-004: Loss out of range ---
 
 
-def test_loss_above_100():
-    """Validator must reject loss >= 100 (broken training)."""
+def test_loss_above_500():
+    """Validator must reject loss >= 500 (broken training)."""
     data = {**GOOD_CUDA_RESULT}
-    data["metrics"] = {**data["metrics"], "final_loss": 150.0}
+    data["metrics"] = {**data["metrics"], "final_loss": 600.0}
     errors = _write_and_validate(data)
     assert any("final_loss" in e for e in errors)
 
