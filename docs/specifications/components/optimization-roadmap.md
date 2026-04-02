@@ -79,6 +79,7 @@
 | paiml/aprender#564 | CUDA-free compilation | Open |
 | paiml/aprender#565 | WgpuInstructPipeline sig | Fixed |
 | paiml/entrenar#316 | NF4 forward NaN | **FIXED** (2026-04-01, fix #15) |
+| paiml/entrenar#319 | Multi-epoch NaN cascade (unzeroed training state) | **FIXED** (2026-04-02, fix #21) |
 
 ### Contracts
 
