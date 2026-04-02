@@ -225,8 +225,23 @@ themselves are the problem. FP16 model works on gx10 (96% GPU, no NaN) but OOMs 
 **Fix path for yoga 8GB:** mixed-precision (bf16) cuBLAS GEMM or activation clamping.
 **Fix path for gx10 120GB:** use FP16 model (already works, 96% GPU).
 
-**Filed:** entrenar#318. **Upstream fixes pushed:** direct_transpose_upload (475256c6),
-make_current (c605ea16), VRAM halving (f9845e07), trueno partial readback (4a7838a4).
+**Per-layer trace (2026-04-02):** Activation explosion across samples, not just layers.
+First sample L0-L5: values grow from 0.19 to 7.11 (normal). Between samples,
+values jump to 56, then 1251, then 31668, then NaN. The shared scratch or
+ping-pong buffers may carry contamination between training steps.
+
+The fp32 CudaTransformerBlock (per-block scratch) works. The NF4 block
+(shared scratch C-SCRATCH-001) fails. The shared scratch is used for BOTH
+forward and backward, and may not be properly reset between training steps.
+
+**Filed:** entrenar#318 (7 comments with progressive diagnosis).
+**Upstream fixes pushed (6 commits, 3 repos):**
+- trueno 4a7838a4: copy_to_host partial readback
+- entrenar f9845e07: VRAM embedding 1780→890MB
+- entrenar c605ea16: make_current in NF4 forward
+- entrenar 475256c6: direct_transpose_upload (skip NF4 roundtrip)
+- entrenar a515d2f9: original fp32 upload (no NF4, no transpose)
+- aprender ba0e392f: respect --rank 16 flag
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
