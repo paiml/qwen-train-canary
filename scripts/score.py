@@ -89,13 +89,14 @@ def score_cublas_result(result: dict, baseline: dict) -> dict:
         "pass": loss_div <= max_div,
     }
 
-    # Throughput parity (cuBLAS should be within 5% of default)
+    # Throughput parity (cuBLAS should be within 5% of default: 0.95-1.05)
     ratio = parity.get("throughput_ratio", 0)
     min_ratio = baseline.get("min_throughput_ratio", 0.95)
+    max_ratio = baseline.get("max_throughput_ratio", 1.05)
     checks["perf_parity"] = {
         "value": ratio,
-        "baseline": min_ratio,
-        "pass": ratio >= min_ratio,
+        "baseline": f"{min_ratio}-{max_ratio}",
+        "pass": min_ratio <= ratio <= max_ratio,
     }
 
     # Default backend throughput regression

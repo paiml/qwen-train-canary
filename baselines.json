@@ -28,7 +28,8 @@
     "peak_vram_mb": 51000,
     "final_loss": 2.0,
     "max_loss_divergence": 0.01,
-    "min_throughput_ratio": 0.95
+    "min_throughput_ratio": 0.95,
+    "max_throughput_ratio": 1.05
   },
   "wgpu": {
     "tokens_per_sec": 6600,

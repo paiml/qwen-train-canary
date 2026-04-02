@@ -15,6 +15,7 @@ CUBLAS_BASELINE = {
     "tokens_per_sec": 4000,
     "max_loss_divergence": 0.01,
     "min_throughput_ratio": 0.95,
+    "max_throughput_ratio": 1.05,
 }
 
 
@@ -161,6 +162,20 @@ def test_cublas_ratio_094_fails():
     }
     score = score_cublas_result(result, CUBLAS_BASELINE)
     assert not score["pass"], "FALSIFIED: 0.94 ratio not caught"
+
+
+def test_cublas_ratio_110_fails():
+    """cuBLAS ratio 1.10 must trigger FAIL (above 1.05 upper bound)."""
+    result = {
+        "canary": "cublas",
+        "metrics": {
+            "parity": {"loss_divergence": 0.0, "throughput_ratio": 1.10},
+            "default": {"tokens_per_sec": 4100},
+        },
+    }
+    score = score_cublas_result(result, CUBLAS_BASELINE)
+    assert not score["pass"], "FALSIFIED: ratio 1.10 not caught by upper bound"
+    assert not score["checks"]["perf_parity"]["pass"]
 
 
 def test_cublas_perfect_parity_passes():
