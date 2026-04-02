@@ -199,14 +199,24 @@ Both GEMM inputs (A=RMSNorm output, B=weight buffer) read as zeros in forward,
 despite upload traces showing nonzero=350K+ at construction time. `make_current()`
 added to NF4 forward (pushed to entrenar) — didn't fix it.
 
-**Root cause: GPU buffer pointer invalidation.** Weights uploaded in `new()` are
-inaccessible in `forward()`. The device pointers are stale — either from VRAM
-reallocation between construction and forward, or the GpuBuffer was dropped and
-reallocated at a different address. Next diagnostic: verify `self.w_q_fp32.as_ptr()`
-at construction time vs forward time.
+**CORRECTION (2026-04-02):** Previous diagnostics (DIAG-002 through 005) were WRONG —
+`copy_to_host` with partial buffer silently fails, producing zero readback. Fixed in
+trueno (4a7838a4: partial readback support). Weights ARE on GPU (nonzero=2.1M).
 
-**This is the final gate.** Fix buffer pointer stability → non-zero GEMM output →
-loss computes → training runs → 44→2000+ tok/s.
+**Actual finding — activation explosion:**
+```
+[LAYER] L0  output=[-0.09, -0.08, 0.36, -0.12]     (normal)
+[LAYER] L14 output=[332, 33, 1913, 259]             (4 orders of magnitude growth)
+[LAYER] L27 output=[NaN, NaN, NaN, NaN]             (overflow)
+```
+
+Within layer 0: RMSNorm, Q-GEMM, attention, FFN all valid. Activations grow ~100x
+per 14 layers across the residual chain until NaN at layer 27. RMSNorm should prevent
+this. Inference path (realizr, same Q4K model, 151 tok/s) works fine — so the norm
+weights are correct. The bug is in how entrenar's NF4 block applies RMSNorm or
+accumulates residuals.
+
+**Filed:** entrenar#318. **Fix:** debug RMSNorm output scale at layer 14.
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
