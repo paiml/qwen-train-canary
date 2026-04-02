@@ -1,0 +1,36 @@
+{
+  "canary": "apr",
+  "backend": "cuda",
+  "host": "yoga",
+  "gpu": {
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "vram_total_mb": 8188,
+    "cuda_version": "590.48.01",
+    "compute_capability": "8.9"
+  },
+  "timestamp": "2026-04-02T15:20:09.689153+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 4,
+    "seq_len": 512,
+    "steps": 20,
+    "lr": 0.0002,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 0.29,
+    "tokens_per_sec": 146.4,
+    "peak_vram_mb": 1166,
+    "final_loss": 102.3784,
+    "wall_time_sec": 174.81,
+    "_metrics_quality": "measured"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 1,\n  \"learning_rate\": 0.0002,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 1115528900,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 83.66808972823063,\n    \"total_bytes\": 4125990596\n  },\n  \"memory_gb\": 4.991065796,\n  \"model_params\": 2231057800,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 4.135916514578869,\n  \"utilization_percent\": 62.38832245,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": "oceeding with backward)\n[CUDA-TRAIN] Layer 0 INPUT: nan=0 inf=0 first5=[0.033143163, 0.004003644, -0.021493435, -0.0032812357, 0.007646084]\n[FWD-TRAIN] completed OK\n[CUDA] loss=101.0289 (finite, proceeding with backward)\n[CUDA-TRAIN] Layer 0 INPUT: nan=0 inf=0 first5=[0.033143163, 0.004003644, -0.021493435, -0.0032812357, 0.007646084]\n[FWD-TRAIN] completed OK\n[CUDA] loss=102.3784 (finite, proceeding with backward)\n[wgpu] GPU init failed: Failed to create device: Parent device is lost, using CPU\n"
+  }
+}
