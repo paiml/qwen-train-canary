@@ -306,6 +306,33 @@ should fit. cuBLAS fp16 GEMM uses tensor cores at 2x throughput vs fp32.
 are the highest-leverage: `apr profile` showed 84.2% kernel launch overhead on inference.
 Training has even more launches (forward + backward).
 
+### Backend Parity Mandate
+
+**ALL backends must be tested for parity.** A runtime that works on one backend
+but not another is broken. The canary must validate every backend combination.
+
+| Backend | Compute Path | Status | Canary |
+|---------|-------------|--------|--------|
+| **CPU** | Scalar Rust | Baseline (slow) | `--gpu-backend cpu` |
+| **SIMD** | trueno AVX2/NEON | Should match CPU results | `--gpu-backend cpu` + SIMD feature |
+| **cuBLAS SIMD** | cuBLAS `DEFAULT_MATH` | **197 tok/s** (yoga) | `--gpu-backend cuda` |
+| **cuBLAS TF32** | cuBLAS tensor cores | 197 tok/s (memory-bound) | `--gpu-backend cuda` (current) |
+| **PTX naive** | Hand-written PTX GEMM | Fallback when no cuBLAS | PTX path auto-selected |
+| **NF4 fused PTX** | `gemm_nf4_forward` | 30 tok/s (6.5x slower, needs optimization) | Tested, not default |
+| **wgpu/Vulkan** | WGSL compute shaders | 6,730 tok/s synthetic, real model TBD | `--gpu-backend wgpu` |
+
+**Parity tests required:**
+1. Every backend must produce loss < 200 on the same 50-sample canary dataset
+2. Throughput regression: each backend must stay within 10% of its own baseline
+3. Numerical parity: cuBLAS vs PTX vs NF4 fused must produce < 0.01 loss divergence
+4. New backends (wgpu training, Metal) must pass the same canary before merge
+
+**NF4 fused kernel finding (2026-04-02):**
+`gemm_nf4_forward` reads 8x less data (NF4 packed vs fp32) but runs 6.5x slower
+due to naive tiled PTX implementation. 100% GPU utilization (compute-bound) vs
+7% with cuBLAS (memory-bound). The kernel needs tensor core integration and
+better tiling to outperform cuBLAS — filed as trueno#234 optimization target.
+
 ### P3: Cross-platform parity
 
 1. **wgpu/burn real model loading** — burn can't load HF safetensors/APR yet.
@@ -314,6 +341,8 @@ Training has even more launches (forward + backward).
 
 2. **entrenar CUDA-free compilation** (aprender#564) — enables wgpu-only builds
    for AMD/Intel GPU training without CUDA toolkit.
+
+3. **Metal backend** — Apple M-series GPU training via Metal Performance Shaders.
 
 ## Falsification Conditions
 
