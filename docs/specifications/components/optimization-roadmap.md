@@ -148,13 +148,18 @@ Diagnostic chain:
 
 **Filed:** paiml/trueno#233 — NF4 dequant zeros V projection weights
 
-**Confirmation test (next):**
-```bash
-# Bypass NF4 entirely — use FP16 LoRA (no quantization)
-apr finetune qwen2.5-coder-1.5b-instruct-fp16.apr --method lora --rank 16
-# If GPU works: NF4 V-proj dequant confirmed as sole root cause
-# If NaN persists: forward pass has deeper issue (H-PARITY-003)
+**H-PARITY-002 (RUNNING 2026-04-02):** FP16 LoRA (no NF4) on gx10 shows **96% GPU utilization**.
+(Cannot test on yoga — FP16 LoRA needs 23.5 GB, yoga has 8 GB.)
+
 ```
+Observation:  96% GPU utilization sustained for 30+ minutes
+Comparison:   NF4 QLoRA = 0% GPU (CPU lm_head fallback)
+Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine without it
+```
+
+The fix is in trueno's NF4 dequant kernel (paiml/trueno#233): V projection weights
+(shape 256×1536) dequantize to all zeros. Fix the dequant → 0% GPU → 96% GPU → 
+estimated 2000+ tok/s (limited by wgpu matmul vs cuBLAS).
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
