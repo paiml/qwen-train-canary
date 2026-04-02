@@ -143,37 +143,46 @@ def main():
 
     wall_time = time.perf_counter() - t0
 
-    # Parse JSON output from apr
-    metrics = {}
+    # Parse JSON output from apr (planning phase → stdout)
+    planning = {}
     if result.returncode == 0:
-        # Try to parse JSON from stdout
         for line in result.stdout.strip().split("\n"):
             line = line.strip()
             if line.startswith("{"):
                 try:
-                    metrics = json.loads(line)
+                    planning = json.loads(line)
                     break
                 except json.JSONDecodeError:
                     continue
 
-        # If no JSON found, extract from output
-        if not metrics:
-            metrics = {"raw_output": result.stdout[-1000:]}
-    else:
-        metrics = {
-            "error": f"apr finetune exited {result.returncode}",
-            "stderr": result.stderr[-500:] if result.stderr else "",
-        }
+    # Parse training metrics from stderr (apr emits trace logs there)
+    stderr = result.stderr or ""
+    peak_vram = 0
+    final_loss = 0
 
-    # Extract throughput from apr output if available
-    tok_s = metrics.get("tokens_per_sec", 0)
-    peak_vram = metrics.get("peak_vram_mb", 0)
-    final_loss = metrics.get("final_loss", 0)
+    # Extract VRAM from: [GPU-SHARE] VRAM reserved: N MB
+    vram_match = re.search(r'\[GPU-SHARE\] VRAM reserved: (\d+) MB', stderr)
+    if vram_match:
+        peak_vram = int(vram_match.group(1))
 
-    # Compute throughput if not provided by apr
-    if tok_s == 0 and wall_time > 0:
-        # Estimate: samples * seq_len / wall_time
+    # Extract loss from stderr if apr emits it (e.g., "loss=X.XX" or "loss: X.XX")
+    loss_matches = re.findall(r'loss[=:]\s*([\d.]+)', stderr)
+    if loss_matches:
+        final_loss = float(loss_matches[-1])  # last loss value
+
+    # Extract VRAM from planning if available
+    if not peak_vram and planning.get("memory_breakdown"):
+        peak_vram = int(planning["memory_breakdown"].get("total_bytes", 0) / (1024 * 1024))
+
+    # Compute throughput from wall_time (apr doesn't emit tok/s yet — aprender#566)
+    tok_s = 0
+    if wall_time > 0:
         tok_s = (num_samples * args.seq_len) / wall_time
+
+    metrics = planning if planning else {}
+    if result.returncode != 0:
+        metrics["error"] = f"apr finetune exited {result.returncode}"
+        metrics["stderr_tail"] = stderr[-500:]
 
     output = {
         "canary": "apr",
@@ -194,13 +203,19 @@ def main():
             "runtime": "apr (aprender/entrenar)",
         },
         "metrics": {
-            "throughput_samples_sec": metrics.get("samples_per_sec", 0),
+            "throughput_samples_sec": round(num_samples / wall_time, 2) if wall_time > 0 else 0,
             "tokens_per_sec": round(tok_s, 1),
             "peak_vram_mb": peak_vram,
             "final_loss": round(final_loss, 4) if final_loss else 0,
             "wall_time_sec": round(wall_time, 2),
+            # Note: tok/s estimated from wall_time. Loss/VRAM from stderr parsing.
+            # Structured metrics pending upstream: aprender#566
+            "_metrics_quality": "estimated" if not loss_matches else "measured",
         },
-        "apr_output": metrics,
+        "apr_output": {
+            "raw_output": result.stdout[-1000:] if result.stdout else "",
+            "stderr_summary": stderr[-500:] if stderr else "",
+        },
     }
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
