@@ -279,12 +279,24 @@ Also: cuBLAS uses SIMD (~2 TFLOPS) not tensor cores (~83 TFLOPS) due to ALB-076
 (TF32 + transposed backward = NaN at gradient magnitude ~1e5). BF16 backward
 would avoid this bug and use tensor cores.
 
-**Revised fix priorities:**
-1. **GPU embedding lookup** — `model.embed_tokens.forward()` at line 2006 runs on CPU
-   despite `embed_original` being on GPU. Use GPU embedding gather.
-2. **GPU LoRA optimizer** — AdamW on GPU (like bitsandbytes/unsloth's adamw_8bit)
-3. **BF16 backward GEMM** — enable tensor cores for backward (BF16 avoids ALB-076 NaN)
-4. **CUDA graphs** — pipeline GPU work to overlap with remaining CPU overhead
+**DEFINITIVE FINDING (2026-04-02):** The 197 tok/s ceiling is MEMORY BANDWIDTH bound.
+
+TF32 tensor cores enabled (41x compute): 196→197 tok/s (0% improvement).
+cuBLAS SIMD (no tensor cores): 196 tok/s. Same throughput.
+Reason: weight matrix loads dominate. 1536×1536 = 9.4 MB at 256 GB/s = 37μs.
+Compute: 1.9μs (TF32) or 80μs (SIMD). Both dwarfed by 37μs memory latency.
+
+**The ONLY path to parity: reduce memory traffic per sample.**
+
+1. **Fused QKV projection** — read weight matrix ONCE, compute Q+K+V in one kernel
+   (3x reduction in weight reads for attention projections)
+2. **Flash attention** — don't materialize seq×seq attention matrix (seq²×heads BW savings)
+3. **FP16 weights** — halve weight memory from 9.4 MB to 4.7 MB per GEMM
+4. **Fused FFN** — gate+up+SwiGLU+down in one kernel (4x reduction in FFN weight reads)
+
+These are all kernel fusion tasks in trueno — the same optimizations that make
+unsloth's Triton kernels fast. Without fusion, the GPU's 256 GB/s bandwidth
+limits throughput regardless of tensor core compute power.
 
 **Tier 2** requires FP16 model (already exists on yoga: 3.4 GB). With the VRAM
 optimizations from this session (embedding halving, rank override), FP16 weights
