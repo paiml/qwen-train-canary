@@ -168,10 +168,22 @@ Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine with
    so lm_head runs on CPU via inference-style forward, which produces NaN.
    On gx10 (120GB), everything fits on GPU → 96% utilization → works.
 
-**Three fix paths (any one unblocks yoga):**
-- Fix CPU inference-style forward NaN (entrenar#317)
-- Fix VRAM check: 1780MB claimed but FP16 embed is only 446MB
-- Chunked GPU lm_head: process vocab in 32K chunks on GPU
+**VRAM budget on yoga 8GB (measured 2026-04-02):**
+
+| Component | Size | Running Total |
+|-----------|------|---------------|
+| Base model (NF4 28 layers) | ~4.0 GB | 4.0 GB |
+| Embedding (single layout) | 0.89 GB | 4.9 GB |
+| LoRA optimizer states | 0.74 GB | 5.6 GB |
+| Training scratch buffers | ~1.5 GB | 7.1 GB |
+| CUDA overhead | ~0.5 GB | 7.6 GB |
+
+Embedding VRAM halved (1780→890MB, pushed to entrenar main), but optimizer OOMs:
+`[CUDA] NF4 LoRA optimizer init failed (layer 0): CUDA_ERROR_OUT_OF_MEMORY`
+
+**Fix: 8-bit optimizer** (like unsloth's adamw_8bit). Halves optimizer 0.74→0.37 GB.
+With 8-bit optimizer + single-layout embedding: total 7.0 GB, fits 8 GB yoga.
+This is the same approach unsloth uses — `adamw_8bit` via bitsandbytes.
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
