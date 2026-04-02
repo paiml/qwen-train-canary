@@ -234,10 +234,12 @@ The fp32 CudaTransformerBlock (per-block scratch) works. The NF4 block
 (shared scratch C-SCRATCH-001) fails. The shared scratch is used for BOTH
 forward and backward, and may not be properly reset between training steps.
 
-**BREAKTHROUGH (2026-04-02):** First APR NF4 training loss = 15.91 on yoga 8GB!
-Full GPU pipeline working: embed → 28 NF4 layers → BT GEMM lm_head → loss.
-Step 1 computes finite loss and runs backward. Step 2+ NaN from backward
-corrupting shared scratch. Fix: isolate forward/backward scratch state.
+**TRAINING WORKING (2026-04-02):** APR NF4 QLoRA training on yoga 8GB — 30+ steps, all finite loss!
+Full GPU pipeline: embed → 28 NF4 layers → BT GEMM lm_head → fused cross-entropy.
+Root cause of multi-step NaN was backward gradient contamination of shared scratch
+buffers (C-SCRATCH-001). Fix: zero 13 forward scratch buffers at start of each forward.
+PyTorch/unsloth allocate fresh tensors — entrenar's scratch reuse optimization violated
+this invariant.
 
 **Filed:** entrenar#318 (10+ comments with progressive diagnosis).
 **Upstream fixes pushed (6 commits, 3 repos):**
