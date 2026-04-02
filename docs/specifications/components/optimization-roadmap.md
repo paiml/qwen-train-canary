@@ -189,10 +189,23 @@ Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine with
 ```
 
 Weights are correct (dequant nonzero=350K+), input is non-zero (from embedding),
-but `CudaNf4TransformerBlock::forward` outputs zeros. The GEMM computation
-inside the NF4 block is not producing results. Filed: entrenar#318.
+but `CudaNf4TransformerBlock::forward` outputs zeros. Filed: entrenar#318.
 
-**This is the final gate.** Fix the NF4 block forward → 0→non-zero output →
+**DIAG-002 finding (contract apr-training-parity-v1.yaml):**
+```
+[DIAG-002] m=74 k=1536 n=1536 A=[0,0,0,0] B=[0,0,0,0] C=[0,0,0,0]
+```
+Both GEMM inputs (A=RMSNorm output, B=weight buffer) read as zeros in forward,
+despite upload traces showing nonzero=350K+ at construction time. `make_current()`
+added to NF4 forward (pushed to entrenar) — didn't fix it.
+
+**Root cause: GPU buffer pointer invalidation.** Weights uploaded in `new()` are
+inaccessible in `forward()`. The device pointers are stale — either from VRAM
+reallocation between construction and forward, or the GpuBuffer was dropped and
+reallocated at a different address. Next diagnostic: verify `self.w_q_fp32.as_ptr()`
+at construction time vs forward time.
+
+**This is the final gate.** Fix buffer pointer stability → non-zero GEMM output →
 loss computes → training runs → 44→2000+ tok/s.
 
 **Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
