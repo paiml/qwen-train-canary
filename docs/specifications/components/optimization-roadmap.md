@@ -254,26 +254,31 @@ this invariant.
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
 tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
 
-### P1: APR GPU kernel optimization (after P0 unblocks GPU path)
+### Parity Roadmap: 186 → 6,628 tok/s (35x gap)
 
-Once FP16 model enables the GPU forward path:
+Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with CPU-side NF4 dequant
+and H2D scratch zeroing, while unsloth uses fused Triton kernels that stay entirely on GPU.
 
-1. **Chunked GPU lm_head** → eliminate CPU lm_head bottleneck entirely
-   (if FP16 still falls back to CPU for embeddings)
-2. **Fix copy_from_host_at** (trueno#232) → eliminate fresh alloc per step
-3. **cuBLAS tensor cores** for training GEMMs (currently PTX naive kernels)
-4. **Emit structured training metrics** (aprender#566) → proper loss/VRAM tracking
+| Tier | Fix | Expected | Cumulative |
+|------|-----|----------|------------|
+| **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 (1.6x) | 300 tok/s |
+| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | 300→600 (2x) | 600 tok/s |
+| **3** | CUDA graphs (capture 28-layer forward, replay) | 600→1200 (2x) | 1,200 tok/s |
+| **4** | Fused NF4 dequant+GEMM kernels (like Triton) | 1200→3000 (2.5x) | 3,000 tok/s |
+| **5** | Fused attention + FFN blocks (196→56 launches) | 3000→5000 (1.7x) | 5,000 tok/s |
+| **6** | Flash attention + memory BW optimization | 5000→6000+ | **parity** |
 
-Expected impact: 2000 → 4000+ tok/s (parity with pytorch full FT baseline).
+**Tier 1 is the immediate next step.** Add `cuMemsetD32Async` to trueno's driver
+bindings, replace `copy_from_host` zeroing in `zero_forward_buffers()` with a single
+GPU-side memset per buffer. Eliminates 40MB PCIe transfer per training step.
 
-### P2: APR throughput parity with unsloth
+**Tier 2** requires FP16 model (already exists on yoga: 3.4 GB). With the VRAM
+optimizations from this session (embedding halving, rank override), FP16 weights
+should fit. cuBLAS fp16 GEMM uses tensor cores at 2x throughput vs fp32.
 
-To match unsloth's 6,628 tok/s, APR needs:
-- Fused NF4 dequant + matmul kernels (like unsloth's custom Triton kernels)
-- Gradient checkpointing integration (unsloth saves 60% memory)
-- 8-bit optimizer (AdamW 8-bit via trueno, matching bitsandbytes)
-
-This is the "beat unsloth" tier — requires trueno GEMM parity with Triton/cuBLAS.
+**Tiers 3-6** require deeper trueno/entrenar kernel engineering. CUDA graphs (Tier 3)
+are the highest-leverage: `apr profile` showed 84.2% kernel launch overhead on inference.
+Training has even more launches (forward + backward).
 
 ### P3: Cross-platform parity
 
