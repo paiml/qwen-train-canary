@@ -42,7 +42,7 @@ CUBLAS_STEPS := 50
 # Yoga (CUDA, RTX 4060 Laptop)
 # ============================================================================
 
-.PHONY: deploy-yoga teardown-yoga canary-yoga canary-unsloth canary-pytorch canary-cublas
+.PHONY: deploy-yoga teardown-yoga canary-yoga canary-unsloth canary-pytorch canary-pytorch-gradacc canary-cublas
 
 deploy-yoga:
 	forjar apply -f forjar-yoga.yaml
@@ -67,8 +67,23 @@ canary-unsloth:
 			--output /tmp/canary-unsloth-$(DATE).json'
 	scp yoga:/tmp/canary-unsloth-$(DATE).json results/
 
+# Gradient accumulation: batch=1, accum=4 — enables full FT on yoga 8GB (PMAT-459)
+canary-pytorch-gradacc:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+			--model $(MODEL_ID) \
+			--steps $(CANARY_STEPS) \
+			--batch-size 1 \
+			--gradient-accumulation-steps 4 \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--output /tmp/canary-pytorch-gradacc-$(DATE).json'
+	scp yoga:/tmp/canary-pytorch-gradacc-$(DATE).json results/
+
 # WARNING: canary-pytorch and canary-cublas OOM on yoga 8GB (F-EXEC-02 falsified).
-# Use canary-pytorch-gx10 and canary-cublas-gx10 instead.
+# Use canary-pytorch-gx10 or canary-pytorch-gradacc instead.
 canary-pytorch:
 	@echo "WARNING: F-EXEC-02 — full fine-tune OOMs on yoga 8GB. Use 'make canary-pytorch-gx10' instead." >&2
 	ssh yoga 'cd ~/qwen-train-canary && \

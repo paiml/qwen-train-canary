@@ -1,8 +1,8 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 2.0.0
-**Last Updated:** 2026-03-31
+**Version:** 3.3.0
+**Last Updated:** 2026-04-03
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
 **Primary Target:** Yoga (RTX 4060 Laptop, 8 GB VRAM, sm_89)
@@ -414,8 +414,9 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-426-430 | Phase 1: Throughput optimization | 5 |
 | PMAT-431-434 | Phase 2: WGPU maturity | 4 |
 | PMAT-435-438 | Phase 3: Advanced canaries | 4 |
-| PMAT-439-451 | Spec audit, schema/scoring validation, test infrastructure | 13 |
-| **Total** | | **32** |
+| PMAT-439-456 | Spec audit, schema/scoring validation, test infrastructure | 18 |
+| PMAT-457-461 | Parity fixes: APR baselines, FP16 GEMM, grad accum, profiler | 5 |
+| **Total** | | **42** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -439,3 +440,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 3.0.0 | 2026-04-01 | 5-runtime competitive comparison, parity mandate, 14 upstream fixes, measured baselines across 3 hosts, apr pipeline verified complete | PMAT-420 |
 | 3.1.0 | 2026-04-01 | Fix 15 (entrenar#316 NF4 forward NaN) landed — APR IS LEARNING (loss 4.86→3.27); spec audit: F-WL-06 updated, roadmap P0 updated, wgpu baseline corrected, deferred notes removed | PMAT-439/440/441/442 |
 | 3.2.0 | 2026-04-01 | All 15 falsification conditions resolved. Schema validator + 25 pytest tests. F-EXEC-01 CONFIRMED (GPU clock injection). Fresh gx10 results (unsloth 16,118 tok/s). APR canary timeout fixed. nightly.sh complete (all 3 hosts, 5 canaries). score.py VRAM skip for baselines lacking peak_vram_mb. | PMAT-443-453 |
+| 3.3.0 | 2026-04-03 | APR throughput corrected: 44→194 tok/s (34x gap, was 151x). Throughput formula bug fixed (8x under-report). APR baselines updated (190 tok/s, loss 20.0). FP16 cuBLAS GEMM contract designed (Tier 2: 390 tok/s target). Gradient accumulation canary implemented. Step profiler integration. FP16 GEMM primitives landed upstream (entrenar@1ce6ef24). 42 total PMAT items. | PMAT-457-461 |
