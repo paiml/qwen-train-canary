@@ -333,3 +333,39 @@ def test_host_specific_baseline_used():
     # Host-specific lookup
     baseline = loaded.get("pytorch@yoga", loaded.get("pytorch", {}))
     assert baseline["tokens_per_sec"] == 1500, "Should use host-specific baseline"
+
+
+# --- PMAT-475: Fused canary scoring ---
+
+
+def test_apr_fused_passes_at_baseline():
+    """apr-fused canary at baseline throughput should PASS."""
+    result = {
+        "canary": "apr-fused",
+        "metrics": {"tokens_per_sec": 45, "peak_vram_mb": 4000, "final_loss": 16.0},
+    }
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["pass"], f"apr-fused at baseline should pass: {score}"
+
+
+def test_apr_fused_fp16_graph_passes():
+    """apr-fused-fp16-graph (max throughput path) should PASS at target."""
+    result = {
+        "canary": "apr-fused-fp16-graph",
+        "metrics": {"tokens_per_sec": 350, "peak_vram_mb": 2800, "final_loss": 18.0},
+    }
+    baseline = {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["pass"], f"apr-fused-fp16-graph at target should pass: {score}"
+
+
+def test_apr_fused_regression_detected():
+    """30% throughput regression in fused path should FAIL."""
+    result = {
+        "canary": "apr-fused",
+        "metrics": {"tokens_per_sec": 25, "peak_vram_mb": 4000, "final_loss": 16.0},
+    }
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert not score["pass"], "30% regression should fail"

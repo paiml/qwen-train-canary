@@ -30,9 +30,17 @@ run_yoga_canaries() {
     make canary-apr
     echo "  -> results/canary-apr-$DATE.json"
 
+    echo "Running apr fused canary (PMAT-475: NF4 Gate+Up fusion)..."
+    make canary-apr-fused
+    echo "  -> results/canary-apr-fused-$DATE.json"
+
     echo "Running apr FP16 canary (PMAT-473: tensor core parity)..."
     make canary-apr-fp16
     echo "  -> results/canary-apr-fp16-$DATE.json"
+
+    echo "Running apr max canary (PMAT-475+464: all optimizations)..."
+    make canary-apr-max
+    echo "  -> results/canary-apr-max-$DATE.json"
 
     echo "Running pytorch gradient accumulation canary (PMAT-459)..."
     make canary-pytorch-gradacc

@@ -13,7 +13,10 @@ import sys
 # Keep in sync with baselines.json — see canary-score-gate-v1.yaml F-BASE-002
 DEFAULT_BASELINES = {
     "apr": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
+    "apr-fused": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
     "apr-fp16": {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0},
+    "apr-fused-fp16": {"tokens_per_sec": 200, "peak_vram_mb": 3000, "final_loss": 20.0},
+    "apr-fused-fp16-graph": {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 20.0},
     "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 2.0},
     "pytorch": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0},
     "pytorch-compile": {"tokens_per_sec": 3500, "peak_vram_mb": 35000, "final_loss": 2.0},

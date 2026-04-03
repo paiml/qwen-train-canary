@@ -9,7 +9,25 @@
     "tokens_per_sec": 150,
     "peak_vram_mb": 3000,
     "final_loss": 20.0,
-    "_status": "PROVISIONAL — FP16_GEMM=1 path, target 2x throughput vs fp32 (PMAT-473). Needs first measurement."
+    "_status": "PROVISIONAL — FP16_GEMM=1 path (PMAT-473). Needs first measurement."
+  },
+  "apr-fused": {
+    "tokens_per_sec": 40,
+    "peak_vram_mb": 4200,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — NF4_FUSED_GEMM=1 fused Gate+Up (PMAT-475). Needs first measurement."
+  },
+  "apr-fused-fp16": {
+    "tokens_per_sec": 200,
+    "peak_vram_mb": 3000,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — NF4_FUSED_GEMM=1 + FP16_GEMM=1. Needs first measurement."
+  },
+  "apr-fused-fp16-graph": {
+    "tokens_per_sec": 300,
+    "peak_vram_mb": 3000,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — all optimizations: fused + fp16 + CUDA graph. Target: 1200+ tok/s."
   },
   "unsloth": {
     "tokens_per_sec": 6600,
