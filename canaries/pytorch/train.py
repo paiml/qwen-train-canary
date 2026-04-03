@@ -72,6 +72,8 @@ def main():
     parser.add_argument("--dataset", default="prompts/canary-dataset.yaml")
     parser.add_argument("--output", default="/tmp/canary-pytorch.json")
     parser.add_argument("--compile", action="store_true", help="Enable torch.compile (PMAT-426)")
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=1,
+                        help="Gradient accumulation steps (PMAT-428/459)")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -140,13 +142,16 @@ def main():
         step_start = time.perf_counter()
 
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
-        loss = outputs.loss
-
-        optimizer.zero_grad()
+        loss = outputs.loss / args.gradient_accumulation_steps
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        scheduler.step()
+
+        if (step + 1) % args.gradient_accumulation_steps == 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+
+        loss = loss * args.gradient_accumulation_steps  # un-scale for logging
 
         step_time = (time.perf_counter() - step_start) * 1000  # ms
         step_times.append(step_time)
@@ -182,6 +187,7 @@ def main():
             "optimizer": optim_name,
             "quantization": "none",
             "compiled": args.compile,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
         },
         "metrics": {
             "throughput_samples_sec": round(samples_per_sec, 2),

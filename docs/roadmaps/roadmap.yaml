@@ -186,3 +186,13 @@ roadmap:
       Memory-BW bound at 194 tok/s with fp32 GEMM. FP16 halves traffic: 9.4→4.7 MB/GEMM.
       Contract: fp16-cublas-gemm-v1.yaml (3 hypotheses, roofline analysis).
       Upstream: entrenar#320 (CudaFp16TransformerBlock), trueno#235 (cublasHgemm).
+
+  - id: PMAT-459
+    title: "Gradient accumulation canary — batch=1 accum=4 for yoga 8GB (PMAT-428)"
+    status: completed
+    priority: high
+    github_issue: 17
+    description: >
+      F-EXEC-02 workaround: gradient accumulation enables effective batch=4 with
+      batch=1 physical, reducing peak VRAM ~60%. pytorch canary now supports
+      --gradient-accumulation-steps N. Contract: gradient-accumulation-canary-v1.yaml.

@@ -21,7 +21,7 @@
 |------|------|--------|
 | PMAT-426 | Torch.compile() canary | DONE: -11% at 100 steps (F-RD-01 falsified) |
 | PMAT-427 | Flash Attention 2 for training | Planned |
-| PMAT-428 | Gradient accumulation canary (batch=1, accum=4) | Planned |
+| PMAT-428 | Gradient accumulation canary (batch=1, accum=4) | DONE (PMAT-459): --gradient-accumulation-steps N in pytorch canary |
 | PMAT-429 | DeepSpeed ZeRO Stage 2 canary | Planned |
 | PMAT-430 | FSDP canary (multi-GPU, future) | Planned |
 
