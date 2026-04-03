@@ -218,6 +218,16 @@ roadmap:
       pytorch-gradacc), gx10 (unsloth, pytorch, cublas, apr), intel (wgpu).
       pytorch@yoga baseline added (PROVISIONAL: 1500 tok/s estimate).
 
+  - id: PMAT-464
+    title: "CUDA graph capture for NF4 training — Tier 3 parity (194→1200 tok/s)"
+    status: in_progress
+    priority: critical
+    github_issue: 20
+    description: >
+      588 kernel launches × 5μs = 60% launch overhead. CUDA graphs capture entire
+      28-layer forward, replay with single call. Contract: cuda-graph-training-v1.yaml.
+      Upstream: entrenar#322.
+
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
     status: completed

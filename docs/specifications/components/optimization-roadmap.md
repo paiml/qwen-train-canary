@@ -273,7 +273,7 @@ that stay entirely on GPU with fp16 tensor core compute.
 |------|-----|----------|----------|--------|
 | **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **194** (canary, 2026-04-02) | DONE — zeroing was NOT the bottleneck |
 | **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **IN PROGRESS** — contract fp16-cublas-gemm-v1.yaml, entrenar#320, trueno#235 |
-| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **Highest leverage** |
+| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **CONTRACT DESIGNED** — cuda-graph-training-v1.yaml, entrenar#322 |
 | **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
