@@ -268,6 +268,16 @@ roadmap:
       workspace before graph capture. Without this, CUDA graph capture fails
       on Ada (sm_89) with CUDA_ERROR_INVALID_VALUE.
 
+  - id: PMAT-472
+    title: "FP16 backward GEMM + drop fp32 weights — free 2.6 GB VRAM"
+    status: completed
+    priority: critical
+    description: >
+      SHIPPED: entrenar@435e9762 (entrenar#326). gemm_f16_to_f32_backward_a for
+      mixed-precision backward. All 7 backward GEMMs wired via fp16_dispatch.
+      fp32 weights dropped after cast — blocks shrink 5.2→2.6 GB. GPU embeddings
+      now fit on yoga 8GB → GPU lm_head backward → CPU bottleneck eliminated.
+
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
     status: completed

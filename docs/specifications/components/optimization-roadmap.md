@@ -71,6 +71,7 @@
 | 22 | CPU lm_head backward fallback (PMAT-471) | entrenar | Backward works on yoga 8GB |
 | 23 | `set_fp16_weights()` — FP16 weight cast (PMAT-470) | entrenar | FP16 GEMM path was DEAD CODE, now functional |
 | 24 | cuBLAS workspace pre-alloc (PMAT-063) | entrenar | CUDA graph capture unblocked on sm_89 |
+| 25 | FP16 backward GEMM + fp32 drop (PMAT-472) | entrenar | 2.6 GB freed, GPU lm_head enabled |
 
 ### Tickets
 
@@ -86,6 +87,7 @@
 | paiml/entrenar#323 | CPU lm_head backward fallback (PMAT-471) | **FIXED** (2026-04-03, fix #22) |
 | paiml/entrenar#324 | FP16 weight cast `set_fp16_weights()` (PMAT-470) | **FIXED** (2026-04-03, fix #23) |
 | paiml/entrenar#325 | cuBLAS workspace pre-alloc (PMAT-063) | **FIXED** (2026-04-03, fix #24) |
+| paiml/entrenar#326 | FP16 backward GEMM + fp32 drop (PMAT-472) | **FIXED** (2026-04-03, fix #25) |
 
 ### Contracts
 
@@ -279,8 +281,9 @@ that stay entirely on GPU with fp16 tensor core compute.
 |------|-----|----------|----------|--------|
 | **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **194** (canary, 2026-04-02) | DONE — zeroing was NOT the bottleneck |
 | **1.5** | CPU lm_head backward fallback (PMAT-471) | enables training | — | **SHIPPED** — entrenar@de2ad7e1, entrenar#323. Without this, backward NEVER ran on yoga 8GB. |
-| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **SHIPPED** — `set_fp16_weights()` implemented (entrenar@de2ad7e1, entrenar#324). FP16_GEMM=1 to enable. All 7 projections wired. |
+| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **SHIPPED** — forward + backward FP16 GEMM, fp32 weights DROPPED. FP16_GEMM=1 frees ~2.6 GB VRAM (entrenar#324, #326). |
 | **2.5** | cuBLAS workspace pre-alloc (PMAT-063) | unblocks CUDA graphs | — | **SHIPPED** — entrenar@de2ad7e1, entrenar#325. 32 MB pre-alloc before graph capture. |
+| **2.7** | FP16 backward + fp32 drop (PMAT-472) | GPU embeddings fit | — | **SHIPPED** — entrenar@435e9762, entrenar#326. Backward uses tensor cores. fp32 dropped → 2.6 GB freed → GPU lm_head. |
 | **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **UNBLOCKED** — cuBLAS workspace shipped, forward capture exists (PMAT-464). Backward capture TODO. |
 | **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
