@@ -278,6 +278,15 @@ roadmap:
       fp32 weights dropped after cast — blocks shrink 5.2→2.6 GB. GPU embeddings
       now fit on yoga 8GB → GPU lm_head backward → CPU bottleneck eliminated.
 
+  - id: PMAT-473
+    title: "FP16 canary pipeline + provable contract + NaN scoring"
+    status: completed
+    priority: critical
+    description: >
+      SHIPPED: make canary-apr-fp16, make canary-apr-fp16-graph, NaN rate gate,
+      provable contract fp16-training-parity-v1.yaml with 4 falsification tests.
+      38 pytest tests passing. Nightly pipeline exercises FP16 path.
+
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
     status: completed
