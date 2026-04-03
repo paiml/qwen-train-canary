@@ -2,306 +2,579 @@ roadmap_version: '1.0'
 github_enabled: true
 github_repo: paiml/qwen-train-canary
 roadmap:
-  - id: PMAT-439
-    title: "Fix F-WL-06 falsification register — stale APR state (5 fixes → 15, learning)"
-    status: completed
-    priority: critical
-    github_issue: 1
-    description: >
-      training-canary-spec.md F-WL-06 resolution shows 5-fix state and 36→123 tok/s.
-      Actual: 15 fixes landed, pipeline IS LEARNING (loss 4.86→3.27), entrenar#316 FIXED.
-
-  - id: PMAT-440
-    title: "Fix optimization-roadmap P0 — 'loss stays at 11.93' contradicts pipeline learning"
-    status: completed
-    priority: critical
-    github_issue: 2
-    description: >
-      optimization-roadmap.md P0 says loss=11.93 and #316 worked-around.
-      Actual: loss 4.86→3.27, #316 FIXED, pipeline actively converging.
-
-  - id: PMAT-441
-    title: "Fix deployment-topology.md stale deferred-until notes (PMAT-424/431 both DONE)"
-    status: completed
-    priority: high
-    github_issue: 3
-    description: >
-      Nightly pipeline prose says gx10/wgpu deferred until PMAT-424/431.
-      Both are DONE. Also wgpu result host=mac-server vs spec intel.
-
-  - id: PMAT-442
-    title: "Update wgpu baseline threshold from 100 to measured 6,730 tok/s (Qwen-sized synthetic)"
-    status: completed
-    priority: high
-    github_issue: 4
-    description: >
-      Section 5 wgpu baseline is 100 tok/s (pre-measurement estimate).
-      Measured 6,730 tok/s on Qwen-sized (hidden=1536, vocab=32000) synthetic WGPU canary.
-
-  - id: PMAT-443
-    title: "Fix falsification register duplicates — conditions in both Active and Falsified tables"
-    status: completed
-    priority: high
-    github_issue: 5
-    description: >
-      F-EXEC-02, F-HW-01, F-WL-03 appear in both Active Conditions and Falsified Claims.
-      F-HW-02, F-WL-05, F-WL-01, F-WL-02 are confirmed by data but still listed Active.
-
-  - id: PMAT-444
-    title: "Validate F-MET-01 — canary metrics schema validation"
-    status: completed
-    priority: critical
-    description: >
-      F-MET-01 TRIGGERED then FIXED: wgpu missing timestamp. Schema validator built,
-      11/11 results pass. Contract: canary-metrics-schema-v1.yaml.
-
-  - id: PMAT-445
-    title: "Validate F-SC-01 — score-gate logic correctness"
-    status: completed
-    priority: critical
-    description: >
-      F-SC-01 CONFIRMED: 5 falsification injection tests pass. 15% slowdown→FAIL,
-      5% variance→PASS, 10% VRAM→FAIL, cuBLAS div→FAIL, cuBLAS ratio→FAIL.
-
-  - id: PMAT-446
-    title: "Fix baselines.json — wgpu 100→6600, add pytorch-compile entry"
-    status: completed
-    priority: high
-    description: >
-      baselines.json wgpu updated to 6,600 tok/s. pytorch-compile entry added.
-      DEFAULT_BASELINES synced. F-BASE-001/002 satisfied.
-
-  - id: PMAT-447
-    title: "Confirm F-WL-04 — cuBLAS TF32 meaningful (ratio=1.0043)"
-    status: completed
-    priority: high
-    github_issue: 8
-    description: >
-      throughput_ratio=1.0043 on gx10, not 1.0000. TF32 IS effective.
-      Active Conditions reduced to 1 (F-EXEC-01 only).
-
-  - id: PMAT-448
-    title: "Fix nightly.sh — add canary-apr, canary-unsloth-gx10, unblock WGPU"
-    status: completed
-    priority: critical
-    github_issue: 9
-    description: >
-      nightly.sh was missing apr on yoga, unsloth-gx10, and WGPU was
-      still blocked. All three added. Default mode changed to all.
-
-  - id: PMAT-449
-    title: "Fix schema enum — add apr, pytorch-compile to spec Section 4"
-    status: completed
-    priority: high
-    github_issue: 10
-    description: >
-      Spec Section 4 enum was "unsloth|pytorch|cublas|wgpu" but actual
-      values include apr and pytorch-compile. Fixed.
-
-  - id: PMAT-450
-    title: "Create test infrastructure — 23 pytest tests"
-    status: completed
-    priority: high
-    description: >
-      tests/test_scoring.py: 13 tests implementing canary-score-gate-v1.yaml.
-      tests/test_schema.py: 10 tests implementing canary-metrics-schema-v1.yaml.
-      Makefile: make test target added.
-
-  - id: PMAT-451
-    title: "Fix score.py VRAM handling — skip when baseline omits peak_vram_mb"
-    status: completed
-    priority: high
-    github_issue: 11
-    description: >
-      apr and wgpu baselines lack peak_vram_mb. score.py was defaulting to
-      float('inf') which silently passes. Now skips VRAM check when baseline
-      omits it. 2 new tests added (25 total).
-
-  - id: PMAT-452
-    title: "Validate F-EXEC-01 — inject GPU throttle, verify scoring detects regression"
-    status: completed
-    priority: critical
-    github_issue: null
-    description: >
-      GPU clock injection test on gx10. Throttled to 600 MHz.
-      Measured 7,325 tok/s vs 13,600 baseline = 46% regression.
-      Scoring returned FAIL. LAST active condition — all 15 resolved.
-
-  - id: PMAT-453
-    title: "Fix APR canary timeout + backend field + collect fresh gx10 results"
-    status: completed
-    priority: high
-    github_issue: 12
-    description: >
-      APR timeout 1200s → 7200s (needs ~5000s at 42 tok/s). APR backend
-      'auto' → 'cuda' in JSON output. Fresh gx10 results: unsloth 16,118 tok/s,
-      pytorch 4,017, cublas 0.000 divergence.
-
-  - id: PMAT-454
-    title: "Fix APR metrics quality — parse VRAM/loss from stderr, file upstream"
-    status: completed
-    priority: high
-    github_issue: 13
-    description: >
-      APR canary had final_loss=0, peak_vram_mb=0 because apr finetune
-      doesn't emit structured training metrics. Fixed wrapper to parse
-      stderr for VRAM and loss patterns. Filed upstream: aprender#566.
-
-  - id: PMAT-455
-    title: "Trace APR NaN root cause — trueno NF4 zeros V-projection weights"
-    status: completed
-    priority: critical
-    description: >
-      Diagnostic chain: apr profile (inference OK), apr trace stderr
-      (11/196 tensors all-zero, all V-proj shape 256x1536), H-PARITY-001
-      FALSIFIED (FP16 same NaN), H-PARITY-002 CONFIRMED (96% GPU without NF4).
-      Filed: trueno#233, aprender#566. Contract: apr-training-parity-v1.yaml.
-
-  - id: PMAT-456
-    title: "Fix cuBLAS throughput_ratio upper bound (spec 0.95-1.05, was only >= 0.95)"
-    status: completed
-    priority: high
-    github_issue: 14
-    description: >
-      score.py only checked lower bound. Added max_throughput_ratio=1.05.
-      ratio=1.10 now correctly fails. 26 tests total.
-
-  - id: PMAT-457
-    title: "Fix APR canary throughput formula + baselines update"
-    status: completed
-    priority: critical
-    github_issue: 15
-    description: >
-      Throughput formula only counted 1 epoch (under-reporting 8x for 100-step canary).
-      Fixed: total_tokens = actual_steps * batch_size * seq_len. Baselines updated:
-      tokens_per_sec 140→190, final_loss 200→20, peak_vram_mb added. Step profiler
-      integration added (--profile-interval). 26 tests pass.
-
-  - id: PMAT-458
-    title: "FP16 cuBLAS GEMM training — Tier 2 SHIPPED"
-    status: completed
-    priority: critical
-    github_issue: 16
-    description: >
-      SHIPPED: Q/K/V dispatch (entrenar@82b484fa), cast kernel (trueno@05217c48),
-      set_fp16_weights() (entrenar@de2ad7e1). All 7 projections wired for FP16.
-      FINDING: FP16 dispatch was dead code until PMAT-470 implemented set_fp16_weights().
-      Enable: FP16_GEMM=1. Next: measure actual throughput improvement.
-
-  - id: PMAT-459
-    title: "Gradient accumulation canary — batch=1 accum=4 for yoga 8GB (PMAT-428)"
-    status: completed
-    priority: high
-    github_issue: 17
-    description: >
-      F-EXEC-02 workaround: gradient accumulation enables effective batch=4 with
-      batch=1 physical, reducing peak VRAM ~60%. pytorch canary now supports
-      --gradient-accumulation-steps N. Contract: gradient-accumulation-canary-v1.yaml.
-
-  - id: PMAT-462
-    title: "Fix APR NaN-inflated throughput — baseline PROVISIONAL, upstream norm_guard"
-    status: completed
-    priority: critical
-    github_issue: 18
-    description: >
-      194 tok/s was inflated by NaN-skipped backward passes. Canary now tracks
-      nan_backward_skips and valid_backward_steps. Baseline lowered to 40 tok/s
-      (PROVISIONAL). Upstream fix: fused residual+RMSNorm in CudaNf4TransformerBlock
-      (entrenar@b4d74f2c, entrenar#321). Eliminates activation explosion.
-
-  - id: PMAT-463
-    title: "Add nightly coverage — apr-gx10, pytorch-gradacc-yoga"
-    status: completed
-    priority: high
-    github_issue: 19
-    description: >
-      nightly.sh now covers all 5 runtimes on all hosts: yoga (unsloth, apr,
-      pytorch-gradacc), gx10 (unsloth, pytorch, cublas, apr), intel (wgpu).
-      pytorch@yoga baseline added (PROVISIONAL: 1500 tok/s estimate).
-
-  - id: PMAT-464
-    title: "CUDA graph capture for NF4 training — Tier 3 UNBLOCKED"
-    status: in_progress
-    priority: critical
-    github_issue: 20
-    description: >
-      Forward graph capture exists (entrenar@0138b409). cuBLAS workspace pre-allocated
-      (PMAT-063, entrenar@de2ad7e1). Remaining: backward graph capture (840 kernels),
-      graph update for seq_len changes. CUDA_GRAPH=1 to enable.
-
-  - id: PMAT-467
-    title: "Fix score.py NaN loss + PROVISIONAL handling + 7 new tests"
-    status: completed
-    priority: high
-    github_issue: 21
-    description: >
-      NaN final_loss → FAIL (was silent). PROVISIONAL surfaced in score output.
-      Schema: APR must include nan_backward_skips. Makefile: apr-gx10 model path.
-      33 tests (was 26). 16/16 results pass schema.
-
-  - id: PMAT-470
-    title: "FP16 weight storage + set_fp16_weights() — Tier 2 COMPLETE"
-    status: completed
-    priority: critical
-    github_issue: 16
-    description: >
-      SHIPPED: set_fp16_weights() implemented (entrenar@de2ad7e1, entrenar#324).
-      Casts all 7 fp32 weight buffers to fp16 on GPU via CastF32ToF16Kernel.
-      Forward dispatch now uses gemm_f16_to_f32 when FP16_GEMM=1.
-      FINDING: FP16 GEMM path was DEAD CODE — w_X_fp16 always None until this fix.
-
-  - id: PMAT-471
-    title: "CPU lm_head backward fallback for VRAM-constrained GPUs"
-    status: completed
-    priority: critical
-    description: >
-      SHIPPED: entrenar@de2ad7e1 (entrenar#323). On yoga 8GB, GPU embeddings
-      (890 MB) don't fit after NF4 blocks (~4 GB). Without this fix, backward
-      NEVER ran — model could not train. CPU fallback: D2H + CPU matmul + H2D.
-
-  - id: PMAT-063
-    title: "cuBLAS workspace pre-allocation for CUDA graph capture"
-    status: completed
-    priority: critical
-    description: >
-      SHIPPED: entrenar@de2ad7e1 (entrenar#325). Pre-allocates 32 MB cuBLAS
-      workspace before graph capture. Without this, CUDA graph capture fails
-      on Ada (sm_89) with CUDA_ERROR_INVALID_VALUE.
-
-  - id: PMAT-472
-    title: "FP16 backward GEMM + drop fp32 weights — free 2.6 GB VRAM"
-    status: completed
-    priority: critical
-    description: >
-      SHIPPED: entrenar@435e9762 (entrenar#326). gemm_f16_to_f32_backward_a for
-      mixed-precision backward. All 7 backward GEMMs wired via fp16_dispatch.
-      fp32 weights dropped after cast — blocks shrink 5.2→2.6 GB. GPU embeddings
-      now fit on yoga 8GB → GPU lm_head backward → CPU bottleneck eliminated.
-
-  - id: PMAT-473
-    title: "FP16 canary pipeline + provable contract + NaN scoring"
-    status: completed
-    priority: critical
-    description: >
-      SHIPPED: make canary-apr-fp16, make canary-apr-fp16-graph, NaN rate gate,
-      provable contract fp16-training-parity-v1.yaml with 4 falsification tests.
-      38 pytest tests passing. Nightly pipeline exercises FP16 path.
-
-  - id: PMAT-474
-    title: "Fix 3 FP16 path crash bugs — buffer resize, K/V guard, alloc reuse"
-    status: completed
-    priority: critical
-    description: >
-      SHIPPED: entrenar#327. Code path trace found 3 bugs before first measurement:
-      (1) FP16 activation buffers never resized on seq_len change — GPU OOB write.
-      (2) K/V forward unwrap without checking both — panic on partial init.
-      (3) 196 temporary GPU allocs per backward — 1.8 GB churn, now reused.
-
-  - id: PMAT-465
-    title: "Add gradient-accumulation baseline for yoga"
-    status: completed
-    priority: high
-    github_issue: 19
-    description: >
-      Added pytorch@yoga baseline (1500 tok/s, 7500 MB VRAM, loss < 2.0).
-      PROVISIONAL until first measurement from make canary-pytorch-gradacc.
+- id: PMAT-439
+  github_issue: 1
+  item_type: task
+  title: Fix F-WL-06 falsification register — stale APR state (5 fixes → 15, learning)
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-440
+  github_issue: 2
+  item_type: task
+  title: Fix optimization-roadmap P0 — 'loss stays at 11.93' contradicts pipeline learning
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-441
+  github_issue: 3
+  item_type: task
+  title: Fix deployment-topology.md stale deferred-until notes (PMAT-424/431 both DONE)
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-442
+  github_issue: 4
+  item_type: task
+  title: Update wgpu baseline threshold from 100 to measured 6,730 tok/s (Qwen-sized synthetic)
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-443
+  github_issue: 5
+  item_type: task
+  title: Fix falsification register duplicates — conditions in both Active and Falsified tables
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-444
+  github_issue: null
+  item_type: task
+  title: Validate F-MET-01 — canary metrics schema validation
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-445
+  github_issue: null
+  item_type: task
+  title: Validate F-SC-01 — score-gate logic correctness
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-446
+  github_issue: null
+  item_type: task
+  title: Fix baselines.json — wgpu 100→6600, add pytorch-compile entry
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-447
+  github_issue: 8
+  item_type: task
+  title: Confirm F-WL-04 — cuBLAS TF32 meaningful (ratio=1.0043)
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-448
+  github_issue: 9
+  item_type: task
+  title: Fix nightly.sh — add canary-apr, canary-unsloth-gx10, unblock WGPU
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-449
+  github_issue: 10
+  item_type: task
+  title: Fix schema enum — add apr, pytorch-compile to spec Section 4
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-450
+  github_issue: null
+  item_type: task
+  title: Create test infrastructure — 23 pytest tests
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-451
+  github_issue: 11
+  item_type: task
+  title: Fix score.py VRAM handling — skip when baseline omits peak_vram_mb
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-452
+  github_issue: null
+  item_type: task
+  title: Validate F-EXEC-01 — inject GPU throttle, verify scoring detects regression
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-453
+  github_issue: 12
+  item_type: task
+  title: Fix APR canary timeout + backend field + collect fresh gx10 results
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-454
+  github_issue: 13
+  item_type: task
+  title: Fix APR metrics quality — parse VRAM/loss from stderr, file upstream
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-455
+  github_issue: null
+  item_type: task
+  title: Trace APR NaN root cause — trueno NF4 zeros V-projection weights
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-456
+  github_issue: 14
+  item_type: task
+  title: Fix cuBLAS throughput_ratio upper bound (spec 0.95-1.05, was only >= 0.95)
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-457
+  github_issue: 15
+  item_type: task
+  title: Fix APR canary throughput formula + baselines update
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-458
+  github_issue: 16
+  item_type: task
+  title: FP16 cuBLAS GEMM training — Tier 2 SHIPPED
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-459
+  github_issue: 17
+  item_type: task
+  title: Gradient accumulation canary — batch=1 accum=4 for yoga 8GB (PMAT-428)
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-462
+  github_issue: 18
+  item_type: task
+  title: Fix APR NaN-inflated throughput — baseline PROVISIONAL, upstream norm_guard
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-463
+  github_issue: 19
+  item_type: task
+  title: Add nightly coverage — apr-gx10, pytorch-gradacc-yoga
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-464
+  github_issue: 20
+  item_type: task
+  title: CUDA graph capture for NF4 training — Tier 3 UNBLOCKED
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 2026-04-03T09:17:05.612707047+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-467
+  github_issue: 21
+  item_type: task
+  title: Fix score.py NaN loss + PROVISIONAL handling + 7 new tests
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-470
+  github_issue: 16
+  item_type: task
+  title: FP16 weight storage + set_fp16_weights() — Tier 2 COMPLETE
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-471
+  github_issue: null
+  item_type: task
+  title: CPU lm_head backward fallback for VRAM-constrained GPUs
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-063
+  github_issue: null
+  item_type: task
+  title: cuBLAS workspace pre-allocation for CUDA graph capture
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-472
+  github_issue: null
+  item_type: task
+  title: FP16 backward GEMM + drop fp32 weights — free 2.6 GB VRAM
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-473
+  github_issue: null
+  item_type: task
+  title: FP16 canary pipeline + provable contract + NaN scoring
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-474
+  github_issue: null
+  item_type: task
+  title: Fix 3 FP16 path crash bugs — buffer resize, K/V guard, alloc reuse
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-465
+  github_issue: 19
+  item_type: task
+  title: Add gradient-accumulation baseline for yoga
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 1970-01-01T00:00:00Z
+  updated: 1970-01-01T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-475
+  github_issue: 22
+  item_type: task
+  title: "NF4 kernel fusion — RMSNorm+GEMV, Gate+Up+SwiGLU for training throughput"
+  status: in_progress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+  description: >
+    APR training is 34x slower than unsloth (194 vs 6,628 tok/s). Root cause: memory
+    bandwidth bound. Q4K fusions exist in trueno (FusedRmsNormGateUpSwigluQ4KKernel)
+    but NF4 variants missing. Replicate Q4K fusion pattern for NF4 data type.
+    Contracts: nf4-fused-rmsnorm-gemv-v1.yaml, nf4-fused-gate-up-swiglu-v1.yaml.
+    Expected: 1.5x throughput improvement (194 → ~290 tok/s).
+- id: PMAT-476
+  github_issue: 24
+  item_type: task
+  title: "Measure FP16 throughput — Tier 2 shipped but unmeasured"
+  status: in_progress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+  description: >
+    FP16 path (entrenar#324, #325, #326, #327) shipped but never measured.
+    make canary-apr-fp16 exists but never executed. All 4 falsification tests
+    in fp16-training-parity-v1.yaml are PENDING. Must run measurement and
+    validate contract F-FP16-001..004.
+- id: PMAT-477
+  github_issue: 23
+  item_type: task
+  title: "Fix backward graph capture — move gradient clipping outside graph boundary"
+  status: in_progress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+  description: >
+    CUDA graph backward capture blocked by per-layer gradient clipping D2H sync.
+    squared_sum_cuda() calls stream.synchronize() inside backward loop (168 sync
+    points per backward pass). Fix: move clipping outside graph, compute norms in
+    batch, single sync. Contract: cuda-graph-backward-v1.yaml.

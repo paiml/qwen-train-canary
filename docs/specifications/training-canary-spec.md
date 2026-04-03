@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 3.8.0
+**Version:** 3.9.0
 **Last Updated:** 2026-04-03
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -417,7 +417,9 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-439-456 | Spec audit, schema/scoring validation, test infrastructure | 18 |
 | PMAT-457-461 | Parity fixes: APR baselines, FP16 GEMM, grad accum, profiler | 5 |
 | PMAT-462-466 | NaN fix, nightly coverage, CUDA graph contract, spec v3.4.0 | 5 |
-| **Total** | | **47** |
+| PMAT-467-474 | FP16 path: weight cast, backward GEMM, crash fixes, canary pipeline | 8 |
+| PMAT-475-477 | Kernel fusion (NF4 RMSNorm+GEMV), backward graph unblock (fused clip), FP16 measurement | 3 |
+| **Total** | | **58** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -443,3 +445,5 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 3.2.0 | 2026-04-01 | All 15 falsification conditions resolved. Schema validator + 25 pytest tests. F-EXEC-01 CONFIRMED (GPU clock injection). Fresh gx10 results (unsloth 16,118 tok/s). APR canary timeout fixed. nightly.sh complete (all 3 hosts, 5 canaries). score.py VRAM skip for baselines lacking peak_vram_mb. | PMAT-443-453 |
 | 3.3.0 | 2026-04-03 | APR throughput corrected: 44→194 tok/s (34x gap, was 151x). Throughput formula bug fixed (8x under-report). APR baselines updated (190 tok/s, loss 20.0). FP16 cuBLAS GEMM contract designed (Tier 2: 390 tok/s target). Gradient accumulation canary implemented. Step profiler integration. FP16 GEMM primitives landed upstream (entrenar@1ce6ef24). 42 total PMAT items. | PMAT-457-461 |
 | 3.4.0 | 2026-04-03 | APR baseline marked PROVISIONAL (NaN backward skips inflate 194 tok/s). Fused residual+RMSNorm fix landed upstream (entrenar@b4d74f2c, entrenar#321). CUDA graph Tier 3 contract designed (→1200 tok/s, entrenar#322). Nightly coverage complete: all 5 runtimes on all hosts. pytorch-gradacc yoga target added. 22 upstream fixes total. 47 PMAT items. | PMAT-462-466 |
+| 3.5.0-3.8.0 | 2026-04-03 | FP16 forward+backward GEMM shipped (Tier 2). CPU lm_head backward fallback. cuBLAS workspace pre-alloc. fp32 weight drop (2.6 GB freed). FP16 canary pipeline + provable contract. 3 crash bugs fixed. 26 upstream fixes. CUDA graph forward shipped, backward deferred. | PMAT-470-474 |
+| 3.9.0 | 2026-04-03 | **Kernel fusion + backward graph unblocking.** Five-whys: 34x gap root cause is memory BW, not compute. NF4 fused RMSNorm+GEMV kernel in trueno (PMAT-475). Fused LoRA gradient clipping in entrenar — 168 D2H sync → 0, enables CUDA graph backward (PMAT-477). FP16 measurement gap identified (PMAT-476). 3 provable contracts. 28 upstream fixes. | PMAT-475-477 |

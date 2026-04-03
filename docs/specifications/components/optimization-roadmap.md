@@ -90,6 +90,16 @@
 | paiml/entrenar#325 | cuBLAS workspace pre-alloc (PMAT-063) | **FIXED** (2026-04-03, fix #24) |
 | paiml/entrenar#326 | FP16 backward GEMM + fp32 drop (PMAT-472) | **FIXED** (2026-04-03, fix #25) |
 | paiml/entrenar#327 | FP16 path crash bugs: resize + guard + alloc (PMAT-474) | **FIXED** (2026-04-03, fix #26) |
+| paiml/qwen-train-canary#22 | NF4 kernel fusion: RMSNorm+GEMV, Gate+Up+SwiGLU (PMAT-475) | **IN PROGRESS** — RMSNorm+NF4 GEMV kernel shipped in trueno |
+| paiml/qwen-train-canary#23 | Backward graph capture: move gradient clipping outside graph (PMAT-477) | **IN PROGRESS** — fused clip shipped in entrenar |
+| paiml/qwen-train-canary#24 | FP16 throughput measurement (PMAT-476) | Open — canary-apr-fp16 never executed |
+
+### Upstream Fixes (2026-04-03, fixes #27-28)
+
+| # | Fix | Repo | Impact |
+|---|-----|------|--------|
+| 27 | Fused LoRA gradient clipping (PMAT-477) | entrenar | 168 D2H sync points → 0 per backward; enables CUDA graph capture |
+| 28 | Fused RMSNorm + NF4 GEMV kernel (PMAT-475) | trueno | Eliminates global memory roundtrip between RMSNorm and NF4 GEMV |
 
 ### Contracts
 
@@ -97,6 +107,9 @@
 |----------|--------|
 | cuda-training-forward-v1.yaml | 5/5 falsified, 3 resolved |
 | chunked-lm-head-v1.yaml | Design complete, superseded by CPU lm_head |
+| nf4-fused-rmsnorm-gemv-v1.yaml | Designed, 4 falsification tests PENDING (PMAT-475) |
+| nf4-fused-gate-up-swiglu-v1.yaml | Designed, 4 falsification tests PENDING (PMAT-475) |
+| cuda-graph-backward-v1.yaml | Designed, 4 falsification tests PENDING (PMAT-477) |
 
 ## Findings Summary (2026-04-01)
 
