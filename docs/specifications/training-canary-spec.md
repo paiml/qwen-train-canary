@@ -303,7 +303,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 |--------|---------|-----------|-------------|------------|
 | **apr** (NF4 cuBLAS) | entrenar (Rust) | **PROVISIONAL** ~194 tok/s (NaN skips inflate — PMAT-462) | TBD | N/A |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, compute-bound, 2026-04-03) | TBD | N/A |
-| **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479 shipped, canary ready | TBD | N/A |
+| **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479+481 shipped+wired, canary ready | TBD | N/A |
 | **apr-fp16** (FP16 GEMM) | entrenar (Rust) | **UNMEASURED** — PMAT-470/472 shipped, canary ready | TBD | N/A |
 | **apr-fused** (fused Gate+Up+K+V) | entrenar (Rust) | **UNMEASURED** — PMAT-475/478 shipped, canary ready | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,628** (2026-04-01) | **16,118** (2026-04-01) | N/A |
@@ -424,7 +424,8 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-475-477 | Kernel fusion (NF4 RMSNorm+GEMV), backward graph unblock (fused clip), FP16 measurement | 3 |
 | PMAT-478-479 | Fused K+V NF4 GEMM (GQA attention), NF4 tensor core GEMM (WMMA 16×16×16) | 2 |
 | PMAT-480 | Training step profiling — wire BrickProfiler into training loop (scientific profiling) | 1 |
-| **Total** | | **61** |
+| PMAT-481-482 | NF4 tensor core GEMM wiring, fused backward GEMM gap | 2 |
+| **Total** | | **63** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 

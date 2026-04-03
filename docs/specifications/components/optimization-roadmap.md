@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-**35 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02). Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED but unmeasured — blocked on per-layer profiling (PMAT-480).
+**37 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02). Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Ready for `make canary-apr-profile`.
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -95,6 +95,8 @@
 | paiml/qwen-train-canary#24 | FP16 throughput measurement (PMAT-476) | Open — canary-apr-fp16 never executed |
 | paiml/qwen-train-canary#27 | Training step profiling (PMAT-480) | Open — BrickProfiler integration for per-layer training timing |
 | paiml/entrenar#328 | Wire BrickProfiler into training forward+backward | Open — upstream dependency for PMAT-480 |
+| paiml/entrenar#329 | Wire NF4 tensor core GEMM into training forward | **FIXED** (2026-04-03, fix #37) — PMAT-481 |
+| paiml/entrenar#330 | Fused backward GEMM for Gate+Up and K+V | Open — PMAT-482 |
 
 ### Upstream Fixes (2026-04-03, fixes #27-28)
 
@@ -109,6 +111,8 @@
 | 33 | Fused K+V NF4 GEMM for GQA attention (PMAT-478) | entrenar | Reuses Gate+Up kernel for K+V (same dim in GQA). 352 MB/step saved. |
 | 34 | NF4 tensor core GEMM — WMMA 16×16×16 (PMAT-479) | trueno | Dequant NF4→FP16 in SHMEM + WMMA mma.sync. 5-40x compute vs naive. |
 | 35 | Training step profiling contract (PMAT-480) | qwen-train-canary | 12 falsification tests for scientific per-layer training profiling. |
+| 36 | Per-layer training profiler (PMAT-480) | entrenar | begin_layer/end_layer_fwd/end_layer_bwd wired into forward+backward. |
+| 37 | NF4 tensor core GEMM wiring (PMAT-481) | entrenar | NF4_TC_GEMM=1 dispatches to WMMA kernel in all 7 forward projections. |
 
 ### Contracts
 
@@ -312,7 +316,7 @@ that stay entirely on GPU with fp16 tensor core compute.
 | **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **FORWARD SHIPPED** — PMAT-464. Backward DEFERRED: optimizer step dependency + gradient clipping sync blockers. |
 | **4** | Fused NF4 Gate+Up GEMM (shared input load) | →3000 | — | **SHIPPED** — PMAT-475. Eliminates 336 MB/step DRAM for FFN. |
 | **4.5** | Fused K+V NF4 GEMM (GQA attention reuse) | →3500 | — | **SHIPPED** — PMAT-478. Saves 352 MB/step. 688 MB total DRAM eliminated. |
-| **4.7** | NF4 tensor core GEMM (WMMA 16×16×16) | →4000 | — | **SHIPPED** — PMAT-479. Dequant NF4→FP16 in SHMEM + WMMA mma.sync. |
+| **4.7** | NF4 tensor core GEMM (WMMA 16×16×16) | →4000 | — | **WIRED** — PMAT-479+481. Dequant NF4→FP16 in SHMEM + WMMA mma.sync. All 7 projections. |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
 

@@ -610,3 +610,35 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-481
+  github_issue: null
+  item_type: task
+  title: NF4 tensor core GEMM not wired — trueno kernel exists, entrenar has no code path
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T13:03:37Z
+  updated: 2026-04-03T13:03:37Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-482
+  github_issue: null
+  item_type: task
+  title: Fused backward GEMM gap — Gate+Up and K+V backward still use separate GEMMs
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-04-03T13:03:37Z
+  updated: 2026-04-03T13:03:37Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
