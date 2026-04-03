@@ -473,3 +473,42 @@ def test_profiler_absent_skips_check():
     baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
     score = score_result(result, baseline)
     assert "wall_coverage" not in score["checks"], "No profiler = no wall_coverage check"
+
+
+# --- Per-operation GEMM dominance (F-POP-002, PMAT-483) ---
+
+
+def test_gemm_dominance_passes():
+    """F-POP-002: GEMM >= 30% of op time should PASS."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+        "profiler": {"wall_coverage": 0.95, "gemm_pct": 65.0, "bottleneck": "memory_bw"},
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["checks"]["gemm_dominance"]["pass"], "65% GEMM should pass"
+
+
+def test_gemm_dominance_fails():
+    """F-POP-002: GEMM < 30% means launch overhead or transfers dominate."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+        "profiler": {"wall_coverage": 0.95, "gemm_pct": 15.0, "bottleneck": "launch"},
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert not score["checks"]["gemm_dominance"]["pass"], "15% GEMM should fail"
+
+
+def test_gemm_dominance_absent_skips():
+    """No gemm_pct should skip check."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+        "profiler": {"wall_coverage": 0.95},
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert "gemm_dominance" not in score["checks"]

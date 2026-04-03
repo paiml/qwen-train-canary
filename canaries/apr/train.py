@@ -201,7 +201,7 @@ def main():
     # Parse step profiler output if present (step-profiler-v1 contract)
     # PMAT-483: Prefer structured JSON output (print_json_report), fall back to text table
     profiler_data = {}
-    json_profiler_match = re.search(r'(\{"_profiler":"step_profiler_v1".*\})', stderr)
+    json_profiler_match = re.search(r'(\{"_profiler":"step_profiler_v[12]".*\})', stderr)
     if json_profiler_match:
         try:
             profiler_data = json.loads(json_profiler_match.group(1))
@@ -297,9 +297,14 @@ def main():
     if profiler_data:
         wc = profiler_data.get("wall_coverage", 0)
         bn = profiler_data.get("bottleneck", "unknown")
-        print(f"  profiler: wall_coverage={wc:.1%}, bottleneck={bn}")
+        gp = profiler_data.get("gemm_pct", 0)
+        print(f"  profiler: wall_coverage={wc:.1%}, bottleneck={bn}, gemm_pct={gp:.1f}%")
         if wc < 0.90:
             print(f"  WARNING: wall coverage {wc:.1%} < 90% — missing instrumentation (F-TSP-001)")
+        ops = profiler_data.get("ops", {})
+        if ops:
+            top_ops = sorted(ops.items(), key=lambda x: x[1], reverse=True)[:5]
+            print(f"  top ops: {', '.join(f'{k}={v:.1f}ms' for k, v in top_ops)}")
     print(f"  output: {args.output}")
 
 

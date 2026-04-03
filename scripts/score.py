@@ -98,6 +98,15 @@ def score_result(result: dict, baseline: dict) -> dict:
             "pass": wc >= 0.90,
         }
 
+    # PMAT-483/F-POP-002: GEMM dominance check (>= 30% of op time — relaxed from 50%)
+    if profiler and "gemm_pct" in profiler:
+        gp = profiler["gemm_pct"]
+        checks["gemm_dominance"] = {
+            "value": round(gp, 1),
+            "threshold": 30.0,
+            "pass": gp >= 30.0,  # If GEMM < 30%, launch overhead or transfers dominate
+        }
+
     all_pass = all(c["pass"] for c in checks.values())
     # Surface PROVISIONAL status from APR NaN-inflated measurements (PMAT-462)
     provisional = m.get("_baseline_status") == "PROVISIONAL"
