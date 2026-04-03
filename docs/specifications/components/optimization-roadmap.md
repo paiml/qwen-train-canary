@@ -103,6 +103,7 @@
 | 29 | Backward graph capture infra (PMAT-464) | entrenar | backward_graph.rs: capture/replay for full backward loop |
 | 30 | instruct_pipeline.rs → 12 files ≤500 lines | entrenar | Toyota Way: eliminated 4114-line monolith, all files ≤500 |
 | 31 | Fused NF4 Gate+Up GEMM kernel (PMAT-475) | trueno | Shared input load: 336 MB/step DRAM eliminated for FFN (2/3 compute) |
+| 32 | Wire fused Gate+Up into training forward (PMAT-475) | entrenar | NF4_FUSED_GEMM=1 uses single fused kernel instead of 2× gemm_nf4_forward |
 
 ### Contracts
 
