@@ -185,7 +185,7 @@ canary-cublas-gx10:
 # APR fine-tune (Sovereign Stack — aprender/entrenar)
 # ============================================================================
 
-.PHONY: canary-apr canary-apr-fused canary-apr-tc canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
+.PHONY: canary-apr canary-apr-fused canary-apr-fused-bwd canary-apr-tc canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
 
 canary-apr:
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -218,6 +218,23 @@ canary-apr-fused:
 			--method qlora \
 			--output /tmp/canary-apr-fused-$(DATE).json'
 	scp yoga:/tmp/canary-apr-fused-$(DATE).json results/
+
+# PMAT-484: Fused backward Gate+Up canary — validates NF4_FUSED_BWD_GEMM=1 path.
+# Contract: fused-backward-gemm-v1.yaml (gradient parity, wall time improvement)
+canary-apr-fused-bwd:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		NF4_FUSED_GEMM=1 NF4_FUSED_BWD_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps $(CANARY_STEPS) \
+			--batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--output /tmp/canary-apr-fused-bwd-$(DATE).json'
+	scp yoga:/tmp/canary-apr-fused-bwd-$(DATE).json results/
 
 # PMAT-479: NF4 tensor core GEMM canary — validates NF4_TC_GEMM=1 path.
 # Contract: nf4-tensor-core-gemm-v1.yaml (throughput >= 5x naive, loss parity)
