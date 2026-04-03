@@ -21,7 +21,13 @@
     "tokens_per_sec": 50,
     "peak_vram_mb": 4200,
     "final_loss": 20.0,
-    "_status": "PROVISIONAL — NF4_TC_GEMM=1 tensor core path (PMAT-479). Needs first measurement."
+    "_status": "PROVISIONAL — NF4_TC_GEMM=1 tensor core forward (PMAT-479). Needs first measurement."
+  },
+  "apr-tc-bwd": {
+    "tokens_per_sec": 70,
+    "peak_vram_mb": 4200,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — NF4_TC_GEMM=1 + NF4_TC_BWD_GEMM=1 forward+backward TC (PMAT-481). Eliminates 196 kernel launches/step."
   },
   "apr-fused-fp16": {
     "tokens_per_sec": 200,

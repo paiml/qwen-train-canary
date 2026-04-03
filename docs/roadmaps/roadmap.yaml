@@ -538,7 +538,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T13:44:02.301005802+00:00
+  updated: 2026-04-03T20:02:29.835056247+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -602,7 +602,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T13:44:03.505325497+00:00
+  updated: 2026-04-03T20:02:36.377648373+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -618,7 +618,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T13:44:03.708793392+00:00
+  updated: 2026-04-03T20:02:36.692319559+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -634,7 +634,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T13:44:04.284845632+00:00
+  updated: 2026-04-03T20:02:36.823583797+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -646,11 +646,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'PMAT-483: Per-operation BrickProfiler contract + JSON profiling output'
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:48:56Z
-  updated: 2026-04-03T13:48:56Z
+  updated: 2026-04-03T20:02:36.938156788+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -662,11 +662,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'PMAT-484: Fused backward GEMM — forward fusion shipped, backward unfused'
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:48:57Z
-  updated: 2026-04-03T13:48:57Z
+  updated: 2026-04-03T20:02:37.056163418+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -678,11 +678,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'PMAT-485: Extend probar with training step profiling scorer'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-04-03T13:48:57Z
-  updated: 2026-04-03T13:48:57Z
+  updated: 2026-04-03T20:02:37.173308712+00:00
   spec: null
   acceptance_criteria: []
   phases: []

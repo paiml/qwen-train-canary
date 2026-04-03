@@ -185,7 +185,7 @@ canary-cublas-gx10:
 # APR fine-tune (Sovereign Stack — aprender/entrenar)
 # ============================================================================
 
-.PHONY: canary-apr canary-apr-fused canary-apr-fused-bwd canary-apr-tc canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
+.PHONY: canary-apr canary-apr-fused canary-apr-fused-bwd canary-apr-tc canary-apr-tc-bwd canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
 
 canary-apr:
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -199,6 +199,7 @@ canary-apr:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
+			--profile-interval 1 \
 			--output /tmp/canary-apr-$(DATE).json'
 	scp yoga:/tmp/canary-apr-$(DATE).json results/
 
@@ -252,6 +253,24 @@ canary-apr-tc:
 			--method qlora \
 			--output /tmp/canary-apr-tc-$(DATE).json'
 	scp yoga:/tmp/canary-apr-tc-$(DATE).json results/
+
+# PMAT-481: NF4 tensor core backward GEMM canary — validates NF4_TC_BWD_GEMM=1 path.
+# Contract: nf4-backward-tensor-core-gemm-v1.yaml (parity, launch reduction, throughput)
+canary-apr-tc-bwd:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		NF4_TC_GEMM=1 NF4_TC_BWD_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps $(CANARY_STEPS) \
+			--batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--profile-interval 1 \
+			--output /tmp/canary-apr-tc-bwd-$(DATE).json'
+	scp yoga:/tmp/canary-apr-tc-bwd-$(DATE).json results/
 
 # PMAT-473: FP16 tensor core canary — validates FP16_GEMM=1 path.
 # Contract: fp16-training-parity-v1.yaml (loss parity, throughput >= 1.3x, NaN regression)
