@@ -228,6 +228,27 @@ roadmap:
       28-layer forward, replay with single call. Contract: cuda-graph-training-v1.yaml.
       Upstream: entrenar#322.
 
+  - id: PMAT-467
+    title: "Fix score.py NaN loss + PROVISIONAL handling + 7 new tests"
+    status: completed
+    priority: high
+    github_issue: 21
+    description: >
+      NaN final_loss → FAIL (was silent). PROVISIONAL surfaced in score output.
+      Schema: APR must include nan_backward_skips. Makefile: apr-gx10 model path.
+      33 tests (was 26). 16/16 results pass schema.
+
+  - id: PMAT-470
+    title: "FP16 weight storage + gemm_f16_to_f32_forward (Tier 2 infrastructure)"
+    status: in_progress
+    priority: critical
+    github_issue: 16
+    description: >
+      CudaNf4TransformerBlock now has w_X_fp16: Option<GpuBuffer<u16>> fields.
+      gemm_f16_to_f32_forward landed (fp16×fp16→fp32 tensor core GEMM).
+      Remaining: GPU fp32→fp16 activation cast kernel for forward dispatch.
+      Upstream: entrenar@7dd3e3cb.
+
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
     status: completed
