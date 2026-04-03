@@ -284,7 +284,7 @@ that stay entirely on GPU with fp16 tensor core compute.
 | **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **SHIPPED** — forward + backward FP16 GEMM, fp32 weights DROPPED. FP16_GEMM=1 frees ~2.6 GB VRAM (entrenar#324, #326). |
 | **2.5** | cuBLAS workspace pre-alloc (PMAT-063) | unblocks CUDA graphs | — | **SHIPPED** — entrenar@de2ad7e1, entrenar#325. 32 MB pre-alloc before graph capture. |
 | **2.7** | FP16 backward + fp32 drop (PMAT-472) | GPU embeddings fit | — | **SHIPPED** — entrenar@435e9762, entrenar#326. Backward uses tensor cores. fp32 dropped → 2.6 GB freed → GPU lm_head. |
-| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **UNBLOCKED** — cuBLAS workspace shipped, forward capture exists (PMAT-464). Backward capture TODO. |
+| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **FORWARD SHIPPED** — PMAT-464. Backward DEFERRED: optimizer step dependency + gradient clipping sync blockers. |
 | **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
