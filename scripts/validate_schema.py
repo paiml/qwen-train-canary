@@ -75,15 +75,22 @@ def validate_result(path: str) -> list[str]:
             if field not in parity:
                 errors.append(f"[{fname}] Missing metrics.parity.{field}")
 
+    # F-SCHEMA-040: APR-specific metrics (PMAT-468)
+    if canary == "apr":
+        for field in ["nan_backward_skips", "valid_backward_steps"]:
+            if field not in metrics:
+                errors.append(f"[{fname}] APR canary missing metrics.{field}")
+
     # F-DOMAIN-001: Throughput positive
     tok_s = metrics.get("tokens_per_sec", None)
     if tok_s is not None and tok_s <= 0:
         errors.append(f"[{fname}] tokens_per_sec must be > 0 (got {tok_s})")
 
     # F-DOMAIN-002: Loss finite and non-negative
+    import math
     loss = metrics.get("final_loss", None)
-    if loss is not None and (loss < 0 or loss >= 500):
-        errors.append(f"[{fname}] final_loss must be in [0, 100) (got {loss})")
+    if loss is not None and (loss < 0 or loss >= 500 or (isinstance(loss, float) and math.isnan(loss))):
+        errors.append(f"[{fname}] final_loss must be in [0, 500) and finite (got {loss})")
 
     # F-DOMAIN-003: VRAM within hardware limits
     vram = metrics.get("peak_vram_mb", None)

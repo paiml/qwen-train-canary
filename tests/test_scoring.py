@@ -203,3 +203,66 @@ def test_good_result_passes():
     score = score_result(result, UNSLOTH_BASELINE)
     assert score["pass"]
     assert all(c["pass"] for c in score["checks"].values())
+
+
+# --- NaN loss handling (PMAT-467) ---
+
+
+def test_nan_loss_treated_as_fail():
+    """NaN final_loss must trigger loss FAIL (not pass silently)."""
+    result = {
+        "canary": "unsloth",
+        "metrics": {"tokens_per_sec": 6700, "peak_vram_mb": 3515, "final_loss": float("nan")},
+    }
+    score = score_result(result, UNSLOTH_BASELINE)
+    assert not score["checks"]["loss"]["pass"], "NaN loss should FAIL"
+
+
+# --- PROVISIONAL status (PMAT-462/467) ---
+
+
+def test_apr_provisional_flagged():
+    """APR with _baseline_status=PROVISIONAL must surface provisional=True."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 194,
+            "peak_vram_mb": 4000,
+            "final_loss": 16.8,
+            "_baseline_status": "PROVISIONAL",
+        },
+    }
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["provisional"] is True
+
+
+def test_non_provisional_flagged_false():
+    """Standard canary should have provisional=False."""
+    result = {
+        "canary": "unsloth",
+        "metrics": {"tokens_per_sec": 6700, "peak_vram_mb": 3515, "final_loss": 0.15},
+    }
+    score = score_result(result, UNSLOTH_BASELINE)
+    assert score["provisional"] is False
+
+
+# --- Host-specific baseline (PMAT-465) ---
+
+
+def test_host_specific_baseline_used():
+    """pytorch@yoga baseline should be used when host matches."""
+    from score import load_baselines
+    import tempfile, json as j
+
+    baselines = {
+        "pytorch": {"tokens_per_sec": 4000, "final_loss": 2.0},
+        "pytorch@yoga": {"tokens_per_sec": 1500, "final_loss": 2.0},
+    }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        j.dump(baselines, f)
+        f.flush()
+        loaded = load_baselines(f.name)
+    # Host-specific lookup
+    baseline = loaded.get("pytorch@yoga", loaded.get("pytorch", {}))
+    assert baseline["tokens_per_sec"] == 1500, "Should use host-specific baseline"

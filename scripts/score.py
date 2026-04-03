@@ -4,6 +4,7 @@
 import argparse
 import glob
 import json
+import math
 import os
 import sys
 
@@ -60,8 +61,10 @@ def score_result(result: dict, baseline: dict) -> dict:
             "pass": vram <= base_vram * (1 + VRAM_TOLERANCE),
         }
 
-    # Loss convergence check
+    # Loss convergence check — NaN treated as infinite (PMAT-467)
     loss = m.get("final_loss", float("inf"))
+    if isinstance(loss, float) and math.isnan(loss):
+        loss = float("inf")
     base_loss = baseline.get("final_loss", 2.0)
     checks["loss"] = {
         "value": loss,
@@ -70,7 +73,9 @@ def score_result(result: dict, baseline: dict) -> dict:
     }
 
     all_pass = all(c["pass"] for c in checks.values())
-    return {"canary": canary, "pass": all_pass, "checks": checks}
+    # Surface PROVISIONAL status from APR NaN-inflated measurements (PMAT-462)
+    provisional = m.get("_baseline_status") == "PROVISIONAL"
+    return {"canary": canary, "pass": all_pass, "checks": checks, "provisional": provisional}
 
 
 def score_cublas_result(result: dict, baseline: dict) -> dict:
@@ -142,8 +147,11 @@ def main():
         for s in scores:
             c = s["checks"]
             check_strs = [f"{k}={'PASS' if v['pass'] else 'FAIL'}" for k, v in c.items()]
+            status = "PASS" if s["pass"] else "FAIL"
+            if s.get("provisional"):
+                status = "PROV"
             lines.append(
-                f"{s['canary']:12} | {'PASS' if s['pass'] else 'FAIL':4} | {', '.join(check_strs)}"
+                f"{s['canary']:12} | {status:4} | {', '.join(check_strs)}"
             )
         output = "\n".join(lines)
 

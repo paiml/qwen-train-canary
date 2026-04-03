@@ -186,3 +186,46 @@ def test_good_result_passes():
     """Complete valid result must have zero errors."""
     errors = _write_and_validate(GOOD_CUDA_RESULT)
     assert len(errors) == 0, f"Good result should pass: {errors}"
+
+
+# --- APR-specific schema (PMAT-468) ---
+
+GOOD_APR_RESULT = {
+    "canary": "apr",
+    "backend": "cuda",
+    "host": "yoga",
+    "timestamp": "2026-04-02T22:22:13+00:00",
+    "gpu": GOOD_CUDA_RESULT["gpu"],
+    "config": {**GOOD_CUDA_RESULT["config"], "method": "qlora", "rank": 16},
+    "metrics": {
+        "throughput_samples_sec": 0.38,
+        "tokens_per_sec": 194.1,
+        "peak_vram_mb": 1166,
+        "final_loss": 16.80,
+        "nan_backward_skips": 7,
+        "valid_backward_steps": 6,
+        "_baseline_status": "PROVISIONAL",
+    },
+}
+
+
+def test_apr_missing_nan_skips():
+    """APR result must include nan_backward_skips."""
+    data = {**GOOD_APR_RESULT}
+    data["metrics"] = {k: v for k, v in data["metrics"].items() if k != "nan_backward_skips"}
+    errors = _write_and_validate(data)
+    assert any("nan_backward_skips" in e for e in errors)
+
+
+def test_apr_good_result_passes():
+    """Complete valid APR result must have zero errors."""
+    errors = _write_and_validate(GOOD_APR_RESULT)
+    assert len(errors) == 0, f"Good APR result should pass: {errors}"
+
+
+def test_nan_loss_rejected():
+    """NaN loss must be rejected by schema validator."""
+    data = {**GOOD_CUDA_RESULT}
+    data["metrics"] = {**data["metrics"], "final_loss": float("nan")}
+    errors = _write_and_validate(data)
+    assert any("final_loss" in e for e in errors)

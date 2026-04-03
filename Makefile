@@ -206,6 +206,7 @@ canary-apr-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
 		python3 canaries/apr/train.py \
 			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \
 			--seq-len $(CANARY_SEQ_LEN) \

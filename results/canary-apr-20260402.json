@@ -27,6 +27,9 @@
     "peak_vram_mb": 1166,
     "final_loss": 16.7986,
     "wall_time_sec": 131.9,
+    "nan_backward_skips": 7,
+    "valid_backward_steps": 6,
+    "_baseline_status": "PROVISIONAL",
     "_metrics_quality": "measured"
   },
   "apr_output": {
