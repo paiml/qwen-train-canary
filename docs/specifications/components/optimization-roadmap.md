@@ -105,6 +105,7 @@
 | 31 | Fused NF4 Gate+Up GEMM kernel (PMAT-475) | trueno | Shared input load: 336 MB/step DRAM eliminated for FFN (2/3 compute) |
 | 32 | Wire fused Gate+Up into training forward (PMAT-475) | entrenar | NF4_FUSED_GEMM=1 uses single fused kernel instead of 2× gemm_nf4_forward |
 | 33 | Fused K+V NF4 GEMM for GQA attention (PMAT-478) | entrenar | Reuses Gate+Up kernel for K+V (same dim in GQA). 352 MB/step saved. |
+| 34 | NF4 tensor core GEMM — WMMA 16×16×16 (PMAT-479) | trueno | Dequant NF4→FP16 in SHMEM + WMMA mma.sync. 5-40x compute vs naive. |
 
 ### Contracts
 
