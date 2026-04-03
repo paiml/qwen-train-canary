@@ -88,6 +88,16 @@ def score_result(result: dict, baseline: dict) -> dict:
             "pass": nan_rate < 0.5,  # >50% NaN = training broken
         }
 
+    # PMAT-483: Profiling wall coverage check (F-TSP-001)
+    profiler = result.get("profiler", {})
+    if profiler and "wall_coverage" in profiler:
+        wc = profiler["wall_coverage"]
+        checks["wall_coverage"] = {
+            "value": round(wc, 3),
+            "threshold": 0.90,
+            "pass": wc >= 0.90,
+        }
+
     all_pass = all(c["pass"] for c in checks.values())
     # Surface PROVISIONAL status from APR NaN-inflated measurements (PMAT-462)
     provisional = m.get("_baseline_status") == "PROVISIONAL"

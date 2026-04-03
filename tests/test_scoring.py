@@ -423,3 +423,53 @@ def test_apr_tc_nan_rate_fails():
     baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
     score = score_result(result, baseline)
     assert not score["pass"], ">50% NaN rate should fail"
+
+
+# --- Profiling wall coverage (F-TSP-001, PMAT-483) ---
+
+
+def test_profiler_wall_coverage_passes():
+    """F-TSP-001: Wall coverage >= 90% should PASS profiling check."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+        "profiler": {
+            "_profiler": "step_profiler_v1",
+            "steps": 20,
+            "avg_step_ms": 500.0,
+            "wall_coverage": 0.95,
+            "bottleneck": "memory_bw",
+        },
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["checks"]["wall_coverage"]["pass"], "95% wall coverage should pass"
+
+
+def test_profiler_wall_coverage_fails():
+    """F-TSP-001: Wall coverage < 90% should FAIL profiling check."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+        "profiler": {
+            "_profiler": "step_profiler_v1",
+            "steps": 20,
+            "avg_step_ms": 500.0,
+            "wall_coverage": 0.72,
+            "bottleneck": "launch",
+        },
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert not score["checks"]["wall_coverage"]["pass"], "72% wall coverage should fail"
+
+
+def test_profiler_absent_skips_check():
+    """No profiler data should skip wall coverage check (not fail)."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 194, "final_loss": 4.0},
+    }
+    baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert "wall_coverage" not in score["checks"], "No profiler = no wall_coverage check"

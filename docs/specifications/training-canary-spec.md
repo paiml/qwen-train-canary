@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 4.0.0
+**Version:** 4.1.0
 **Last Updated:** 2026-04-03
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -454,3 +454,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 3.5.0-3.8.0 | 2026-04-03 | FP16 forward+backward GEMM shipped (Tier 2). CPU lm_head backward fallback. cuBLAS workspace pre-alloc. fp32 weight drop (2.6 GB freed). FP16 canary pipeline + provable contract. 3 crash bugs fixed. 26 upstream fixes. CUDA graph forward shipped, backward deferred. | PMAT-470-474 |
 | 3.9.0 | 2026-04-03 | **Kernel fusion + backward graph unblocking.** Five-whys: 34x gap root cause is memory BW, not compute. NF4 fused RMSNorm+GEMV kernel in trueno (PMAT-475). Fused LoRA gradient clipping in entrenar — 168 D2H sync → 0, enables CUDA graph backward (PMAT-477). FP16 measurement gap identified (PMAT-476). 3 provable contracts. 28 upstream fixes. | PMAT-475-477 |
 | 4.0.0 | 2026-04-03 | **Scientific profiling + tensor core GEMM + fused K+V.** Five-whys: can't close 34x gap without per-layer profiling. Designed training-step-profiling-v1 contract (12 falsification tests). BrickProfiler integration filed upstream (entrenar#328). NF4 tensor core GEMM shipped (PMAT-479, WMMA 16×16×16). Fused K+V GEMM shipped (PMAT-478, 352 MB/step saved). New canary targets: canary-apr-tc, canary-apr-profile. 47 tests (41→47). 35 upstream fixes. 61 PMAT items. | PMAT-478-480 |
+| 4.1.0 | 2026-04-03 | **Profiling measurement loop closed + fused backward GEMM designed.** Five-whys root cause: InstructPipeline had ZERO profiling (StepProfiler existed only in CudaTransformerTrainer). Fix #38 upstream: wired StepProfiler into InstructPipeline with per-phase timing (FORWARD, LOSS, LM_BWD, BLK_BWD), per-layer forward+backward timing, and structured JSON output (print_json_report). Canary now parses JSON profiling, score.py validates wall_coverage >= 0.90 (F-TSP-001). Two provable contracts: per-operation-training-profiling-v1.yaml (8 falsification tests), fused-backward-gemm-v1.yaml (5 falsification tests). 3 new GitHub issues (#28/#29/#30). 3 new PMAT items (PMAT-483/484/485). 36 tests (33→36). 38 upstream fixes. | PMAT-481-485 |

@@ -538,7 +538,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T12:27:26.900483958+00:00
+  updated: 2026-04-03T13:44:02.301005802+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -602,7 +602,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T13:44:03.505325497+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -614,11 +614,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: NF4 tensor core GEMM not wired — trueno kernel exists, entrenar has no code path
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T13:03:37Z
+  updated: 2026-04-03T13:44:03.708793392+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -630,11 +630,59 @@ roadmap:
   github_issue: null
   item_type: task
   title: Fused backward GEMM gap — Gate+Up and K+V backward still use separate GEMMs
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T13:03:37Z
+  updated: 2026-04-03T13:44:04.284845632+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-483
+  github_issue: null
+  item_type: task
+  title: 'PMAT-483: Per-operation BrickProfiler contract + JSON profiling output'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T13:48:56Z
+  updated: 2026-04-03T13:48:56Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-484
+  github_issue: null
+  item_type: task
+  title: 'PMAT-484: Fused backward GEMM — forward fusion shipped, backward unfused'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T13:48:57Z
+  updated: 2026-04-03T13:48:57Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-485
+  github_issue: null
+  item_type: task
+  title: 'PMAT-485: Extend probar with training step profiling scorer'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-04-03T13:48:57Z
+  updated: 2026-04-03T13:48:57Z
   spec: null
   acceptance_criteria: []
   phases: []

@@ -199,26 +199,36 @@ def main():
         peak_vram = int(planning["memory_breakdown"].get("total_bytes", 0) / (1024 * 1024))
 
     # Parse step profiler output if present (step-profiler-v1 contract)
+    # PMAT-483: Prefer structured JSON output (print_json_report), fall back to text table
     profiler_data = {}
-    profiler_match = re.search(
-        r'Step Profiler.*?TOTAL\s*│\s*([\d.]+)\s*│\s*100%\s*│\s*([\d.]+)',
-        stderr, re.DOTALL
-    )
-    if profiler_match:
-        profiler_data["total_ms"] = float(profiler_match.group(1))
-        profiler_data["avg_step_ms"] = float(profiler_match.group(2))
-        # Parse per-phase breakdown
-        for phase_match in re.finditer(
-            r'│\s*(\w+)\s*│\s*([\d.]+)\s*│\s*([\d.]+)%\s*│\s*([\d.]+)\s*│',
-            stderr
-        ):
-            phase_name = phase_match.group(1)
-            if phase_name != "TOTAL":
-                profiler_data[phase_name] = {
-                    "total_ms": float(phase_match.group(2)),
-                    "pct": float(phase_match.group(3)),
-                    "avg_ms": float(phase_match.group(4)),
-                }
+    json_profiler_match = re.search(r'(\{"_profiler":"step_profiler_v1".*\})', stderr)
+    if json_profiler_match:
+        try:
+            profiler_data = json.loads(json_profiler_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    if not profiler_data:
+        # Legacy: parse text table output from print_report()
+        profiler_match = re.search(
+            r'Step Profiler.*?TOTAL\s*│\s*([\d.]+)\s*│\s*100%\s*│\s*([\d.]+)',
+            stderr, re.DOTALL
+        )
+        if profiler_match:
+            profiler_data["total_ms"] = float(profiler_match.group(1))
+            profiler_data["avg_step_ms"] = float(profiler_match.group(2))
+            # Parse per-phase breakdown
+            for phase_match in re.finditer(
+                r'│\s*(\w+)\s*│\s*([\d.]+)\s*│\s*([\d.]+)%\s*│\s*([\d.]+)\s*│',
+                stderr
+            ):
+                phase_name = phase_match.group(1)
+                if phase_name != "TOTAL":
+                    profiler_data[phase_name] = {
+                        "total_ms": float(phase_match.group(2)),
+                        "pct": float(phase_match.group(3)),
+                        "avg_ms": float(phase_match.group(4)),
+                    }
 
     # Compute throughput from wall_time (apr doesn't emit tok/s yet — aprender#566)
     # Match unsloth/pytorch formula: total_tokens = batch_size * seq_len * steps
@@ -284,6 +294,12 @@ def main():
     if nan_skips > 0:
         print(f"  WARNING: {nan_skips} NaN backward skips — throughput PROVISIONAL (PMAT-462)")
         print(f"  valid backward steps: {valid_backward_count}")
+    if profiler_data:
+        wc = profiler_data.get("wall_coverage", 0)
+        bn = profiler_data.get("bottleneck", "unknown")
+        print(f"  profiler: wall_coverage={wc:.1%}, bottleneck={bn}")
+        if wc < 0.90:
+            print(f"  WARNING: wall coverage {wc:.1%} < 90% — missing instrumentation (F-TSP-001)")
     print(f"  output: {args.output}")
 
 
