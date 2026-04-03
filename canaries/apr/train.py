@@ -176,6 +176,10 @@ def main():
     if loss_matches:
         final_loss = float(loss_matches[-1])  # last loss value
 
+    # Count NaN-skipped backward passes (PMAT-462: inflates throughput)
+    nan_skips = len(re.findall(r'NaN/Inf loss detected.*skipping backward', stderr))
+    valid_backward_count = len(re.findall(r'loss[=:]\s*[\d.]+', stderr))  # non-NaN losses
+
     # Extract VRAM from planning if available
     if not peak_vram and planning.get("memory_breakdown"):
         peak_vram = int(planning["memory_breakdown"].get("total_bytes", 0) / (1024 * 1024))
@@ -241,8 +245,11 @@ def main():
             "peak_vram_mb": peak_vram,
             "final_loss": round(final_loss, 4) if final_loss else 0,
             "wall_time_sec": round(wall_time, 2),
-            # Note: tok/s estimated from wall_time. Loss/VRAM from stderr parsing.
-            # Structured metrics pending upstream: aprender#566
+            "nan_backward_skips": nan_skips,
+            "valid_backward_steps": valid_backward_count,
+            # PMAT-462: If nan_skips > 0, throughput is inflated (NaN steps lack backward).
+            # True training throughput is unknown until NaN cascade is fixed upstream.
+            "_baseline_status": "PROVISIONAL" if nan_skips > 0 else "measured",
             "_metrics_quality": "estimated" if not loss_matches else "measured",
         },
         "apr_output": {
@@ -260,6 +267,9 @@ def main():
     print(f"  throughput: {tok_s:.0f} tok/s")
     print(f"  peak VRAM: {peak_vram} MB")
     print(f"  final loss: {final_loss}")
+    if nan_skips > 0:
+        print(f"  WARNING: {nan_skips} NaN backward skips — throughput PROVISIONAL (PMAT-462)")
+        print(f"  valid backward steps: {valid_backward_count}")
     print(f"  output: {args.output}")
 
 

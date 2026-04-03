@@ -196,3 +196,14 @@ roadmap:
       F-EXEC-02 workaround: gradient accumulation enables effective batch=4 with
       batch=1 physical, reducing peak VRAM ~60%. pytorch canary now supports
       --gradient-accumulation-steps N. Contract: gradient-accumulation-canary-v1.yaml.
+
+  - id: PMAT-462
+    title: "Fix APR NaN-inflated throughput — baseline PROVISIONAL, upstream norm_guard"
+    status: completed
+    priority: critical
+    github_issue: 18
+    description: >
+      194 tok/s was inflated by NaN-skipped backward passes. Canary now tracks
+      nan_backward_skips and valid_backward_steps. Baseline lowered to 40 tok/s
+      (PROVISIONAL). Upstream fix: fused residual+RMSNorm in CudaNf4TransformerBlock
+      (entrenar@b4d74f2c, entrenar#321). Eliminates activation explosion.

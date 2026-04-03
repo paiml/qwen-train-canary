@@ -1,8 +1,9 @@
 {
   "apr": {
-    "tokens_per_sec": 190,
+    "tokens_per_sec": 40,
     "peak_vram_mb": 4200,
-    "final_loss": 20.0
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — 194 tok/s measured but NaN backward skips inflate throughput (PMAT-462)"
   },
   "unsloth": {
     "tokens_per_sec": 6600,
