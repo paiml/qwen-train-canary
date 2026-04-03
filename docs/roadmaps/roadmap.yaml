@@ -578,3 +578,15 @@ roadmap:
     squared_sum_cuda() calls stream.synchronize() inside backward loop (168 sync
     points per backward pass). Fix: move clipping outside graph, compute norms in
     batch, single sync. Contract: cuda-graph-backward-v1.yaml.
+- id: PMAT-478
+  github_issue: 25
+  item_type: task
+  title: "Fused K+V NF4 GEMM for GQA attention — 352 MB/step DRAM saved"
+  status: completed
+  priority: critical
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  description: >
+    Reuses FusedNf4GateUpGemmKernel for K+V projections (same output dim in GQA).
+    Saves 1× M×K×4 bytes per layer (352 MB/step). Pre-warmed in cache.
+    Contract: nf4-fused-qkv-gemm-v1.yaml. Combined with Gate+Up: 688 MB/step saved.
