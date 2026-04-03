@@ -11,7 +11,7 @@ import os
 import sys
 
 REQUIRED_TOP_LEVEL = ["canary", "backend", "host", "timestamp", "config", "metrics"]
-VALID_CANARIES = {"unsloth", "pytorch", "pytorch-compile", "cublas", "wgpu", "apr"}
+VALID_CANARIES = {"unsloth", "pytorch", "pytorch-compile", "cublas", "wgpu", "apr", "apr-fp16"}
 VALID_BACKENDS = {"cuda", "wgpu", "vulkan", "cpu", "metal", "auto"}
 REQUIRED_CONFIG = ["batch_size", "seq_len", "steps", "lr", "seed"]
 REQUIRED_GPU = ["device", "vram_total_mb", "cuda_version", "compute_capability"]

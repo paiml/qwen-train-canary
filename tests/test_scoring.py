@@ -247,6 +247,73 @@ def test_non_provisional_flagged_false():
     assert score["provisional"] is False
 
 
+# --- FP16 parity scoring (PMAT-473) ---
+
+APR_FP16_BASELINE = {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0}
+
+
+def test_apr_fp16_good_result_passes():
+    """FP16 canary with better-than-baseline throughput should PASS."""
+    result = {
+        "canary": "apr-fp16",
+        "metrics": {"tokens_per_sec": 300, "peak_vram_mb": 2800, "final_loss": 16.8},
+    }
+    score = score_result(result, APR_FP16_BASELINE)
+    assert score["pass"]
+
+
+def test_apr_fp16_regression_fails():
+    """FP16 canary 20% below baseline should FAIL."""
+    result = {
+        "canary": "apr-fp16",
+        "metrics": {"tokens_per_sec": 100, "peak_vram_mb": 2800, "final_loss": 16.8},
+    }
+    score = score_result(result, APR_FP16_BASELINE)
+    assert not score["pass"], "20% regression should FAIL"
+
+
+def test_apr_fp16_high_nan_rate_fails():
+    """FP16 with >50% NaN steps must FAIL (PMAT-473: training broken)."""
+    result = {
+        "canary": "apr-fp16",
+        "config": {"steps": 100},
+        "metrics": {
+            "tokens_per_sec": 300,
+            "peak_vram_mb": 2800,
+            "final_loss": 16.8,
+            "nan_backward_skips": 55,
+        },
+    }
+    score = score_result(result, APR_FP16_BASELINE)
+    assert not score["checks"]["nan_rate"]["pass"], ">50% NaN should FAIL"
+
+
+def test_apr_fp16_low_nan_rate_passes():
+    """FP16 with <50% NaN should pass NaN gate (PMAT-473)."""
+    result = {
+        "canary": "apr-fp16",
+        "config": {"steps": 100},
+        "metrics": {
+            "tokens_per_sec": 300,
+            "peak_vram_mb": 2800,
+            "final_loss": 16.8,
+            "nan_backward_skips": 10,
+        },
+    }
+    score = score_result(result, APR_FP16_BASELINE)
+    assert score["checks"]["nan_rate"]["pass"]
+
+
+def test_apr_fp16_nan_loss_fails():
+    """FP16 with NaN loss must FAIL (F-FP16-003: NaN regression check)."""
+    result = {
+        "canary": "apr-fp16",
+        "metrics": {"tokens_per_sec": 300, "peak_vram_mb": 2800, "final_loss": float("nan")},
+    }
+    score = score_result(result, APR_FP16_BASELINE)
+    assert not score["checks"]["loss"]["pass"]
+
+
 # --- Host-specific baseline (PMAT-465) ---
 
 

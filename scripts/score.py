@@ -13,6 +13,7 @@ import sys
 # Keep in sync with baselines.json — see canary-score-gate-v1.yaml F-BASE-002
 DEFAULT_BASELINES = {
     "apr": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
+    "apr-fp16": {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0},
     "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 2.0},
     "pytorch": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0},
     "pytorch-compile": {"tokens_per_sec": 3500, "peak_vram_mb": 35000, "final_loss": 2.0},
@@ -71,6 +72,17 @@ def score_result(result: dict, baseline: dict) -> dict:
         "baseline": base_loss,
         "pass": loss <= base_loss,
     }
+
+    # NaN rate check for APR canaries (PMAT-473: FP16 NaN regression)
+    nan_skips = m.get("nan_backward_skips", 0)
+    total_steps = result.get("config", {}).get("steps", 100)
+    if nan_skips > 0 and total_steps > 0:
+        nan_rate = nan_skips / total_steps
+        checks["nan_rate"] = {
+            "value": round(nan_rate, 3),
+            "threshold": 0.5,
+            "pass": nan_rate < 0.5,  # >50% NaN = training broken
+        }
 
     all_pass = all(c["pass"] for c in checks.values())
     # Surface PROVISIONAL status from APR NaN-inflated measurements (PMAT-462)

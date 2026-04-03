@@ -222,7 +222,7 @@ def main():
         metrics["stderr_tail"] = stderr[-500:]
 
     output = {
-        "canary": "apr",
+        "canary": "apr-fp16" if os.environ.get("FP16_GEMM") == "1" else "apr",
         "backend": "cuda" if args.gpu_backend == "auto" else args.gpu_backend,
         "host": socket.gethostname(),
         "gpu": get_gpu_info(),

@@ -5,6 +5,12 @@
     "final_loss": 20.0,
     "_status": "PROVISIONAL — 194 tok/s measured but NaN backward skips inflate throughput (PMAT-462)"
   },
+  "apr-fp16": {
+    "tokens_per_sec": 150,
+    "peak_vram_mb": 3000,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — FP16_GEMM=1 path, target 2x throughput vs fp32 (PMAT-473). Needs first measurement."
+  },
   "unsloth": {
     "tokens_per_sec": 6600,
     "peak_vram_mb": 3600,

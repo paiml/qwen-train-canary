@@ -1,0 +1,104 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: FP16 training parity — FP16_GEMM=1 must match fp32 loss within tolerance and improve throughput
+  pmat: [PMAT-470, PMAT-472, PMAT-473]
+  references:
+  - Micikevicius et al. (2018) Mixed Precision Training
+  - "ALB-076: TF32 tensor cores produce NaN on transposed backward GEMMs at gradient magnitude ~1e5"
+
+equations:
+  fp16_forward_parity:
+    formula: |
+      fp16_loss = train(model, data, FP16_GEMM=1)
+      fp32_loss = train(model, data, FP16_GEMM=0)
+      abs(fp16_loss - fp32_loss) < LOSS_TOLERANCE
+    domain: model = Qwen2.5-Coder-1.5B-Instruct, data = canary-dataset.yaml (50 samples)
+    codomain: loss in R, loss >= 0
+    constants:
+      LOSS_TOLERANCE: 2.0
+    invariants:
+    - FP16 uses tensor cores (CUBLAS_GEMM_DEFAULT_TENSOR_OP)
+    - FP32 accumulation in all GEMMs (CUBLAS_COMPUTE_32F)
+    - Same random seed, same data ordering, same hyperparameters
+    preconditions:
+    - FP16_GEMM=1 environment variable set
+    - set_fp16_weights() called successfully for all 28 blocks
+    - fp32 weights dropped (dummy 1-element buffers)
+    postconditions:
+    - FP16 final_loss < fp32 final_loss + LOSS_TOLERANCE
+    - FP16 final_loss is finite (no NaN)
+
+  fp16_throughput_improvement:
+    formula: |
+      speedup = fp16_throughput / fp32_throughput
+      speedup >= MIN_SPEEDUP
+    domain: throughput in tok/s, measured on yoga (RTX 4060L, locked 1900 MHz)
+    constants:
+      MIN_SPEEDUP: 1.3
+    invariants:
+    - Same hardware, same clocks, same batch/seq configuration
+    - Throughput measured over >= 20 training steps (amortize warmup)
+    preconditions:
+    - GPU clocks locked at 1900 MHz
+    - Same canary configuration (100 steps, batch=4, seq=512)
+    postconditions:
+    - fp16_throughput >= fp32_throughput * MIN_SPEEDUP
+    - No increase in NaN backward skip rate
+
+  fp16_nan_regression:
+    formula: |
+      fp16_nan_rate = fp16_nan_skips / fp16_total_steps
+      fp32_nan_rate = fp32_nan_skips / fp32_total_steps
+      fp16_nan_rate <= fp32_nan_rate + NAN_TOLERANCE
+    domain: nan_rate in [0, 1]
+    constants:
+      NAN_TOLERANCE: 0.05
+    invariants:
+    - FP16 must not produce MORE NaN than fp32 baseline
+    - NaN detection uses same loss.is_finite() check
+    preconditions:
+    - Both runs use identical seed, data, hyperparameters
+    postconditions:
+    - fp16_nan_rate <= fp32_nan_rate + 0.05
+
+  fp16_vram_reduction:
+    formula: |
+      vram_saved = fp32_peak_vram - fp16_peak_vram
+      vram_saved >= MIN_VRAM_SAVINGS_MB
+    domain: vram in MB
+    constants:
+      MIN_VRAM_SAVINGS_MB: 1000
+    invariants:
+    - fp32 weights dropped after fp16 cast (1-element dummy buffers)
+    - Peak VRAM measured via nvidia-smi
+    preconditions:
+    - FP16_GEMM=1 set before model initialization
+    postconditions:
+    - fp16_peak_vram < fp32_peak_vram - 1000
+
+falsification_tests:
+  - id: F-FP16-001
+    claim: FP16 loss within tolerance of fp32
+    test: Run canary-apr with FP16_GEMM=0, record final_loss. Run with FP16_GEMM=1, record final_loss. Check abs(diff) < 2.0.
+    status: PENDING
+    action_if_falsified: Investigate numerical divergence path — check RMSNorm epsilon, attention scaling
+
+  - id: F-FP16-002
+    claim: FP16 throughput >= 1.3x fp32
+    test: Run canary-apr with FP16_GEMM=0, record tok/s. Run with FP16_GEMM=1, record tok/s. Check ratio >= 1.3.
+    status: PENDING
+    action_if_falsified: Profile to check if FP16 cast overhead dominates, or if bottleneck shifted to non-GEMM ops
+
+  - id: F-FP16-003
+    claim: FP16 does not increase NaN rate
+    test: Run 5x canary-apr with each mode, compare NaN skip counts.
+    status: PENDING
+    action_if_falsified: Lower precision in fp16 may amplify activation explosion — increase RMSNorm epsilon or add activation clamping
+
+  - id: F-FP16-004
+    claim: FP16 saves >= 1 GB VRAM
+    test: Compare nvidia-smi peak VRAM between fp32 and fp16 runs.
+    status: PENDING
+    action_if_falsified: fp32 weight dropping failed — check set_fp16_weights() dummy buffer replacement

@@ -30,6 +30,10 @@ run_yoga_canaries() {
     make canary-apr
     echo "  -> results/canary-apr-$DATE.json"
 
+    echo "Running apr FP16 canary (PMAT-473: tensor core parity)..."
+    make canary-apr-fp16
+    echo "  -> results/canary-apr-fp16-$DATE.json"
+
     echo "Running pytorch gradient accumulation canary (PMAT-459)..."
     make canary-pytorch-gradacc
     echo "  -> results/canary-pytorch-gradacc-$DATE.json"
