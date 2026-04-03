@@ -11,7 +11,7 @@ import sys
 # Default baselines (overridden by baselines.json if present)
 # Keep in sync with baselines.json — see canary-score-gate-v1.yaml F-BASE-002
 DEFAULT_BASELINES = {
-    "apr": {"tokens_per_sec": 40, "final_loss": 4.0},
+    "apr": {"tokens_per_sec": 190, "peak_vram_mb": 4200, "final_loss": 20.0},
     "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 2.0},
     "pytorch": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0},
     "pytorch-compile": {"tokens_per_sec": 3500, "peak_vram_mb": 35000, "final_loss": 2.0},

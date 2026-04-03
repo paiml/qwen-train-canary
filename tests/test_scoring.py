@@ -114,12 +114,12 @@ def test_loss_at_baseline_passes():
 
 
 def test_vram_skipped_when_baseline_omits():
-    """VRAM check should be absent when baseline lacks peak_vram_mb (apr, wgpu)."""
+    """VRAM check should be absent when baseline lacks peak_vram_mb (wgpu)."""
     result = {
-        "canary": "apr",
-        "metrics": {"tokens_per_sec": 50, "peak_vram_mb": 9999, "final_loss": 3.0},
+        "canary": "wgpu",
+        "metrics": {"tokens_per_sec": 7000, "peak_vram_mb": 9999, "final_loss": 2.0},
     }
-    baseline = {"tokens_per_sec": 40, "final_loss": 4.0}  # no peak_vram_mb
+    baseline = {"tokens_per_sec": 6600, "final_loss": 2.5}  # no peak_vram_mb
     score = score_result(result, baseline)
     assert "vram" not in score["checks"], "VRAM should be skipped when baseline omits it"
     assert score["pass"]

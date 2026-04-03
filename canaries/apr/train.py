@@ -67,6 +67,8 @@ def main():
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--gpu-backend", default="auto", choices=["auto", "cuda", "wgpu"])
     parser.add_argument("--model-path", default=None, help="Local path to APR/GGUF model file")
+    parser.add_argument("--profile-interval", type=int, default=0,
+                        help="Step profiler report interval (0=disabled)")
     args = parser.parse_args()
 
     # Check apr is available
@@ -136,11 +138,13 @@ def main():
     if args.method == "qlora":
         cmd.append("--quantize-nf4")
 
+    if args.profile_interval > 0:
+        cmd.extend(["--profile-interval", str(args.profile_interval)])
+
     print(f"Running: {' '.join(cmd)}")
     t0 = time.perf_counter()
 
-    # APR throughput is ~42 tok/s (CPU lm_head bottleneck) — needs ~5000s for 100 steps.
-    # Allow 7200s (2 hours) with margin. Reduce steps if this is too slow.
+    # APR throughput is ~194 tok/s (GPU pipeline). Allow 7200s (2 hours) with margin.
     result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=7200)
 
     wall_time = time.perf_counter() - t0
@@ -176,10 +180,37 @@ def main():
     if not peak_vram and planning.get("memory_breakdown"):
         peak_vram = int(planning["memory_breakdown"].get("total_bytes", 0) / (1024 * 1024))
 
+    # Parse step profiler output if present (step-profiler-v1 contract)
+    profiler_data = {}
+    profiler_match = re.search(
+        r'Step Profiler.*?TOTAL\s*│\s*([\d.]+)\s*│\s*100%\s*│\s*([\d.]+)',
+        stderr, re.DOTALL
+    )
+    if profiler_match:
+        profiler_data["total_ms"] = float(profiler_match.group(1))
+        profiler_data["avg_step_ms"] = float(profiler_match.group(2))
+        # Parse per-phase breakdown
+        for phase_match in re.finditer(
+            r'│\s*(\w+)\s*│\s*([\d.]+)\s*│\s*([\d.]+)%\s*│\s*([\d.]+)\s*│',
+            stderr
+        ):
+            phase_name = phase_match.group(1)
+            if phase_name != "TOTAL":
+                profiler_data[phase_name] = {
+                    "total_ms": float(phase_match.group(2)),
+                    "pct": float(phase_match.group(3)),
+                    "avg_ms": float(phase_match.group(4)),
+                }
+
     # Compute throughput from wall_time (apr doesn't emit tok/s yet — aprender#566)
+    # Match unsloth/pytorch formula: total_tokens = batch_size * seq_len * steps
+    # APR uses --epochs, so actual steps = epochs * ceil(num_samples / batch_size)
+    epochs = max(1, (args.steps * args.batch_size) // max(num_samples, 1))
+    actual_steps = epochs * ((num_samples + args.batch_size - 1) // args.batch_size)
+    total_tokens = actual_steps * args.batch_size * args.seq_len
     tok_s = 0
     if wall_time > 0:
-        tok_s = (num_samples * args.seq_len) / wall_time
+        tok_s = total_tokens / wall_time
 
     metrics = planning if planning else {}
     if result.returncode != 0:
@@ -205,7 +236,7 @@ def main():
             "runtime": "apr (aprender/entrenar)",
         },
         "metrics": {
-            "throughput_samples_sec": round(num_samples / wall_time, 2) if wall_time > 0 else 0,
+            "throughput_samples_sec": round((actual_steps * args.batch_size) / wall_time, 2) if wall_time > 0 else 0,
             "tokens_per_sec": round(tok_s, 1),
             "peak_vram_mb": peak_vram,
             "final_loss": round(final_loss, 4) if final_loss else 0,
@@ -218,6 +249,7 @@ def main():
             "raw_output": result.stdout[-1000:] if result.stdout else "",
             "stderr_summary": stderr[-500:] if stderr else "",
         },
+        **({"profiler": profiler_data} if profiler_data else {}),
     }
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)

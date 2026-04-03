@@ -165,3 +165,14 @@ roadmap:
     description: >
       score.py only checked lower bound. Added max_throughput_ratio=1.05.
       ratio=1.10 now correctly fails. 26 tests total.
+
+  - id: PMAT-457
+    title: "Fix APR canary throughput formula + baselines update"
+    status: completed
+    priority: critical
+    github_issue: 15
+    description: >
+      Throughput formula only counted 1 epoch (under-reporting 8x for 100-step canary).
+      Fixed: total_tokens = actual_steps * batch_size * seq_len. Baselines updated:
+      tokens_per_sec 140→190, final_loss 200→20, peak_vram_mb added. Step profiler
+      integration added (--profile-interval). 26 tests pass.
