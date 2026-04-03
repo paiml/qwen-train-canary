@@ -72,6 +72,7 @@
 | 23 | `set_fp16_weights()` — FP16 weight cast (PMAT-470) | entrenar | FP16 GEMM path was DEAD CODE, now functional |
 | 24 | cuBLAS workspace pre-alloc (PMAT-063) | entrenar | CUDA graph capture unblocked on sm_89 |
 | 25 | FP16 backward GEMM + fp32 drop (PMAT-472) | entrenar | 2.6 GB freed, GPU lm_head enabled |
+| 26 | FP16 path bugfixes: buffer resize + K/V guard + alloc reuse (PMAT-474) | entrenar | 3 crash bugs fixed before first measurement |
 
 ### Tickets
 
@@ -88,6 +89,7 @@
 | paiml/entrenar#324 | FP16 weight cast `set_fp16_weights()` (PMAT-470) | **FIXED** (2026-04-03, fix #23) |
 | paiml/entrenar#325 | cuBLAS workspace pre-alloc (PMAT-063) | **FIXED** (2026-04-03, fix #24) |
 | paiml/entrenar#326 | FP16 backward GEMM + fp32 drop (PMAT-472) | **FIXED** (2026-04-03, fix #25) |
+| paiml/entrenar#327 | FP16 path crash bugs: resize + guard + alloc (PMAT-474) | **FIXED** (2026-04-03, fix #26) |
 
 ### Contracts
 

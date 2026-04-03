@@ -287,6 +287,16 @@ roadmap:
       provable contract fp16-training-parity-v1.yaml with 4 falsification tests.
       38 pytest tests passing. Nightly pipeline exercises FP16 path.
 
+  - id: PMAT-474
+    title: "Fix 3 FP16 path crash bugs — buffer resize, K/V guard, alloc reuse"
+    status: completed
+    priority: critical
+    description: >
+      SHIPPED: entrenar#327. Code path trace found 3 bugs before first measurement:
+      (1) FP16 activation buffers never resized on seq_len change — GPU OOB write.
+      (2) K/V forward unwrap without checking both — panic on partial init.
+      (3) 196 temporary GPU allocs per backward — 1.8 GB churn, now reused.
+
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
     status: completed
