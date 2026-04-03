@@ -373,8 +373,8 @@ roadmap:
 - id: PMAT-464
   github_issue: 20
   item_type: task
-  title: CUDA graph capture for NF4 training — Tier 3 UNBLOCKED
-  status: inprogress
+  title: CUDA graph capture for NF4 training — backward graph infra shipped
+  status: completed
   priority: critical
   assigned_to: null
   created: 1970-01-01T00:00:00Z
@@ -517,8 +517,8 @@ roadmap:
 - id: PMAT-475
   github_issue: 22
   item_type: task
-  title: "NF4 kernel fusion — RMSNorm+GEMV, Gate+Up+SwiGLU for training throughput"
-  status: in_progress
+  title: "NF4 kernel fusion — RMSNorm+GEMV, Gate+Up GEMM shipped + wired + pre-warmed"
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
@@ -560,8 +560,8 @@ roadmap:
 - id: PMAT-477
   github_issue: 23
   item_type: task
-  title: "Fix backward graph capture — move gradient clipping outside graph boundary"
-  status: in_progress
+  title: "Backward graph capture — fused clip + backward_graph.rs + pipeline split"
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
