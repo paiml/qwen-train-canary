@@ -90,7 +90,7 @@
 | paiml/entrenar#325 | cuBLAS workspace pre-alloc (PMAT-063) | **FIXED** (2026-04-03, fix #24) |
 | paiml/entrenar#326 | FP16 backward GEMM + fp32 drop (PMAT-472) | **FIXED** (2026-04-03, fix #25) |
 | paiml/entrenar#327 | FP16 path crash bugs: resize + guard + alloc (PMAT-474) | **FIXED** (2026-04-03, fix #26) |
-| paiml/qwen-train-canary#22 | NF4 kernel fusion: RMSNorm+GEMV, Gate+Up+SwiGLU (PMAT-475) | **IN PROGRESS** — RMSNorm+NF4 GEMV kernel shipped in trueno |
+| paiml/qwen-train-canary#22 | NF4 kernel fusion (PMAT-475) | **SHIPPED** — RMSNorm+NF4 GEMV + Gate+Up NF4 GEMM in trueno. Saves 336 MB/step DRAM. |
 | paiml/qwen-train-canary#23 | Backward graph capture (PMAT-464/477) | **SHIPPED** — fused clip + backward_graph.rs + instruct_pipeline split (12 files ≤500) |
 | paiml/qwen-train-canary#24 | FP16 throughput measurement (PMAT-476) | Open — canary-apr-fp16 never executed |
 
@@ -102,6 +102,7 @@
 | 28 | Fused RMSNorm + NF4 GEMV kernel (PMAT-475) | trueno | Eliminates global memory roundtrip between RMSNorm and NF4 GEMV |
 | 29 | Backward graph capture infra (PMAT-464) | entrenar | backward_graph.rs: capture/replay for full backward loop |
 | 30 | instruct_pipeline.rs → 12 files ≤500 lines | entrenar | Toyota Way: eliminated 4114-line monolith, all files ≤500 |
+| 31 | Fused NF4 Gate+Up GEMM kernel (PMAT-475) | trueno | Shared input load: 336 MB/step DRAM eliminated for FFN (2/3 compute) |
 
 ### Contracts
 
