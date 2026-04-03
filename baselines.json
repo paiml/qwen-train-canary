@@ -36,5 +36,11 @@
   "wgpu": {
     "tokens_per_sec": 6600,
     "final_loss": 2.5
+  },
+  "pytorch@yoga": {
+    "tokens_per_sec": 1500,
+    "peak_vram_mb": 7500,
+    "final_loss": 2.0,
+    "_note": "PROVISIONAL: batch=1 accum=4, estimated from gx10 scaling (PMAT-465)"
   }
 }

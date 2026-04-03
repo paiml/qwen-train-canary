@@ -30,6 +30,10 @@ run_yoga_canaries() {
     make canary-apr
     echo "  -> results/canary-apr-$DATE.json"
 
+    echo "Running pytorch gradient accumulation canary (PMAT-459)..."
+    make canary-pytorch-gradacc
+    echo "  -> results/canary-pytorch-gradacc-$DATE.json"
+
     make teardown-yoga
 }
 
@@ -51,6 +55,10 @@ run_gx10_canaries() {
     echo "Running cuBLAS parity canary..."
     make canary-cublas-gx10
     echo "  -> results/canary-cublas-gx10-$DATE.json"
+
+    echo "Running apr fine-tune canary on gx10 (PMAT-463)..."
+    make canary-apr-gx10
+    echo "  -> results/canary-apr-gx10-$DATE.json"
 }
 
 run_wgpu_canaries() {

@@ -207,3 +207,22 @@ roadmap:
       nan_backward_skips and valid_backward_steps. Baseline lowered to 40 tok/s
       (PROVISIONAL). Upstream fix: fused residual+RMSNorm in CudaNf4TransformerBlock
       (entrenar@b4d74f2c, entrenar#321). Eliminates activation explosion.
+
+  - id: PMAT-463
+    title: "Add nightly coverage — apr-gx10, pytorch-gradacc-yoga"
+    status: completed
+    priority: high
+    github_issue: 19
+    description: >
+      nightly.sh now covers all 5 runtimes on all hosts: yoga (unsloth, apr,
+      pytorch-gradacc), gx10 (unsloth, pytorch, cublas, apr), intel (wgpu).
+      pytorch@yoga baseline added (PROVISIONAL: 1500 tok/s estimate).
+
+  - id: PMAT-465
+    title: "Add gradient-accumulation baseline for yoga"
+    status: completed
+    priority: high
+    github_issue: 19
+    description: >
+      Added pytorch@yoga baseline (1500 tok/s, 7500 MB VRAM, loss < 2.0).
+      PROVISIONAL until first measurement from make canary-pytorch-gradacc.
