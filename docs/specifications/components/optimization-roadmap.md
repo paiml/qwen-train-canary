@@ -95,7 +95,7 @@
 | Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth |
 |---------|-----------|-------------|------------|
 | **unsloth** QLoRA | **6,628** | **16,118** | baseline |
-| **apr** QLoRA (NF4) | **43** (canary) | TBD | **0.6%** (154x gap) |
+| **apr** QLoRA (NF4) | **194** (canary, 2026-04-02) | TBD | **2.9%** (34x gap) |
 | **pytorch** full FT | OOM | **4,017** | 24.9% (4x, expected) |
 | **cublas** parity | OOM | **4,000** | 0.000 divergence |
 | **wgpu** synthetic | — | — | 6,730 (Vulkan) |
@@ -263,15 +263,16 @@ logits_buf) — fixed by zeroing 5 training state buffers per forward (PMAT-453)
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
 tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
 
-### Parity Roadmap: 43 → 6,628 tok/s (154x gap)
+### Parity Roadmap: 194 → 6,628 tok/s (34x gap)
 
-Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with CPU-side NF4 dequant
-and H2D scratch zeroing, while unsloth uses fused Triton kernels that stay entirely on GPU.
+Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with fp32 dequantized weights
+(9.4 MB/GEMM at 256 GB/s = memory-BW bound), while unsloth uses fused Triton kernels
+that stay entirely on GPU with fp16 tensor core compute.
 
 | Tier | Fix | Expected | Measured | Status |
 |------|-----|----------|----------|--------|
-| **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **187** | DONE — zeroing was NOT the bottleneck |
-| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →400 | — | Next |
+| **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **194** (canary, 2026-04-02) | DONE — zeroing was NOT the bottleneck |
+| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **IN PROGRESS** — contract fp16-cublas-gemm-v1.yaml, entrenar#320, trueno#235 |
 | **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **Highest leverage** |
 | **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |

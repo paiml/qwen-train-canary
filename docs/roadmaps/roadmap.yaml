@@ -176,3 +176,13 @@ roadmap:
       Fixed: total_tokens = actual_steps * batch_size * seq_len. Baselines updated:
       tokens_per_sec 140→190, final_loss 200→20, peak_vram_mb added. Step profiler
       integration added (--profile-interval). 26 tests pass.
+
+  - id: PMAT-458
+    title: "FP16 cuBLAS GEMM training — Tier 2 parity (194→390 tok/s)"
+    status: in_progress
+    priority: critical
+    github_issue: 16
+    description: >
+      Memory-BW bound at 194 tok/s with fp32 GEMM. FP16 halves traffic: 9.4→4.7 MB/GEMM.
+      Contract: fp16-cublas-gemm-v1.yaml (3 hypotheses, roofline analysis).
+      Upstream: entrenar#320 (CudaFp16TransformerBlock), trueno#235 (cublasHgemm).
