@@ -68,6 +68,9 @@
 | 19 | Logits trace removal (296MB D2H blocker) | entrenar | Unblocked GPU pipeline |
 | 20 | TF32 tensor core cuBLAS handle | entrenar | Tensor cores tested |
 | 21 | Zero training state backward buffers (PMAT-453) | entrenar | Multi-epoch NaN cascade fixed |
+| 22 | CPU lm_head backward fallback (PMAT-471) | entrenar | Backward works on yoga 8GB |
+| 23 | `set_fp16_weights()` — FP16 weight cast (PMAT-470) | entrenar | FP16 GEMM path was DEAD CODE, now functional |
+| 24 | cuBLAS workspace pre-alloc (PMAT-063) | entrenar | CUDA graph capture unblocked on sm_89 |
 
 ### Tickets
 
@@ -80,6 +83,9 @@
 | paiml/aprender#565 | WgpuInstructPipeline sig | Fixed |
 | paiml/entrenar#316 | NF4 forward NaN | **FIXED** (2026-04-01, fix #15) |
 | paiml/entrenar#319 | Multi-epoch NaN cascade (unzeroed training state) | **FIXED** (2026-04-02, fix #21) |
+| paiml/entrenar#323 | CPU lm_head backward fallback (PMAT-471) | **FIXED** (2026-04-03, fix #22) |
+| paiml/entrenar#324 | FP16 weight cast `set_fp16_weights()` (PMAT-470) | **FIXED** (2026-04-03, fix #23) |
+| paiml/entrenar#325 | cuBLAS workspace pre-alloc (PMAT-063) | **FIXED** (2026-04-03, fix #24) |
 
 ### Contracts
 
@@ -272,8 +278,10 @@ that stay entirely on GPU with fp16 tensor core compute.
 | Tier | Fix | Expected | Measured | Status |
 |------|-----|----------|----------|--------|
 | **1** | `cuMemsetD32Async` (GPU-side zero) | 186→300 | **194** (canary, 2026-04-02) | DONE — zeroing was NOT the bottleneck |
-| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **SHIPPED** — Q/K/V fp16 dispatch (entrenar@82b484fa), cast kernel (trueno@05217c48). FP16_GEMM=1 to enable. |
-| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **CONTRACT DESIGNED** — cuda-graph-training-v1.yaml, entrenar#322 |
+| **1.5** | CPU lm_head backward fallback (PMAT-471) | enables training | — | **SHIPPED** — entrenar@de2ad7e1, entrenar#323. Without this, backward NEVER ran on yoga 8GB. |
+| **2** | FP16 weights + cuBLAS fp16 GEMM (tensor cores) | →390 | — | **SHIPPED** — `set_fp16_weights()` implemented (entrenar@de2ad7e1, entrenar#324). FP16_GEMM=1 to enable. All 7 projections wired. |
+| **2.5** | cuBLAS workspace pre-alloc (PMAT-063) | unblocks CUDA graphs | — | **SHIPPED** — entrenar@de2ad7e1, entrenar#325. 32 MB pre-alloc before graph capture. |
+| **3** | CUDA graphs (capture 28-layer forward, replay) | →1200 | — | **UNBLOCKED** — cuBLAS workspace shipped, forward capture exists (PMAT-464). Backward capture TODO. |
 | **4** | Fused NF4 dequant+GEMM kernels (like Triton) | →3000 | — | Requires trueno kernel work |
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |

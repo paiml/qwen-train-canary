@@ -178,14 +178,15 @@ roadmap:
       integration added (--profile-interval). 26 tests pass.
 
   - id: PMAT-458
-    title: "FP16 cuBLAS GEMM training — Tier 2 parity (194→390 tok/s)"
-    status: in_progress
+    title: "FP16 cuBLAS GEMM training — Tier 2 SHIPPED"
+    status: completed
     priority: critical
     github_issue: 16
     description: >
-      Memory-BW bound at 194 tok/s with fp32 GEMM. FP16 halves traffic: 9.4→4.7 MB/GEMM.
-      Contract: fp16-cublas-gemm-v1.yaml (3 hypotheses, roofline analysis).
-      Upstream: entrenar#320 (CudaFp16TransformerBlock), trueno#235 (cublasHgemm).
+      SHIPPED: Q/K/V dispatch (entrenar@82b484fa), cast kernel (trueno@05217c48),
+      set_fp16_weights() (entrenar@de2ad7e1). All 7 projections wired for FP16.
+      FINDING: FP16 dispatch was dead code until PMAT-470 implemented set_fp16_weights().
+      Enable: FP16_GEMM=1. Next: measure actual throughput improvement.
 
   - id: PMAT-459
     title: "Gradient accumulation canary — batch=1 accum=4 for yoga 8GB (PMAT-428)"
@@ -219,14 +220,14 @@ roadmap:
       pytorch@yoga baseline added (PROVISIONAL: 1500 tok/s estimate).
 
   - id: PMAT-464
-    title: "CUDA graph capture for NF4 training — Tier 3 parity (194→1200 tok/s)"
+    title: "CUDA graph capture for NF4 training — Tier 3 UNBLOCKED"
     status: in_progress
     priority: critical
     github_issue: 20
     description: >
-      588 kernel launches × 5μs = 60% launch overhead. CUDA graphs capture entire
-      28-layer forward, replay with single call. Contract: cuda-graph-training-v1.yaml.
-      Upstream: entrenar#322.
+      Forward graph capture exists (entrenar@0138b409). cuBLAS workspace pre-allocated
+      (PMAT-063, entrenar@de2ad7e1). Remaining: backward graph capture (840 kernels),
+      graph update for seq_len changes. CUDA_GRAPH=1 to enable.
 
   - id: PMAT-467
     title: "Fix score.py NaN loss + PROVISIONAL handling + 7 new tests"
@@ -239,15 +240,33 @@ roadmap:
       33 tests (was 26). 16/16 results pass schema.
 
   - id: PMAT-470
-    title: "FP16 weight storage + gemm_f16_to_f32_forward (Tier 2 infrastructure)"
-    status: in_progress
+    title: "FP16 weight storage + set_fp16_weights() — Tier 2 COMPLETE"
+    status: completed
     priority: critical
     github_issue: 16
     description: >
-      CudaNf4TransformerBlock now has w_X_fp16: Option<GpuBuffer<u16>> fields.
-      gemm_f16_to_f32_forward landed (fp16×fp16→fp32 tensor core GEMM).
-      Remaining: GPU fp32→fp16 activation cast kernel for forward dispatch.
-      Upstream: entrenar@7dd3e3cb.
+      SHIPPED: set_fp16_weights() implemented (entrenar@de2ad7e1, entrenar#324).
+      Casts all 7 fp32 weight buffers to fp16 on GPU via CastF32ToF16Kernel.
+      Forward dispatch now uses gemm_f16_to_f32 when FP16_GEMM=1.
+      FINDING: FP16 GEMM path was DEAD CODE — w_X_fp16 always None until this fix.
+
+  - id: PMAT-471
+    title: "CPU lm_head backward fallback for VRAM-constrained GPUs"
+    status: completed
+    priority: critical
+    description: >
+      SHIPPED: entrenar@de2ad7e1 (entrenar#323). On yoga 8GB, GPU embeddings
+      (890 MB) don't fit after NF4 blocks (~4 GB). Without this fix, backward
+      NEVER ran — model could not train. CPU fallback: D2H + CPU matmul + H2D.
+
+  - id: PMAT-063
+    title: "cuBLAS workspace pre-allocation for CUDA graph capture"
+    status: completed
+    priority: critical
+    description: >
+      SHIPPED: entrenar@de2ad7e1 (entrenar#325). Pre-allocates 32 MB cuBLAS
+      workspace before graph capture. Without this, CUDA graph capture fails
+      on Ada (sm_89) with CUDA_ERROR_INVALID_VALUE.
 
   - id: PMAT-465
     title: "Add gradient-accumulation baseline for yoga"
