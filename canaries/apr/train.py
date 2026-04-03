@@ -94,6 +94,7 @@ def main():
     if not os.path.exists(model_path):
         # Try common local paths
         for candidate in [
+            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4k.apr"),
             os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr"),
             os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"),
         ]:
