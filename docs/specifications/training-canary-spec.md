@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 3.3.0
+**Version:** 3.4.0
 **Last Updated:** 2026-04-03
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -301,14 +301,14 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | wgpu/Vulkan |
 |--------|---------|-----------|-------------|------------|
-| **apr** (NF4 cuBLAS) | entrenar (Rust) | **194** tok/s (GPU pipeline, mem-BW bound, 2026-04-02) | TBD | N/A |
+| **apr** (NF4 cuBLAS) | entrenar (Rust) | **PROVISIONAL** ~194 tok/s (NaN skips inflate — PMAT-462) | TBD | N/A |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, compute-bound, 2026-04-03) | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,628** (2026-04-01) | **16,118** (2026-04-01) | N/A |
-| pytorch | Python + torch | N/A (F-EXEC-02) | **4,017** (2026-04-01) | N/A |
+| pytorch | Python + torch | TBD (gradacc batch=1 accum=4, PMAT-459) | **4,017** (2026-04-01) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
-**Parity gap (APR):** 194 vs 6,628 = 2.9% (34x deficit). Root cause: memory-bandwidth bound — cuBLAS fp32 GEMM reads 9.4 MB per 1536×1536 weight matrix at 256 GB/s. 21 upstream fixes landed (NaN fixed, GPU pipeline working). Next: Tier 2 FP16 cuBLAS GEMM (halve memory traffic → ~390 tok/s). See [optimization-roadmap.md](components/optimization-roadmap.md) and contract `fp16-cublas-gemm-v1.yaml`.
+**Parity gap (APR):** PROVISIONAL ~194 vs 6,628 tok/s. The 194 tok/s measurement is **inflated** by NaN-skipped backward passes (PMAT-462). Upstream fix landed: fused residual+RMSNorm (entrenar@b4d74f2c, entrenar#321) eliminates NaN cascade in layers 24-27. Re-measurement needed. 22 upstream fixes total. Parity roadmap: Tier 2 FP16 GEMM (→390), Tier 3 CUDA graphs (→1200), Tier 4-6 kernel fusion (→6000+ parity). See [optimization-roadmap.md](components/optimization-roadmap.md).
 
 ---
 
@@ -416,7 +416,8 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-435-438 | Phase 3: Advanced canaries | 4 |
 | PMAT-439-456 | Spec audit, schema/scoring validation, test infrastructure | 18 |
 | PMAT-457-461 | Parity fixes: APR baselines, FP16 GEMM, grad accum, profiler | 5 |
-| **Total** | | **42** |
+| PMAT-462-466 | NaN fix, nightly coverage, CUDA graph contract, spec v3.4.0 | 5 |
+| **Total** | | **47** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -441,3 +442,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 3.1.0 | 2026-04-01 | Fix 15 (entrenar#316 NF4 forward NaN) landed — APR IS LEARNING (loss 4.86→3.27); spec audit: F-WL-06 updated, roadmap P0 updated, wgpu baseline corrected, deferred notes removed | PMAT-439/440/441/442 |
 | 3.2.0 | 2026-04-01 | All 15 falsification conditions resolved. Schema validator + 25 pytest tests. F-EXEC-01 CONFIRMED (GPU clock injection). Fresh gx10 results (unsloth 16,118 tok/s). APR canary timeout fixed. nightly.sh complete (all 3 hosts, 5 canaries). score.py VRAM skip for baselines lacking peak_vram_mb. | PMAT-443-453 |
 | 3.3.0 | 2026-04-03 | APR throughput corrected: 44→194 tok/s (34x gap, was 151x). Throughput formula bug fixed (8x under-report). APR baselines updated (190 tok/s, loss 20.0). FP16 cuBLAS GEMM contract designed (Tier 2: 390 tok/s target). Gradient accumulation canary implemented. Step profiler integration. FP16 GEMM primitives landed upstream (entrenar@1ce6ef24). 42 total PMAT items. | PMAT-457-461 |
+| 3.4.0 | 2026-04-03 | APR baseline marked PROVISIONAL (NaN backward skips inflate 194 tok/s). Fused residual+RMSNorm fix landed upstream (entrenar@b4d74f2c, entrenar#321). CUDA graph Tier 3 contract designed (→1200 tok/s, entrenar#322). Nightly coverage complete: all 5 runtimes on all hosts. pytorch-gradacc yoga target added. 22 upstream fixes total. 47 PMAT items. | PMAT-462-466 |
