@@ -36,6 +36,18 @@ def get_gpu_info() -> dict:
         return {"device": "unknown"}
 
 
+def _apr_canary_name() -> str:
+    """Determine canary name from environment variables."""
+    parts = ["apr"]
+    if os.environ.get("NF4_FUSED_GEMM") == "1":
+        parts.append("fused")
+    if os.environ.get("FP16_GEMM") == "1":
+        parts.append("fp16")
+    if os.environ.get("CUDA_GRAPH") == "1":
+        parts.append("graph")
+    return "-".join(parts)
+
+
 def prepare_dataset(yaml_path: str, output_path: str):
     """Convert canary YAML dataset to JSONL for apr finetune."""
     import yaml
@@ -222,7 +234,7 @@ def main():
         metrics["stderr_tail"] = stderr[-500:]
 
     output = {
-        "canary": "apr-fp16" if os.environ.get("FP16_GEMM") == "1" else "apr",
+        "canary": _apr_canary_name(),
         "backend": "cuda" if args.gpu_backend == "auto" else args.gpu_backend,
         "host": socket.gethostname(),
         "gpu": get_gpu_info(),
