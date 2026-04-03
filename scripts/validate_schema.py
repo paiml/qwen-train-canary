@@ -13,7 +13,8 @@ import sys
 REQUIRED_TOP_LEVEL = ["canary", "backend", "host", "timestamp", "config", "metrics"]
 VALID_CANARIES = {
     "unsloth", "pytorch", "pytorch-compile", "cublas", "wgpu",
-    "apr", "apr-fused", "apr-fp16", "apr-fused-fp16", "apr-fused-fp16-graph",
+    "apr", "apr-fused", "apr-tc", "apr-fp16", "apr-fused-fp16",
+    "apr-fused-fp16-graph", "apr-fused-tc",
 }
 VALID_BACKENDS = {"cuda", "wgpu", "vulkan", "cpu", "metal", "auto"}
 REQUIRED_CONFIG = ["batch_size", "seq_len", "steps", "lr", "seed"]
@@ -79,7 +80,7 @@ def validate_result(path: str) -> list[str]:
                 errors.append(f"[{fname}] Missing metrics.parity.{field}")
 
     # F-SCHEMA-040: APR-specific metrics (PMAT-468)
-    if canary == "apr":
+    if canary and canary.startswith("apr"):
         for field in ["nan_backward_skips", "valid_backward_steps"]:
             if field not in metrics:
                 errors.append(f"[{fname}] APR canary missing metrics.{field}")

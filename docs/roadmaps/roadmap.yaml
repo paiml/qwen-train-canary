@@ -517,7 +517,7 @@ roadmap:
 - id: PMAT-475
   github_issue: 22
   item_type: task
-  title: "NF4 kernel fusion — RMSNorm+GEMV, Gate+Up GEMM shipped + wired + pre-warmed"
+  title: NF4 kernel fusion — RMSNorm+GEMV, Gate+Up GEMM shipped + wired + pre-warmed
   status: completed
   priority: critical
   assigned_to: null
@@ -530,21 +530,15 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
-  description: >
-    APR training is 34x slower than unsloth (194 vs 6,628 tok/s). Root cause: memory
-    bandwidth bound. Q4K fusions exist in trueno (FusedRmsNormGateUpSwigluQ4KKernel)
-    but NF4 variants missing. Replicate Q4K fusion pattern for NF4 data type.
-    Contracts: nf4-fused-rmsnorm-gemv-v1.yaml, nf4-fused-gate-up-swiglu-v1.yaml.
-    Expected: 1.5x throughput improvement (194 → ~290 tok/s).
 - id: PMAT-476
   github_issue: 24
   item_type: task
-  title: "Measure FP16 throughput — Tier 2 shipped but unmeasured"
-  status: in_progress
+  title: Measure FP16 throughput — Tier 2 shipped but unmeasured
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T12:27:26.900483958+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -552,15 +546,10 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
-  description: >
-    FP16 path (entrenar#324, #325, #326, #327) shipped but never measured.
-    make canary-apr-fp16 exists but never executed. All 4 falsification tests
-    in fp16-training-parity-v1.yaml are PENDING. Must run measurement and
-    validate contract F-FP16-001..004.
 - id: PMAT-477
   github_issue: 23
   item_type: task
-  title: "Backward graph capture — fused clip + backward_graph.rs + pipeline split"
+  title: Backward graph capture — fused clip + backward_graph.rs + pipeline split
   status: completed
   priority: critical
   assigned_to: null
@@ -573,20 +562,51 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
-  description: >
-    CUDA graph backward capture blocked by per-layer gradient clipping D2H sync.
-    squared_sum_cuda() calls stream.synchronize() inside backward loop (168 sync
-    points per backward pass). Fix: move clipping outside graph, compute norms in
-    batch, single sync. Contract: cuda-graph-backward-v1.yaml.
 - id: PMAT-478
   github_issue: 25
   item_type: task
-  title: "Fused K+V NF4 GEMM for GQA attention — 352 MB/step DRAM saved"
+  title: Fused K+V NF4 GEMM for GQA attention — 352 MB/step DRAM saved
   status: completed
   priority: critical
+  assigned_to: null
   created: 2026-04-03T00:00:00Z
   updated: 2026-04-03T00:00:00Z
-  description: >
-    Reuses FusedNf4GateUpGemmKernel for K+V projections (same output dim in GQA).
-    Saves 1× M×K×4 bytes per layer (352 MB/step). Pre-warmed in cache.
-    Contract: nf4-fused-qkv-gemm-v1.yaml. Combined with Gate+Up: 688 MB/step saved.
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-479
+  github_issue: 26
+  item_type: task
+  title: NF4 tensor core GEMM — WMMA 16×16×16 dequant in SHMEM + mma.sync
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-480
+  github_issue: 27
+  item_type: task
+  title: Training step profiling — wire BrickProfiler into training loop
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-03T00:00:00Z
+  updated: 2026-04-03T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

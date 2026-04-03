@@ -229,3 +229,27 @@ def test_nan_loss_rejected():
     data["metrics"] = {**data["metrics"], "final_loss": float("nan")}
     errors = _write_and_validate(data)
     assert any("final_loss" in e for e in errors)
+
+
+# --- NF4 tensor core canary schema tests (PMAT-479) ---
+
+def test_apr_tc_accepted():
+    """apr-tc canary name must be accepted by schema validator."""
+    data = {**GOOD_APR_RESULT, "canary": "apr-tc"}
+    errors = _write_and_validate(data)
+    assert len(errors) == 0, f"apr-tc should be valid canary: {errors}"
+
+
+def test_apr_tc_missing_nan_skips():
+    """apr-tc canary must also require nan_backward_skips."""
+    data = {**GOOD_APR_RESULT, "canary": "apr-tc"}
+    data["metrics"] = {k: v for k, v in data["metrics"].items() if k != "nan_backward_skips"}
+    errors = _write_and_validate(data)
+    assert any("nan_backward_skips" in e for e in errors)
+
+
+def test_apr_fused_tc_accepted():
+    """apr-fused-tc canary name must be accepted."""
+    data = {**GOOD_APR_RESULT, "canary": "apr-fused-tc"}
+    errors = _write_and_validate(data)
+    assert len(errors) == 0, f"apr-fused-tc should be valid canary: {errors}"

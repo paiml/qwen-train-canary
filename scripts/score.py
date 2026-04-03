@@ -14,6 +14,7 @@ import sys
 DEFAULT_BASELINES = {
     "apr": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
     "apr-fused": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
+    "apr-tc": {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0},
     "apr-fp16": {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0},
     "apr-fused-fp16": {"tokens_per_sec": 200, "peak_vram_mb": 3000, "final_loss": 20.0},
     "apr-fused-fp16-graph": {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 20.0},

@@ -41,6 +41,8 @@ def _apr_canary_name() -> str:
     parts = ["apr"]
     if os.environ.get("NF4_FUSED_GEMM") == "1":
         parts.append("fused")
+    if os.environ.get("NF4_TC_GEMM") == "1":
+        parts.append("tc")
     if os.environ.get("FP16_GEMM") == "1":
         parts.append("fp16")
     if os.environ.get("CUDA_GRAPH") == "1":

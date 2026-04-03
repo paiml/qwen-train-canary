@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 3.9.0
+**Version:** 4.0.0
 **Last Updated:** 2026-04-03
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -230,7 +230,7 @@ Every canary produces JSON conforming to:
 
 ```json
 {
-  "canary": "apr|unsloth|pytorch|pytorch-compile|cublas|wgpu",
+  "canary": "apr|apr-fused|apr-tc|apr-fp16|apr-fused-fp16|apr-fused-fp16-graph|unsloth|pytorch|pytorch-compile|cublas|wgpu",
   "backend": "cuda|wgpu|vulkan|cpu|metal",
   "host": "string",
   "gpu": {
@@ -303,12 +303,15 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 |--------|---------|-----------|-------------|------------|
 | **apr** (NF4 cuBLAS) | entrenar (Rust) | **PROVISIONAL** ~194 tok/s (NaN skips inflate — PMAT-462) | TBD | N/A |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, compute-bound, 2026-04-03) | TBD | N/A |
+| **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479 shipped, canary ready | TBD | N/A |
+| **apr-fp16** (FP16 GEMM) | entrenar (Rust) | **UNMEASURED** — PMAT-470/472 shipped, canary ready | TBD | N/A |
+| **apr-fused** (fused Gate+Up+K+V) | entrenar (Rust) | **UNMEASURED** — PMAT-475/478 shipped, canary ready | TBD | N/A |
 | unsloth | Python + bitsandbytes | **6,628** (2026-04-01) | **16,118** (2026-04-01) | N/A |
 | pytorch | Python + torch | TBD (gradacc batch=1 accum=4, PMAT-459) | **4,017** (2026-04-01) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
-**Parity gap (APR):** PROVISIONAL ~194 vs 6,628 tok/s. The 194 tok/s measurement is **inflated** by NaN-skipped backward passes (PMAT-462). Upstream fix landed: fused residual+RMSNorm (entrenar@b4d74f2c, entrenar#321) eliminates NaN cascade in layers 24-27. Re-measurement needed. 22 upstream fixes total. Parity roadmap: Tier 2 FP16 GEMM (→390), Tier 3 CUDA graphs (→1200), Tier 4-6 kernel fusion (→6000+ parity). See [optimization-roadmap.md](components/optimization-roadmap.md).
+**Parity gap (APR):** PROVISIONAL ~194 vs 6,628 tok/s (34x). 35 upstream fixes shipped but critical gap: **no per-layer profiling** to identify which optimization moved the needle. Five-whys root cause: BrickProfiler (trueno, 23 brick types) not wired into training loop. Filed: PMAT-480, entrenar#328. Parity roadmap: measure first (scientific profiling), then optimize the actual bottleneck. See [optimization-roadmap.md](components/optimization-roadmap.md).
 
 ---
 
@@ -419,7 +422,9 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-462-466 | NaN fix, nightly coverage, CUDA graph contract, spec v3.4.0 | 5 |
 | PMAT-467-474 | FP16 path: weight cast, backward GEMM, crash fixes, canary pipeline | 8 |
 | PMAT-475-477 | Kernel fusion (NF4 RMSNorm+GEMV), backward graph unblock (fused clip), FP16 measurement | 3 |
-| **Total** | | **58** |
+| PMAT-478-479 | Fused K+V NF4 GEMM (GQA attention), NF4 tensor core GEMM (WMMA 16×16×16) | 2 |
+| PMAT-480 | Training step profiling — wire BrickProfiler into training loop (scientific profiling) | 1 |
+| **Total** | | **61** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -447,3 +452,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 3.4.0 | 2026-04-03 | APR baseline marked PROVISIONAL (NaN backward skips inflate 194 tok/s). Fused residual+RMSNorm fix landed upstream (entrenar@b4d74f2c, entrenar#321). CUDA graph Tier 3 contract designed (→1200 tok/s, entrenar#322). Nightly coverage complete: all 5 runtimes on all hosts. pytorch-gradacc yoga target added. 22 upstream fixes total. 47 PMAT items. | PMAT-462-466 |
 | 3.5.0-3.8.0 | 2026-04-03 | FP16 forward+backward GEMM shipped (Tier 2). CPU lm_head backward fallback. cuBLAS workspace pre-alloc. fp32 weight drop (2.6 GB freed). FP16 canary pipeline + provable contract. 3 crash bugs fixed. 26 upstream fixes. CUDA graph forward shipped, backward deferred. | PMAT-470-474 |
 | 3.9.0 | 2026-04-03 | **Kernel fusion + backward graph unblocking.** Five-whys: 34x gap root cause is memory BW, not compute. NF4 fused RMSNorm+GEMV kernel in trueno (PMAT-475). Fused LoRA gradient clipping in entrenar — 168 D2H sync → 0, enables CUDA graph backward (PMAT-477). FP16 measurement gap identified (PMAT-476). 3 provable contracts. 28 upstream fixes. | PMAT-475-477 |
+| 4.0.0 | 2026-04-03 | **Scientific profiling + tensor core GEMM + fused K+V.** Five-whys: can't close 34x gap without per-layer profiling. Designed training-step-profiling-v1 contract (12 falsification tests). BrickProfiler integration filed upstream (entrenar#328). NF4 tensor core GEMM shipped (PMAT-479, WMMA 16×16×16). Fused K+V GEMM shipped (PMAT-478, 352 MB/step saved). New canary targets: canary-apr-tc, canary-apr-profile. 47 tests (41→47). 35 upstream fixes. 61 PMAT items. | PMAT-478-480 |

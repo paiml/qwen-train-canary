@@ -185,7 +185,7 @@ canary-cublas-gx10:
 # APR fine-tune (Sovereign Stack — aprender/entrenar)
 # ============================================================================
 
-.PHONY: canary-apr canary-apr-fused canary-apr-fp16 canary-apr-fp16-graph canary-apr-gx10
+.PHONY: canary-apr canary-apr-fused canary-apr-tc canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
 
 canary-apr:
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -218,6 +218,23 @@ canary-apr-fused:
 			--method qlora \
 			--output /tmp/canary-apr-fused-$(DATE).json'
 	scp yoga:/tmp/canary-apr-fused-$(DATE).json results/
+
+# PMAT-479: NF4 tensor core GEMM canary — validates NF4_TC_GEMM=1 path.
+# Contract: nf4-tensor-core-gemm-v1.yaml (throughput >= 5x naive, loss parity)
+canary-apr-tc:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		NF4_TC_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps $(CANARY_STEPS) \
+			--batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--output /tmp/canary-apr-tc-$(DATE).json'
+	scp yoga:/tmp/canary-apr-tc-$(DATE).json results/
 
 # PMAT-473: FP16 tensor core canary — validates FP16_GEMM=1 path.
 # Contract: fp16-training-parity-v1.yaml (loss parity, throughput >= 1.3x, NaN regression)
@@ -267,6 +284,55 @@ canary-apr-max:
 			--method qlora \
 			--output /tmp/canary-apr-max-$(DATE).json'
 	scp yoga:/tmp/canary-apr-max-$(DATE).json results/
+
+# PMAT-480: Scientific profiling — step profiler at max granularity.
+# Contract: training-step-profiling-v1.yaml (wall coverage >= 90%, per-phase breakdown)
+# Runs with profile-interval=1 to capture every step. Exercises all canary variants.
+canary-apr-profile:
+	@echo "=== APR Scientific Profiling (PMAT-480) ==="
+	@echo "--- Baseline (cuBLAS NF4) ---"
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps 20 --batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
+			--method qlora --profile-interval 1 \
+			--output /tmp/canary-apr-profile-baseline-$(DATE).json 2>&1' | tee results/profile-apr-baseline-$(DATE).log
+	@echo "--- FP16 GEMM ---"
+	ssh yoga 'cd ~/qwen-train-canary && \
+		FP16_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps 20 --batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
+			--method qlora --profile-interval 1 \
+			--output /tmp/canary-apr-profile-fp16-$(DATE).json 2>&1' | tee results/profile-apr-fp16-$(DATE).log
+	@echo "--- Fused NF4 Gate+Up ---"
+	ssh yoga 'cd ~/qwen-train-canary && \
+		NF4_FUSED_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps 20 --batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
+			--method qlora --profile-interval 1 \
+			--output /tmp/canary-apr-profile-fused-$(DATE).json 2>&1' | tee results/profile-apr-fused-$(DATE).log
+	@echo "--- NF4 Tensor Core GEMM ---"
+	ssh yoga 'cd ~/qwen-train-canary && \
+		NF4_TC_GEMM=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps 20 --batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
+			--method qlora --profile-interval 1 \
+			--output /tmp/canary-apr-profile-tc-$(DATE).json 2>&1' | tee results/profile-apr-tc-$(DATE).log
+	scp yoga:/tmp/canary-apr-profile-*-$(DATE).json results/
+	@echo "=== Profiling complete — compare results/ logs ==="
 
 canary-apr-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \

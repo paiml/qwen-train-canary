@@ -369,3 +369,57 @@ def test_apr_fused_regression_detected():
     baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
     score = score_result(result, baseline)
     assert not score["pass"], "30% regression should fail"
+
+
+# --- NF4 tensor core canary tests (PMAT-479) ---
+
+def test_apr_tc_passes_at_baseline():
+    """apr-tc canary at or above baseline should PASS."""
+    result = {
+        "canary": "apr-tc",
+        "metrics": {
+            "tokens_per_sec": 60,
+            "peak_vram_mb": 4000,
+            "final_loss": 18.0,
+            "nan_backward_skips": 0,
+            "valid_backward_steps": 100,
+        },
+    }
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert score["pass"], f"apr-tc at baseline should pass: {score}"
+
+
+def test_apr_tc_regression_detected():
+    """NF4 tensor core canary regression should FAIL."""
+    result = {
+        "canary": "apr-tc",
+        "metrics": {
+            "tokens_per_sec": 30,
+            "peak_vram_mb": 4000,
+            "final_loss": 18.0,
+            "nan_backward_skips": 0,
+            "valid_backward_steps": 100,
+        },
+    }
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert not score["pass"], "40% throughput regression should fail"
+
+
+def test_apr_tc_nan_rate_fails():
+    """NF4 tensor core canary with >50% NaN should FAIL."""
+    result = {
+        "canary": "apr-tc",
+        "config": {"steps": 100},
+        "metrics": {
+            "tokens_per_sec": 60,
+            "peak_vram_mb": 4000,
+            "final_loss": 18.0,
+            "nan_backward_skips": 60,
+            "valid_backward_steps": 40,
+        },
+    }
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    score = score_result(result, baseline)
+    assert not score["pass"], ">50% NaN rate should fail"

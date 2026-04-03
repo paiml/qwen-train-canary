@@ -34,6 +34,10 @@ run_yoga_canaries() {
     make canary-apr-fused
     echo "  -> results/canary-apr-fused-$DATE.json"
 
+    echo "Running apr NF4 tensor core canary (PMAT-479: WMMA GEMM)..."
+    make canary-apr-tc
+    echo "  -> results/canary-apr-tc-$DATE.json"
+
     echo "Running apr FP16 canary (PMAT-473: tensor core parity)..."
     make canary-apr-fp16
     echo "  -> results/canary-apr-fp16-$DATE.json"

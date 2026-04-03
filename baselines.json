@@ -17,6 +17,12 @@
     "final_loss": 20.0,
     "_status": "PROVISIONAL — NF4_FUSED_GEMM=1 fused Gate+Up (PMAT-475). Needs first measurement."
   },
+  "apr-tc": {
+    "tokens_per_sec": 50,
+    "peak_vram_mb": 4200,
+    "final_loss": 20.0,
+    "_status": "PROVISIONAL — NF4_TC_GEMM=1 tensor core path (PMAT-479). Needs first measurement."
+  },
   "apr-fused-fp16": {
     "tokens_per_sec": 200,
     "peak_vram_mb": 3000,
