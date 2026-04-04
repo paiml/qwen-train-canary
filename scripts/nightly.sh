@@ -46,6 +46,10 @@ run_yoga_canaries() {
     make canary-apr-tc-bwd
     echo "  -> results/canary-apr-tc-bwd-$DATE.json"
 
+    echo "Running apr CUDA graph canary (PMAT-488: forward+backward graph)..."
+    make canary-apr-graph
+    echo "  -> results/canary-apr-graph-$DATE.json"
+
     echo "Running apr FP16 canary (PMAT-473: tensor core parity)..."
     make canary-apr-fp16
     echo "  -> results/canary-apr-fp16-$DATE.json"

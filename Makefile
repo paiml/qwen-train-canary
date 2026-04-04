@@ -64,6 +64,7 @@ canary-unsloth:
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
+			--profile \
 			--output /tmp/canary-unsloth-$(DATE).json'
 	scp yoga:/tmp/canary-unsloth-$(DATE).json results/
 
@@ -79,6 +80,7 @@ canary-pytorch-gradacc:
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
+			--profile \
 			--output /tmp/canary-pytorch-gradacc-$(DATE).json'
 	scp yoga:/tmp/canary-pytorch-gradacc-$(DATE).json results/
 
@@ -324,10 +326,12 @@ canary-apr-graph:
 	scp yoga:/tmp/canary-apr-graph-$(DATE).json results/
 
 # PMAT-475+464: Max throughput path — all optimizations enabled
+# All optimizations: fused fwd+bwd + TC GEMM fwd+bwd + FP16 + CUDA graph fwd+bwd
+# This is the "everything on" target — should show maximum APR throughput.
 canary-apr-max:
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
-		NF4_FUSED_GEMM=1 FP16_GEMM=1 CUDA_GRAPH=1 python3 canaries/apr/train.py \
+		NF4_FUSED_GEMM=1 NF4_FUSED_BWD_GEMM=1 NF4_TC_GEMM=1 NF4_TC_BWD_GEMM=1 FP16_GEMM=1 CUDA_GRAPH=1 python3 canaries/apr/train.py \
 			--model $(MODEL_ID) \
 			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
 			--steps $(CANARY_STEPS) \
@@ -336,6 +340,7 @@ canary-apr-max:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
+			--profile-interval 1 \
 			--output /tmp/canary-apr-max-$(DATE).json'
 	scp yoga:/tmp/canary-apr-max-$(DATE).json results/
 
