@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 5.0.0
+**Version:** 5.1.0
 **Last Updated:** 2026-04-04
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -464,3 +464,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 4.8.0 | 2026-04-04 | **Measurement pipeline complete + canary-apr-max with all 6 flags.** canary-apr-max now enables every optimization: NF4_FUSED_GEMM + NF4_FUSED_BWD_GEMM + NF4_TC_GEMM + NF4_TC_BWD_GEMM + FP16_GEMM + CUDA_GRAPH (forward+backward). Added --profile to unsloth + pytorch canaries (torch.profiler parity data). Backward per-op profiling constants (OP_DOWN_BWD through OP_LORA_BWD) complete 16-op instrumentation. Graph wiring validation test passes (5/5 checks). nightly.sh updated with canary-apr-graph. 49 upstream fixes. Ready for measurement: `make canary-apr-max` is the definitive throughput test. | PMAT-487/488 |
 | 4.9.0 | 2026-04-04 | **Per-op backward profiling wired + optimization sweep.** 6 backward ops instrumented with op_begin/op_end: OP_DOWN_BWD, OP_SWIGLU_BWD, OP_GATE_UP_BWD, OP_ATTN_BWD, OP_QKV_BWD, OP_NORM_BWD. Combined with 8 forward ops = 14/16 per-op coverage. `scripts/sweep.sh`: systematic 13-variant A/B measurement. 51 upstream fixes. | PMAT-483/488 |
 | 5.0.0 | 2026-04-04 | **All 8 backward projections use NF4 TC GEMM + comprehensive validation.** O-projection was last holdout — now Q, K, V, O, gate, up, down all dispatch to tensor core backward (224 TC GEMM dispatches per step: 8 projections × 28 layers). Comprehensive validation tests: `test_optimization_coverage.py` (4 check groups, 15 TC dispatches verified, 6 env vars, 16 profiling constants, 8 canary targets, 7 contracts) and `test_graph_wiring.py` (5 checks). probar parity comparison shipped. 53 upstream fixes across 5 repos. **Optimization stack is feature-complete and validated.** | PMAT-481/487/488 |
+| 5.1.0 | 2026-04-04 | **First dogfood on yoga — unsloth baseline measured.** Unsloth 20-step measurement: **5,512 tok/s**, 5,085 MB VRAM, loss 0.4674 (converges properly). torch.profiler fix: `FunctionEventAvg` attribute probing for API compatibility. Note: CUPTI profiling returned 0 (permission issue) — training metrics valid, kernel profiling needs nsys. APR canary blocked by apr-cli rebuild (disk space + trueno semver mismatch on yoga). Dogfooding gap found: `realizar` requires trueno ^0.16 but yoga has 0.17.1. | PMAT-487 |
