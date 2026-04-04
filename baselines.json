@@ -1,9 +1,9 @@
 {
   "apr": {
-    "tokens_per_sec": 40,
+    "tokens_per_sec": 400,
     "peak_vram_mb": 4200,
-    "final_loss": 20.0,
-    "_status": "PROVISIONAL — 194 tok/s measured but NaN backward skips inflate throughput (PMAT-462)"
+    "final_loss": 13.0,
+    "_status": "MEASURED — 421 tok/s on gx10 GB10 via WGPU fast Q4K path (2026-04-04). 0 NaN skips, loss 12.8."
   },
   "apr-fp16": {
     "tokens_per_sec": 150,

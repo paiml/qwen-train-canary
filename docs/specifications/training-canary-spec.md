@@ -301,7 +301,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | Lambda (RTX 4090) |
 |--------|---------|-----------|-------------|-------------------|
-| **apr** (WGPU fast path) | entrenar (Rust) | **BLOCKED** (libvulkan missing) | **measuring** (CPU dequant, old binary) | **125** tok/s (2026-04-04) |
+| **apr** (WGPU fast path) | entrenar (Rust) | **BLOCKED** (libvulkan missing) | **421** tok/s (505s, 2026-04-04) | **125** tok/s (2026-04-04) |
 | **apr** (CUDA cached JIT) | entrenar (Rust) | **28** tok/s (941s, 2026-04-04) | TBD | **119** tok/s (2026-04-04) |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, 2026-04-03) | TBD | N/A |
 | **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479+481 shipped+wired, canary ready | TBD | N/A |
@@ -312,7 +312,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
-**Parity gap (APR):** 125 tok/s (WGPU, Lambda) vs 5,512 tok/s (unsloth, yoga) = **44x**. Two blockers: (1) yoga WGPU blocked by missing `libvulkan.so.1` — install restores fast Q4K path; (2) gx10 binary still uses 20-min CPU dequant path — rebuild with `--gpu-backend wgpu` routing fix in progress. Upstream fix: aprender now respects `--gpu-backend wgpu` to force fast WGPU Q4K loading even when CUDA is available. See [optimization-roadmap.md](components/optimization-roadmap.md).
+**Parity gap (APR):** 421 tok/s (WGPU, gx10) vs 5,512 tok/s (unsloth, yoga) = **13x**. Best: gx10 421 tok/s via WGPU fast Q4K path (505s, loss 12.8). Two blockers: (1) yoga WGPU blocked by missing `libvulkan.so.1` — install restores fast Q4K path; (2) gx10 binary still uses 20-min CPU dequant path — rebuild with `--gpu-backend wgpu` routing fix in progress. Upstream fix: aprender now respects `--gpu-backend wgpu` to force fast WGPU Q4K loading even when CUDA is available. See [optimization-roadmap.md](components/optimization-roadmap.md).
 
 ---
 
