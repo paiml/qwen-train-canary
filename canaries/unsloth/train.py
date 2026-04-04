@@ -172,12 +172,21 @@ def main():
 
         # Parse into parity-profile-v1 schema
         ka = prof.key_averages()
-        total_cuda_us = sum(e.self_cuda_time_total for e in ka if e.self_cuda_time_total > 0)
-        kernel_count = sum(e.count for e in ka if e.self_cuda_time_total > 0)
+
+        def cuda_time(e):
+            """Get CUDA time from profiler event (API varies by PyTorch version)."""
+            for attr in ["self_cuda_time_total", "cuda_time_total", "cuda_time", "self_device_time_total"]:
+                val = getattr(e, attr, None)
+                if val is not None and val > 0:
+                    return val
+            return 0
+
+        total_cuda_us = sum(cuda_time(e) for e in ka)
+        kernel_count = sum(e.count for e in ka if cuda_time(e) > 0)
 
         op_times = {"attention_ms": 0, "ffn_ms": 0, "norm_ms": 0, "embed_ms": 0, "other_ms": 0}
         for e in ka:
-            t_ms = e.self_cuda_time_total / 1000.0 / active_steps
+            t_ms = cuda_time(e) / 1000.0 / active_steps
             name = e.key.lower()
             if any(k in name for k in ["attention", "softmax", "flash", "sdpa", "triton_flash"]):
                 op_times["attention_ms"] += t_ms
