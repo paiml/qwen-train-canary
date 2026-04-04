@@ -205,13 +205,13 @@ def main():
 
         # Parse profiler output into parity-profile-v1 schema
         ka = prof.key_averages()
-        total_cuda_us = sum(e.cuda_time_total for e in ka if e.cuda_time_total > 0)
-        kernel_count = sum(e.count for e in ka if e.cuda_time_total > 0)
+        total_cuda_us = sum(e.self_cuda_time_total for e in ka if e.self_cuda_time_total > 0)
+        kernel_count = sum(e.count for e in ka if e.self_cuda_time_total > 0)
 
         # Map kernels to operation categories
         op_times = {"attention_ms": 0, "ffn_ms": 0, "norm_ms": 0, "embed_ms": 0, "projection_ms": 0, "other_ms": 0}
         for e in ka:
-            t_ms = e.cuda_time_total / 1000.0 / active_steps
+            t_ms = e.self_cuda_time_total / 1000.0 / active_steps
             name = e.key.lower()
             if any(k in name for k in ["attention", "softmax", "flash", "sdpa"]):
                 op_times["attention_ms"] += t_ms
