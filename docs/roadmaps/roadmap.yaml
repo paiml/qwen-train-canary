@@ -710,11 +710,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Fix GGUF tensor name mapping in apr finetune — Q4K uses token_embd not model.embed_tokens
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-04T11:19:24Z
-  updated: 2026-04-04T11:19:24Z
+  updated: 2026-04-04T20:25:34Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -726,11 +726,75 @@ roadmap:
   github_issue: null
   item_type: task
   title: Fix APR v2 metadata completeness — GGUF imports missing num_heads/num_layers/num_kv_heads
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-04-04T11:19:29Z
-  updated: 2026-04-04T11:19:29Z
+  updated: 2026-04-04T20:25:34Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-491
+  github_issue: null
+  item_type: task
+  title: 'CUDA NF4 training: bypass 20-min CPU dequant — use WGPU/CUDA direct Q4K path'
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-04T12:37:21Z
+  updated: 2026-04-04T17:06:20.886546144+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-492
+  github_issue: null
+  item_type: task
+  title: trueno CUDA kernel cache — PTX JIT takes 2 hours on sm_89, needs disk caching
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-04T16:36:59Z
+  updated: 2026-04-04T16:36:59Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-493
+  github_issue: null
+  item_type: task
+  title: 'Fix yoga Vulkan: install libvulkan1 — WGPU ''Parent device is lost'' root cause'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-04T20:25:02Z
+  updated: 2026-04-04T20:25:02Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-494
+  github_issue: null
+  item_type: task
+  title: 'Upstream fix: aprender --gpu-backend wgpu routing — thread param through run_finetune_training'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-04-04T20:25:08Z
+  updated: 2026-04-04T20:25:08Z
   spec: null
   acceptance_criteria: []
   phases: []

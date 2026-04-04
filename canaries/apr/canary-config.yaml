@@ -1,0 +1,75 @@
+entrenar: '1.0'
+name: apr-canary
+version: 1.0.0
+description: APR NF4 QLoRA training canary — 100 steps on Qwen2.5-Coder-1.5B
+seed: 42
+data:
+  source: /tmp/canary-apr-dataset.jsonl
+  split:
+    train: 1.0
+    val: 0.0
+    test: 0.0
+    seed: 42
+  loader:
+    batch_size: 4
+    shuffle: false
+    num_workers: 0
+    pin_memory: true
+    drop_last: false
+model:
+  source: /home/noah/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr
+  device: auto
+  dtype: float16
+optimizer:
+  name: adamw
+  lr: 0.0002
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1e-8
+scheduler:
+  name: cosine
+  warmup:
+    steps: 10
+    start_lr: 1e-7
+  T_max: 100
+  eta_min: 1e-6
+training:
+  epochs: 8
+  gradient:
+    accumulation_steps: 1
+    clip_norm: 1.0
+  mixed_precision:
+    enabled: true
+    dtype: float16
+    loss_scale: dynamic
+  checkpoint:
+    save_every: 10000
+    keep_last: 1
+    save_best: false
+  early_stopping:
+    enabled: false
+lora:
+  enabled: true
+  rank: 16
+  alpha: 32.0
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  bias: none
+  init_weights: gaussian
+  quantize_base: true
+  quantize_bits: 4
+  double_quantize: true
+  quant_type: nf4
+monitoring:
+  terminal:
+    enabled: true
+    refresh_rate: 10
+    metrics: [loss]
+output:
+  dir: /tmp/canary-apr-adapter
+  model:
+    format: safetensors
+    save_optimizer: false
+    save_scheduler: false
+  report:
+    enabled: false

@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.1.0
+**Version:** 6.2.0
 **Last Updated:** 2026-04-04
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -299,19 +299,20 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 ### Expected Throughput (Yoga Primary)
 
-| Canary | Runtime | yoga (8GB) | gx10 (120GB) | wgpu/Vulkan |
-|--------|---------|-----------|-------------|------------|
-| **apr** (NF4 cuBLAS) | entrenar (Rust) | **PROVISIONAL** ~194 tok/s (NaN skips inflate — PMAT-462) | TBD | N/A |
-| **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, compute-bound, 2026-04-03) | TBD | N/A |
+| Canary | Runtime | yoga (8GB) | gx10 (120GB) | Lambda (RTX 4090) |
+|--------|---------|-----------|-------------|-------------------|
+| **apr** (WGPU fast path) | entrenar (Rust) | **BLOCKED** (libvulkan missing) | **measuring** (CPU dequant, old binary) | **125** tok/s (2026-04-04) |
+| **apr** (CUDA cached JIT) | entrenar (Rust) | **28** tok/s (941s, 2026-04-04) | TBD | **119** tok/s (2026-04-04) |
+| **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, 2026-04-03) | TBD | N/A |
 | **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479+481 shipped+wired, canary ready | TBD | N/A |
 | **apr-fp16** (FP16 GEMM) | entrenar (Rust) | **UNMEASURED** — PMAT-470/472 shipped, canary ready | TBD | N/A |
 | **apr-fused** (fused Gate+Up+K+V) | entrenar (Rust) | **UNMEASURED** — PMAT-475/478 shipped, canary ready | TBD | N/A |
-| unsloth | Python + bitsandbytes | **6,628** (2026-04-01) | **16,118** (2026-04-01) | N/A |
+| unsloth | Python + bitsandbytes | **5,512** (2026-04-04) | **16,118** (2026-04-01) | N/A |
 | pytorch | Python + torch | TBD (gradacc batch=1 accum=4, PMAT-459) | **4,017** (2026-04-01) | N/A |
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
-**Parity gap (APR):** PROVISIONAL ~194 vs 6,628 tok/s (34x). 35 upstream fixes shipped but critical gap: **no per-layer profiling** to identify which optimization moved the needle. Five-whys root cause: BrickProfiler (trueno, 23 brick types) not wired into training loop. Filed: PMAT-480, entrenar#328. Parity roadmap: measure first (scientific profiling), then optimize the actual bottleneck. See [optimization-roadmap.md](components/optimization-roadmap.md).
+**Parity gap (APR):** 125 tok/s (WGPU, Lambda) vs 5,512 tok/s (unsloth, yoga) = **44x**. Two blockers: (1) yoga WGPU blocked by missing `libvulkan.so.1` — install restores fast Q4K path; (2) gx10 binary still uses 20-min CPU dequant path — rebuild with `--gpu-backend wgpu` routing fix in progress. Upstream fix: aprender now respects `--gpu-backend wgpu` to force fast WGPU Q4K loading even when CUDA is available. See [optimization-roadmap.md](components/optimization-roadmap.md).
 
 ---
 
@@ -475,3 +476,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 5.9.0 | 2026-04-04 | **Yoga CUDA NF4 completes in 7079s (2 hours) — not a hang, pathologically slow JIT.** Second yoga run confirms: process completes but takes 2 hours (3.8 tok/s with JIT overhead). CUDA driver cache exists (415 MB at ~/.nv/ComputeCache/). Third run with cached JIT: **941s (15.7 min), 28 tok/s** — 7.5x faster. Five-whys: first-run JIT compiles PTX→SASS for all kernels; subsequent runs benefit from CUDA driver cache. Filed PMAT-492 (critical): trueno should pre-compile to cubin. Embedded tokenizer extraction CONFIRMED working on yoga: `[tokenizer] Loaded embedded BPE tokenizer from APR metadata (vocab_size=151936)`. 60 upstream fixes. | PMAT-492 |
 | 6.0.0 | 2026-04-04 | **Scratch buffer optimization FALSIFIED — reverted. Dispatch overhead is the real bottleneck, not allocation.** Five-whys: (1) Pre-allocated LoRA backward scratch buffers (7 buffers, reused across 28 layers × 7 projections) expected to eliminate ~1200 allocs/step. (2) Result: **119→73 tok/s REGRESSION**. (3) Root cause: scratch buffers sized for max projection (8960) but most projections are smaller (1536). WGPU matmul dispatches on oversized buffers waste compute. (4) REVERTED: entrenar@cd016f90. (5) The real bottleneck is **dispatch count** (784+ compute shader invocations per step), not allocation. Fix is kernel fusion (PMAT-484): combine multiple LoRA ops into fewer dispatches. Also confirmed: embedded tokenizer works, VRAM guard ledger needs repair. 61 upstream fixes. | PMAT-492 |
 | 6.1.0 | 2026-04-04 | **WGPU-first routing restored — 125 tok/s confirmed on Lambda. Yoga Vulkan blocked.** Five-whys from Lambda timeout after routing fix: previous fix routed CUDA hosts to InstructPipeline (20-min dequant). WGPU must be preferred for ALL NF4 training — it's the only path that works in reasonable time. Lambda re-measured: **125 tok/s, loss 16.76, 213s (3.5 min)**. Yoga WGPU fails: "Parent device is lost" — Vulkan ICD installed (nvidia_icd.json, libnvidia-gl-590) but `GpuDevice::new()` fails on driver 590. yoga is blocked: WGPU fails (Vulkan) AND CUDA takes 2hr (JIT). Best yoga measurement: 28 tok/s via cached-JIT CUDA path (run 3, 941s). **Confirmed measurements: Lambda 125 tok/s (WGPU), yoga 28 tok/s (CUDA cached JIT).** 62 upstream fixes. | PMAT-491/492 |
+| 6.2.0 | 2026-04-04 | **Five-whys: yoga Vulkan ROOT CAUSE found + upstream `--gpu-backend wgpu` routing fix.** (1) Yoga "Parent device is lost": root cause is `libvulkan.so.1` NOT INSTALLED on yoga. The Vulkan ICD (`nvidia_icd.json`) exists and the NVIDIA Vulkan layer (`libnvidia-gl-590`) is installed, but the Vulkan loader library itself is missing. `python3 -c "ctypes.CDLL('libvulkan.so.1')"` → `OSError: cannot open shared object file`. Fix: `sudo apt install libvulkan1`. (2) Upstream fix in aprender: `--gpu-backend wgpu` now respected in WGPU routing condition. Previously, routing only checked `cuda_ok` — CUDA hosts always bypassed WGPU even with explicit `--gpu-backend wgpu`. Fix: `if (!cuda_ok \|\| gpu_backend == "wgpu") && GpuDevice::is_available()`. Threaded `gpu_backend` param through `run_finetune_training()`. Applied to both yoga and gx10 source. (3) Makefile updated: base `canary-apr` and `canary-apr-gx10` now pass `--gpu-backend wgpu` for fast Q4K loading. Optimization canaries (fused, tc, fp16, graph) remain CUDA-only. (4) gx10 rebuild in progress — old binary (pre-PMAT-491) still uses 20-min CPU dequant. (5) Fresh unsloth baseline: 5,512 tok/s on yoga (confirmed 2026-04-04). 63 upstream fixes. | PMAT-491/492 |

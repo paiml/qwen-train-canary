@@ -189,6 +189,8 @@ canary-cublas-gx10:
 
 .PHONY: canary-apr canary-apr-fused canary-apr-fused-bwd canary-apr-tc canary-apr-tc-bwd canary-apr-fp16 canary-apr-fp16-graph canary-apr-profile canary-apr-gx10
 
+# PMAT-491: --gpu-backend wgpu forces fast Q4K direct load (650ms) vs CPU dequant (20 min).
+# Requires libvulkan1 on host + upstream fix (aprender: respect --gpu-backend in routing).
 canary-apr:
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
@@ -201,6 +203,7 @@ canary-apr:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
+			--gpu-backend wgpu \
 			--profile-interval 1 \
 			--output /tmp/canary-apr-$(DATE).json'
 	scp yoga:/tmp/canary-apr-$(DATE).json results/
@@ -404,6 +407,8 @@ canary-apr-gx10:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
+			--gpu-backend wgpu \
+			--profile-interval 1 \
 			--output /tmp/canary-apr-gx10-$(DATE).json'
 	scp gx10:/tmp/canary-apr-gx10-$(DATE).json results/
 

@@ -98,8 +98,10 @@
 | paiml/entrenar#329 | Wire NF4 tensor core GEMM into training forward | **FIXED** (2026-04-03, fix #37) — PMAT-481 |
 | paiml/entrenar#330 | Fused backward GEMM for Gate+Up and K+V | Open — PMAT-482 |
 | aprender@39d33259 | Fix APR metadata fallback — 1.5B preset + architecture+hidden_size match (GH-376) | **FIXED** (2026-04-04, fix #54) — PMAT-490 |
-| PMAT-489 | GGUF tensor name mapping in apr finetune (token_embd vs model.embed_tokens) | **OPEN** (critical) — training pipeline expects HF tensor names |
+| PMAT-489 | GGUF tensor name mapping in apr finetune (token_embd vs model.embed_tokens) | **FIXED** (2026-04-04) — 11 unit tests verify complete mapping |
 | PMAT-490 | APR v2 metadata completeness — GGUF imports missing num_heads/num_layers | **FIXED** via fallback (2026-04-04) — provable-contract enforcement TBD |
+| aprender (local) | Respect `--gpu-backend wgpu` in WGPU routing condition | **FIXED** (2026-04-04, fix #63) — `(!cuda_ok \|\| gpu_backend == "wgpu")` |
+| yoga Vulkan | `libvulkan.so.1` missing — wgpu "Parent device is lost" | **ROOT CAUSE FOUND** — `apt install libvulkan1` unblocks yoga WGPU |
 
 ### Upstream Fixes (2026-04-03, fixes #27-28)
 
