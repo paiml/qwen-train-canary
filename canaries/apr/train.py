@@ -197,8 +197,11 @@ def main():
     if vram_match:
         peak_vram = int(vram_match.group(1))
 
-    # Extract loss from stderr if apr emits it (e.g., "loss=X.XX" or "loss: X.XX")
-    loss_matches = re.findall(r'loss[=:]\s*([\d.]+)', stderr)
+    # Extract loss from stderr — matches multiple formats:
+    #   CUDA NF4: "[CUDA] loss=X.XXXX (finite, proceeding with backward)"
+    #   WGPU:     "avg_loss=X.XXXX"  or  "Epoch N complete: avg_loss=X.XXXX"
+    #   Generic:  "loss=X.XX" or "loss: X.XX"
+    loss_matches = re.findall(r'(?:avg_)?loss[=:]\s*([\d.]+)', stderr)
     if loss_matches:
         final_loss = float(loss_matches[-1])  # last loss value
 
@@ -290,7 +293,7 @@ def main():
         },
         "apr_output": {
             "raw_output": result.stdout[-1000:] if result.stdout else "",
-            "stderr_summary": stderr[-500:] if stderr else "",
+            "stderr_summary": stderr[-2000:] if stderr else "",
         },
         **({"profiler": profiler_data} if profiler_data else {}),
     }
