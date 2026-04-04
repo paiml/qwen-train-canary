@@ -305,6 +305,24 @@ canary-apr-fp16-graph:
 			--output /tmp/canary-apr-fp16-graph-$(DATE).json'
 	scp yoga:/tmp/canary-apr-fp16-graph-$(DATE).json results/
 
+# PMAT-488: CUDA graph (forward + backward) canary — validates CUDA_GRAPH=1 path.
+# Contract: cuda-graph-training-step-v1.yaml (6.5x from launch overhead elimination)
+canary-apr-graph:
+	ssh yoga 'cd ~/qwen-train-canary && \
+		sudo nvidia-smi -lgc 1900,1900 && \
+		CUDA_GRAPH=1 python3 canaries/apr/train.py \
+			--model $(MODEL_ID) \
+			--model-path ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr \
+			--steps $(CANARY_STEPS) \
+			--batch-size $(CANARY_BATCH) \
+			--seq-len $(CANARY_SEQ_LEN) \
+			--lr $(CANARY_LR) \
+			--seed $(CANARY_SEED) \
+			--method qlora \
+			--profile-interval 1 \
+			--output /tmp/canary-apr-graph-$(DATE).json'
+	scp yoga:/tmp/canary-apr-graph-$(DATE).json results/
+
 # PMAT-475+464: Max throughput path — all optimizations enabled
 canary-apr-max:
 	ssh yoga 'cd ~/qwen-train-canary && \

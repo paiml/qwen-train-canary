@@ -29,6 +29,12 @@
     "final_loss": 20.0,
     "_status": "PROVISIONAL — NF4_TC_GEMM=1 + NF4_TC_BWD_GEMM=1 forward+backward TC (PMAT-481). Eliminates 196 kernel launches/step."
   },
+  "apr-graph": {
+    "tokens_per_sec": 500,
+    "peak_vram_mb": 4200,
+    "final_loss": 3.0,
+    "_status": "PROVISIONAL — CUDA_GRAPH=1 forward+backward graph (PMAT-488). Target: 1200+ tok/s (6.5x from launch overhead elimination)."
+  },
   "apr-fused-fp16": {
     "tokens_per_sec": 200,
     "peak_vram_mb": 3000,
