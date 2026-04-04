@@ -614,11 +614,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: NF4 tensor core GEMM not wired — trueno kernel exists, entrenar has no code path
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T20:02:36.692319559+00:00
+  updated: 2026-04-04T10:24:32Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -629,12 +629,12 @@ roadmap:
 - id: PMAT-482
   github_issue: null
   item_type: task
-  title: Fused backward GEMM gap — Gate+Up and K+V backward still use separate GEMMs
-  status: inprogress
+  title: Fused backward GEMM gap — consolidated into PMAT-484
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-04-03T13:03:37Z
-  updated: 2026-04-03T20:02:36.823583797+00:00
+  updated: 2026-04-04T10:24:37Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -683,6 +683,54 @@ roadmap:
   assigned_to: null
   created: 2026-04-03T13:48:57Z
   updated: 2026-04-03T20:02:37.173308712+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-488
+  github_issue: null
+  item_type: task
+  title: CUDA graph backward capture — forward shipped, backward ready (Tier 7)
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-04-04T09:02:24.975044807+00:00
+  updated: 2026-04-04T10:24:36Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-489
+  github_issue: null
+  item_type: task
+  title: Fix GGUF tensor name mapping in apr finetune — Q4K uses token_embd not model.embed_tokens
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-04T11:19:24Z
+  updated: 2026-04-04T11:19:24Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-490
+  github_issue: null
+  item_type: task
+  title: Fix APR v2 metadata completeness — GGUF imports missing num_heads/num_layers/num_kv_heads
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-04-04T11:19:29Z
+  updated: 2026-04-04T11:19:29Z
   spec: null
   acceptance_criteria: []
   phases: []

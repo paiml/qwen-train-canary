@@ -3,6 +3,11 @@
 
 Wraps `apr finetune` CLI to benchmark the Sovereign Stack training path
 against unsloth (Python/QLoRA) and pytorch (Python/full FT).
+
+Binary: apr (from ~/src/aprender, requires `training` feature).
+NOTE: `apr finetune` is behind #[cfg(feature = "training")] — the installed
+binary MUST be built with this feature (it's in default features, but
+trueno-gpu compile errors can silently drop it). Verify with `apr finetune --help`.
 """
 
 import argparse
@@ -85,10 +90,18 @@ def main():
                         help="Step profiler report interval (0=disabled)")
     args = parser.parse_args()
 
-    # Check apr is available
+    # Check apr is available (with training feature)
     apr_bin = shutil.which("apr")
     if apr_bin is None:
         print("error: apr binary not found in PATH", file=sys.stderr)
+        sys.exit(1)
+
+    # Verify apr finetune exists (training feature must be compiled in)
+    check = subprocess.run([apr_bin, "finetune", "--help"], capture_output=True, text=True, timeout=10)
+    if check.returncode != 0 and "unrecognized" in (check.stderr or ""):
+        print("error: apr finetune not available — binary missing training feature", file=sys.stderr)
+        print("  Fix: cd ~/src/aprender && cargo build --release -p apr-cli --features apr-cli/training", file=sys.stderr)
+        print("  Then: cp /mnt/nvme-raid0/targets/aprender/release/apr ~/.cargo/bin/apr", file=sys.stderr)
         sys.exit(1)
 
     # Convert dataset to JSONL
@@ -110,9 +123,9 @@ def main():
     if not os.path.exists(model_path):
         # Try common local paths
         for candidate in [
-            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4k.apr"),
-            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr"),
-            os.path.expanduser(f"~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"),
+            os.path.expanduser("~/models/qwen2.5-coder-1.5b-instruct-q4k.apr"),
+            os.path.expanduser("~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.apr"),
+            os.path.expanduser("~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"),
         ]:
             if os.path.exists(candidate):
                 model_path = candidate
@@ -144,7 +157,6 @@ def main():
         "--vram", f"{vram_gb:.1f}",
         "--max-seq-len", str(args.seq_len),
         "--gpu-backend", args.gpu_backend,
-        "--model-size", "1.5B",
         "--output", "/tmp/canary-apr-adapter",
         "--json",
     ]

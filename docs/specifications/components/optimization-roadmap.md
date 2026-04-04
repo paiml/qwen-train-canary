@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-**37 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02). Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Ready for `make canary-apr-profile`.
+**54 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02). Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Two blockers found 2026-04-04: (1) `apr finetune` missing from binary (training feature dropped by trueno-gpu compile errors) — FIXED upstream, (2) GGUF tensor names (`token_embd.weight`) not mapped to HF names (`model.embed_tokens.weight`) — filed PMAT-489. APR metadata completeness enforced via architecture preset fallback (aprender@39d33259).
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -97,6 +97,9 @@
 | paiml/entrenar#328 | Wire BrickProfiler into training forward+backward | Open — upstream dependency for PMAT-480 |
 | paiml/entrenar#329 | Wire NF4 tensor core GEMM into training forward | **FIXED** (2026-04-03, fix #37) — PMAT-481 |
 | paiml/entrenar#330 | Fused backward GEMM for Gate+Up and K+V | Open — PMAT-482 |
+| aprender@39d33259 | Fix APR metadata fallback — 1.5B preset + architecture+hidden_size match (GH-376) | **FIXED** (2026-04-04, fix #54) — PMAT-490 |
+| PMAT-489 | GGUF tensor name mapping in apr finetune (token_embd vs model.embed_tokens) | **OPEN** (critical) — training pipeline expects HF tensor names |
+| PMAT-490 | APR v2 metadata completeness — GGUF imports missing num_heads/num_layers | **FIXED** via fallback (2026-04-04) — provable-contract enforcement TBD |
 
 ### Upstream Fixes (2026-04-03, fixes #27-28)
 

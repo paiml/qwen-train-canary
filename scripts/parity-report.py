@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Parity profiling report — cross-runtime training performance comparison.
 
-Reads canary JSON files with parity-profile-v1 sections and produces a
-side-by-side comparison showing WHERE time goes differently per runtime.
+Reads canary JSON files and produces a side-by-side comparison showing
+throughput, VRAM, loss, and per-operation gaps across runtimes.
 
 Usage:
-    python scripts/parity-report.py results/canary-apr-*.json results/canary-pytorch-*.json results/canary-unsloth-*.json
+    python scripts/parity-report.py                          # Auto-discover latest results
+    python scripts/parity-report.py results/canary-*.json    # Explicit files
+    python scripts/parity-report.py --latest                 # Latest per-canary type
 
 Contract: parity-profiling-system-v1.yaml (PMAT-487)
 """
 
 import argparse
+import glob
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -22,22 +26,57 @@ def load_canary(path: str) -> dict:
         return json.load(f)
 
 
+def discover_latest_results(results_dir: str = "results") -> list[str]:
+    """Auto-discover latest result per canary type (most recent file wins)."""
+    files = sorted(glob.glob(os.path.join(results_dir, "canary-*.json")),
+                   key=os.path.getmtime, reverse=True)
+    seen = {}
+    for path in files:
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            canary = data.get("canary", "unknown")
+            host = data.get("host", "unknown")
+            key = f"{canary}@{host}"
+            if key not in seen:
+                seen[key] = path
+        except Exception:
+            continue
+    return list(seen.values())
+
+
 def extract_profile(canary: dict) -> dict:
     """Extract parity-profile-v1 data from canary result."""
     profile = canary.get("profile", {})
-    runtime = profile.get("runtime", canary.get("canary", "unknown"))
+    canary_name = canary.get("canary", "unknown")
+    host = canary.get("host", "")
+    runtime = profile.get("runtime", canary_name)
 
-    # Normalize: ensure all fields exist
+    # Add host suffix for disambiguation
+    if host and host not in runtime:
+        runtime = f"{runtime}@{host}"
+
+    # Handle cublas nested metrics
+    m = canary.get("metrics", {})
+    tok_s = m.get("tokens_per_sec", 0)
+    if canary_name == "cublas" and "default" in m:
+        tok_s = m["default"].get("tokens_per_sec", tok_s)
+
     return {
         "runtime": runtime,
-        "tok_s": canary.get("metrics", {}).get("tokens_per_sec", 0),
-        "step_ms": canary.get("metrics", {}).get("step_time_ms", {}).get("mean", 0),
-        "peak_vram_mb": canary.get("metrics", {}).get("peak_vram_mb", 0),
-        "final_loss": canary.get("metrics", {}).get("final_loss", 0),
+        "canary": canary_name,
+        "host": host,
+        "tok_s": tok_s,
+        "step_ms": m.get("step_time_ms", {}).get("mean", 0),
+        "peak_vram_mb": m.get("peak_vram_mb", 0),
+        "final_loss": m.get("final_loss", 0),
         "kernel_launches": profile.get("hardware", {}).get("kernel_launches_per_step", 0),
         "cuda_ms": profile.get("hardware", {}).get("total_cuda_time_ms", 0),
         "ops": profile.get("ops", {}),
         "has_profile": bool(profile),
+        "config_steps": canary.get("config", {}).get("steps", 0),
+        "wall_time": m.get("wall_time_sec", 0),
+        "nan_skips": m.get("nan_backward_skips", 0),
     }
 
 
@@ -153,19 +192,69 @@ def format_report(profiles: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def format_regression_summary(profiles: list[dict], baselines_path: str = "baselines.json") -> str:
+    """Generate regression summary comparing latest measurements to baselines."""
+    lines = []
+    baselines = {}
+    if os.path.exists(baselines_path):
+        with open(baselines_path) as f:
+            baselines = json.load(f)
+
+    lines.append("")
+    lines.append("## Regression Summary")
+    lines.append("")
+    lines.append("| Runtime | tok/s | Baseline | Delta | Status |")
+    lines.append("|---------|-------|----------|-------|--------|")
+
+    for p in sorted(profiles, key=lambda x: -x["tok_s"]):
+        rt = p["runtime"]
+        canary = p.get("canary", rt)
+        host = p.get("host", "")
+        tok = p["tok_s"]
+        # Host-specific baseline lookup: try "canary@host" first, fall back to "canary"
+        bl_key = f"{canary}@{host}" if host else canary
+        bl_data = baselines.get(bl_key, baselines.get(canary, {}))
+        bl = bl_data.get("tokens_per_sec", 0)
+        steps = p.get("config_steps", 0)
+        nan = p.get("nan_skips", 0)
+        notes = []
+        if steps < 100:
+            notes.append(f"{steps}st")
+        if nan > 0:
+            notes.append(f"{nan}NaN")
+        note_str = f" ({', '.join(notes)})" if notes else ""
+        if bl > 0:
+            delta = (tok - bl) / bl
+            status = "PASS" if delta >= -0.10 else "**FAIL**"
+            lines.append(f"| {rt} | {tok:,.0f} | {bl:,.0f} | {delta:+.1%} | {status}{note_str} |")
+        else:
+            lines.append(f"| {rt} | {tok:,.0f} | — | — | NEW{note_str} |")
+
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Training parity profiling report")
-    parser.add_argument("files", nargs="+", help="Canary JSON result files")
+    parser.add_argument("files", nargs="*", help="Canary JSON result files (auto-discovers if omitted)")
+    parser.add_argument("--latest", action="store_true", help="Auto-discover latest per-canary type")
+    parser.add_argument("--results-dir", default="results", help="Results directory")
+    parser.add_argument("--baselines", default="baselines.json", help="Baselines file")
     parser.add_argument("--json", action="store_true", help="Output JSON instead of Markdown")
     args = parser.parse_args()
+
+    # Auto-discover if no files provided or --latest
+    if not args.files or args.latest:
+        args.files = discover_latest_results(args.results_dir)
+        print(f"Auto-discovered {len(args.files)} latest results", file=sys.stderr)
 
     profiles = []
     for path in args.files:
         try:
             canary = load_canary(path)
             profile = extract_profile(canary)
+            profile["_file"] = os.path.basename(path)
             profiles.append(profile)
-            print(f"Loaded: {path} → {profile['runtime']} ({profile['tok_s']:.0f} tok/s)", file=sys.stderr)
+            print(f"  {profile['runtime']:20s} {profile['tok_s']:>8,.0f} tok/s  ({os.path.basename(path)})", file=sys.stderr)
         except Exception as e:
             print(f"Warning: failed to load {path}: {e}", file=sys.stderr)
 
@@ -176,7 +265,9 @@ def main():
     if args.json:
         print(json.dumps(profiles, indent=2))
     else:
-        print(format_report(profiles))
+        report = format_report(profiles)
+        report += format_regression_summary(profiles, args.baselines)
+        print(report)
 
 
 if __name__ == "__main__":
