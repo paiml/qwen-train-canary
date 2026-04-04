@@ -10,6 +10,7 @@ import socket
 from datetime import datetime, timezone
 
 import torch
+import torch.profiler
 from unsloth import FastLanguageModel
 from datasets import Dataset
 from trl import SFTTrainer, SFTConfig
@@ -68,6 +69,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataset", default="prompts/canary-dataset.yaml")
     parser.add_argument("--output", default="/tmp/canary-unsloth.json")
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable torch.profiler for parity profiling (PMAT-487)")
     parser.add_argument("--lora-rank", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     args = parser.parse_args()
@@ -134,6 +137,74 @@ def main():
     result = trainer.train()
     wall_time = time.perf_counter() - t0
 
+    # PMAT-487: Parity profiling with torch.profiler
+    profile_data = {}
+    if args.profile and torch.cuda.is_available():
+        print("\nRunning profiled steps for parity analysis...")
+        warmup_steps = 2
+        active_steps = min(10, max(args.steps - warmup_steps, 5))
+
+        # Re-run a few steps under profiler (SFTTrainer doesn't support mid-train profiling)
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            schedule=torch.profiler.schedule(
+                wait=0, warmup=warmup_steps, active=active_steps
+            ),
+            with_flops=True,
+        ) as prof:
+            # Manual profiled steps using the same model
+            train_ds_iter = iter(trainer.get_train_dataloader())
+            for ps in range(warmup_steps + active_steps):
+                try:
+                    batch = next(train_ds_iter)
+                except StopIteration:
+                    train_ds_iter = iter(trainer.get_train_dataloader())
+                    batch = next(train_ds_iter)
+                batch = {k: v.to(model.device) for k, v in batch.items()}
+                outputs = model(**batch)
+                loss = outputs.loss
+                loss.backward()
+                model.zero_grad()
+                prof.step()
+
+        # Parse into parity-profile-v1 schema
+        ka = prof.key_averages()
+        total_cuda_us = sum(e.cuda_time_total for e in ka if e.cuda_time_total > 0)
+        kernel_count = sum(e.count for e in ka if e.cuda_time_total > 0)
+
+        op_times = {"attention_ms": 0, "ffn_ms": 0, "norm_ms": 0, "embed_ms": 0, "other_ms": 0}
+        for e in ka:
+            t_ms = e.cuda_time_total / 1000.0 / active_steps
+            name = e.key.lower()
+            if any(k in name for k in ["attention", "softmax", "flash", "sdpa", "triton_flash"]):
+                op_times["attention_ms"] += t_ms
+            elif any(k in name for k in ["layer_norm", "rms_norm", "norm"]):
+                op_times["norm_ms"] += t_ms
+            elif any(k in name for k in ["embedding", "embed"]):
+                op_times["embed_ms"] += t_ms
+            elif any(k in name for k in ["mm", "gemm", "linear", "addmm", "bmm", "triton_"]):
+                op_times["ffn_ms"] += t_ms
+            else:
+                op_times["other_ms"] += t_ms
+
+        step_cuda_ms = total_cuda_us / 1000.0 / active_steps
+        total_ops = sum(op_times.values())
+        profile_data = {
+            "_schema": "parity-profile-v1",
+            "runtime": "unsloth",
+            "steps_profiled": active_steps,
+            "ops": {k: {"mean": round(v, 2), "pct": round(v / total_ops * 100, 1) if total_ops > 0 else 0}
+                    for k, v in op_times.items() if v > 0},
+            "hardware": {
+                "kernel_launches_per_step": kernel_count // active_steps,
+                "total_cuda_time_ms": round(step_cuda_ms, 1),
+            },
+        }
+        print(f"  profiled {active_steps} steps: {kernel_count // active_steps} launches/step, {step_cuda_ms:.1f}ms CUDA/step")
+
     # Collect metrics
     peak_vram = torch.cuda.max_memory_allocated() // (1024 * 1024)
     train_loss = result.training_loss
@@ -177,6 +248,7 @@ def main():
             "step_time_ms": step_time_ms,
             "wall_time_sec": round(wall_time, 2),
         },
+        **({"profile": profile_data} if profile_data else {}),
     }
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)

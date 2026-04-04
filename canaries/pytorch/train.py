@@ -10,6 +10,7 @@ import statistics
 from datetime import datetime, timezone
 
 import torch
+import torch.profiler
 from torch.utils.data import DataLoader, Dataset as TorchDataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import yaml
@@ -71,6 +72,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataset", default="prompts/canary-dataset.yaml")
     parser.add_argument("--output", default="/tmp/canary-pytorch.json")
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable torch.profiler for parity profiling (PMAT-487)")
     parser.add_argument("--compile", action="store_true", help="Enable torch.compile (PMAT-426)")
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1,
                         help="Gradient accumulation steps (PMAT-428/459)")
@@ -164,6 +167,80 @@ def main():
 
     wall_time = time.perf_counter() - t0
 
+    # PMAT-487: Parity profiling with torch.profiler
+    profile_data = {}
+    if args.profile and torch.cuda.is_available():
+        print("\nRunning profiled steps for parity analysis...")
+        warmup_steps = 2
+        active_steps = min(10, max(args.steps - warmup_steps, 5))
+        data_iter2 = iter(dataloader)
+
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            schedule=torch.profiler.schedule(
+                wait=0, warmup=warmup_steps, active=active_steps
+            ),
+            with_flops=True,
+        ) as prof:
+            for ps in range(warmup_steps + active_steps):
+                try:
+                    batch = next(data_iter2)
+                except StopIteration:
+                    data_iter2 = iter(dataloader)
+                    batch = next(data_iter2)
+
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
+                loss = outputs.loss
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
+                prof.step()
+
+        # Parse profiler output into parity-profile-v1 schema
+        ka = prof.key_averages()
+        total_cuda_us = sum(e.cuda_time_total for e in ka if e.cuda_time_total > 0)
+        kernel_count = sum(e.count for e in ka if e.cuda_time_total > 0)
+
+        # Map kernels to operation categories
+        op_times = {"attention_ms": 0, "ffn_ms": 0, "norm_ms": 0, "embed_ms": 0, "projection_ms": 0, "other_ms": 0}
+        for e in ka:
+            t_ms = e.cuda_time_total / 1000.0 / active_steps
+            name = e.key.lower()
+            if any(k in name for k in ["attention", "softmax", "flash", "sdpa"]):
+                op_times["attention_ms"] += t_ms
+            elif any(k in name for k in ["layer_norm", "rms_norm", "norm"]):
+                op_times["norm_ms"] += t_ms
+            elif any(k in name for k in ["embedding", "embed"]):
+                op_times["embed_ms"] += t_ms
+            elif any(k in name for k in ["mm", "gemm", "linear", "addmm", "bmm"]):
+                # Distinguish projection vs FFN by shape if available
+                op_times["ffn_ms"] += t_ms
+            else:
+                op_times["other_ms"] += t_ms
+
+        step_cuda_ms = total_cuda_us / 1000.0 / active_steps
+        total_ops = sum(op_times.values())
+        profile_data = {
+            "_schema": "parity-profile-v1",
+            "runtime": "pytorch",
+            "steps_profiled": active_steps,
+            "step_time_ms": {"mean": round(statistics.mean(step_times), 1)},
+            "ops": {k: {"mean": round(v, 2), "pct": round(v / total_ops * 100, 1) if total_ops > 0 else 0}
+                    for k, v in op_times.items() if v > 0},
+            "hardware": {
+                "kernel_launches_per_step": kernel_count // active_steps,
+                "total_cuda_time_ms": round(step_cuda_ms, 1),
+            },
+        }
+        print(f"  profiled {active_steps} steps: {kernel_count // active_steps} kernel launches/step, {step_cuda_ms:.1f}ms CUDA/step")
+
     # Metrics
     peak_vram = torch.cuda.max_memory_allocated() // (1024 * 1024) if torch.cuda.is_available() else 0
     final_loss = statistics.mean(losses[-10:])  # average of last 10 steps
@@ -202,6 +279,7 @@ def main():
             },
             "wall_time_sec": round(wall_time, 2),
         },
+        **({"profile": profile_data} if profile_data else {}),
     }
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)

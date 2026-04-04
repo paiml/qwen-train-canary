@@ -397,9 +397,55 @@ better tiling to beat cuBLAS — filed as trueno#234.
 
 3. **Metal backend** — Apple M-series GPU training via Metal Performance Shaders.
 
+### P4: 100x Throughput Path (arXiv-informed, 2026-04-04)
+
+Research-backed roadmap for reaching unsloth parity and beyond.
+Combined target: 194 tok/s → 22,500+ tok/s (116x improvement).
+
+**Tier 7: CUDA Graph Backward Capture (PMAT-488)** — 6.5x
+- Forward graph shipped (PMAT-464), backward unblocked by fused clip (PMAT-477)
+- Eliminates 84.6% kernel launch overhead (89,756µs → ~50µs per step)
+- Reference: PyGraph (arXiv:2503.19779) — >2x benefit in PyTorch training
+- Reference: CUDA Graph Batching (arXiv:2501.09398) — >1.4x from optimal batch
+- Canary: `CUDA_GRAPH=1` env var, `canary-apr-graph` target
+- Status: **READY TO IMPLEMENT** (all blockers resolved)
+
+**Tier 8: Flash Attention Integration** — 2.5x additional
+- Attention is 71.4% of forward time (420 separate kernel launches)
+- Fuse Q@K^T + softmax + @V into single kernel (420 → 28 launches)
+- trueno has FlashAttention + Tensor Core variant (forward only, issue #85 for backward)
+- Reference: FlashAttention-3 (arXiv:2407.08608) — 740 TFLOPs/s (75% H100 utilization)
+- Reference: FlashAttention-4 (arXiv:2603.05451) — asymmetric hardware pipelining
+- Status: **PLANNED** (trueno forward exists, backward needed)
+
+**Tier 9: Mirage-style Persistent Megakernel** — 1.7x additional
+- Compile entire transformer block as single persistent kernel
+- SM-level pipelining across layers (no kernel boundaries)
+- trueno already has `TransformerBlockMegakernel` as starting point
+- Reference: Mirage Persistent Kernel (arXiv:2512.22219) — entire model as one kernel
+- Reference: Hazy Research (2025) — Llama-1B megakernel, 78% memory BW on H100
+- Status: **RESEARCH** (architecture design needed)
+
+**Combined: Tier 7 × Tier 8 × Tier 9 = 6.5 × 2.5 × 1.7 = 27.6x → ~5,300 tok/s minimum**
+With NaN fix (2.9x) and TC GEMM (2.0x): 27.6 × 2.9 × 2.0 = **160x → ~31,000 tok/s**
+
+### P5: Parity Profiling System (PMAT-487)
+
+Scientific measurement infrastructure for cross-runtime comparison.
+
+1. **torch.profiler in PyTorch + unsloth canaries** — per-kernel CUDA timing
+2. **parity-profile-v1 schema** — common JSON format across all runtimes
+3. **renacer CUPTI training traces** — ground-truth GPU kernel timing for APR
+4. **probar parity scorecard** — automated cross-runtime gap analysis
+5. **scripts/parity-report.py** — side-by-side Markdown comparison
+
+Reference: SKIP framework (arXiv:2504.11750) — CUPTI-based GPU kernel profiling
+
 ## Falsification Conditions
 
 | ID | Condition | Action |
 |----|-----------|--------|
 | F-RD-01 | torch.compile >10% regression | FALSIFIED: -11% at canary length |
 | F-RD-02 | DeepSpeed ZeRO-2 OOMs on yoga | Planned |
+| F-RD-03 | CUDA graph backward captures correctly | Planned (PMAT-488) |
+| F-RD-04 | Parity profiling shows APR attention >5x slower than unsloth | Expected (no Flash Attention) |
