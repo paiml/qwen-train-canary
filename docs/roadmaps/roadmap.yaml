@@ -802,3 +802,19 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-495
+  github_issue: null
+  item_type: task
+  title: 'gx10 binary rebuild blocked: alimentar+trueno code gen infrastructure broken (generated_contracts macros)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-04T21:10:58Z
+  updated: 2026-04-04T21:10:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

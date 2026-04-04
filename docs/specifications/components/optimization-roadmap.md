@@ -102,6 +102,8 @@
 | PMAT-490 | APR v2 metadata completeness — GGUF imports missing num_heads/num_layers | **FIXED** via fallback (2026-04-04) — provable-contract enforcement TBD |
 | aprender (local) | Respect `--gpu-backend wgpu` in WGPU routing condition | **FIXED** (2026-04-04, fix #63) — `(!cuda_ok \|\| gpu_backend == "wgpu")` |
 | yoga Vulkan | `libvulkan.so.1` missing — wgpu "Parent device is lost" | **ROOT CAUSE FOUND** — `apt install libvulkan1` unblocks yoga WGPU |
+| PMAT-495 | gx10 binary rebuild blocked — alimentar+trueno code gen (generated_contracts) | **OPEN** (critical) — prevents deploying WGPU fast Q4K path to gx10 |
+| gx10 ARM dequant | Q4K→F32 CPU dequant takes 100+ min on GB10 ARM (vs 20 min x86_64) | **MEASURED** — WGPU fast path essential for ARM targets |
 
 ### Upstream Fixes (2026-04-03, fixes #27-28)
 
