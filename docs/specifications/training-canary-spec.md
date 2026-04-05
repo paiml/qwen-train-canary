@@ -60,7 +60,7 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 | APR parity gap | ∞ | 11.2x | Narrowed from broken to 11x |
 | APR convergence | N/A | loss 11.74 final (but 9.15 at epoch 2) | **Model learns then oscillates** — LR too high |
 | Yoga APR status | broken | **still broken** (crash step 5) | No improvement |
-| Optimization tiers shipped | 0 | 6 | All UNMEASURED |
+| Optimization tiers shipped | 0 | 8 (Tiers 2, 4×3, 4.7×2, 5, 7) | All UNMEASURED |
 | Spec revisions | v1.0 | v6.15.0 | 35 revisions |
 | Upstream fixes | 0 | 65+ | Most were bug fixes, not perf |
 | PMAT items | 19 | 88 | +69 items |
@@ -423,7 +423,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-PROF-010 | LoRA backward is memory-bound (AI=6.3 << ridge=111) | If measured AI > ridge point, LoRA IS compute-bound. Action: optimize WGSL shader, not memory access. | P0 |
 | F-VRAM-01 | APR reports peak_vram_mb | **TRIGGERED (2026-04-05):** All APR results report `peak_vram_mb: 0`. WGPU path has no `torch.cuda.max_memory_allocated()` equivalent. Action: implement wgpu buffer tracking or exempt WGPU from VRAM gate. | P2 |
 | F-CFG-01 | Canaries use steps=100 for baseline comparisons | **TRIGGERED (2026-04-05):** gx10 unsloth ran steps=20 (5,262 tok/s) — NOT comparable to steps=100 baseline (16,118 tok/s). Warm-up overhead dominates at steps=20. Action: enforce steps=100 in all baseline-comparison canary runs. | P1 |
-| F-PROGRESS-01 | Optimization tiers produce measured throughput improvement | **TRIGGERED (2026-04-05):** 6 optimization tiers SHIPPED, 0 measured. Only measured delta: +12% from async pipeline. Action: stop shipping new tiers, measure existing ones. Deadline: 2026-04-12. | **P0** |
+| F-PROGRESS-01 | Optimization tiers produce measured throughput improvement | **TRIGGERED (2026-04-05):** 8 optimization tiers SHIPPED (Tiers 2, 4×3, 4.7×2, 5, 7), 0 measured. Only measured delta: +12% from async pipeline. Action: stop shipping new tiers, measure existing ones. Deadline: 2026-04-12. | **P0** |
 | F-MEASURE-01 | SHIPPED tiers get measured within 7 days | If 3+ tiers remain UNMEASURED on 2026-04-12, the project has a measurement problem. Action: freeze upstream development, deploy and measure. | **P0** |
 | F-PROGRESS-02 | Spec-writing correlates with throughput improvement | If spec reaches v7.x without measured throughput change >2x, the methodology is falsified. Writing specs is not engineering. | **P0** |
 | F-REGRESS-01 | Deployed binaries do not silently regress | **TRIGGERED (2026-04-05):** gx10 binary between 10:29 and 11:39 regressed from loss=11.74 (working async path) to loss=100 NaN (current). Prior working code path no longer in binary. Contracts not applied to live results → regression went undetected. Action: pin binary versions, apply contracts to every canary result, alert on convergence gate failure. | **P0** |
