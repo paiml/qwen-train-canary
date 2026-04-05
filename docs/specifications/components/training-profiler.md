@@ -415,7 +415,7 @@ candle-vs-apr found BrickProfiler's `Deferred` sync mode had **3.4x fidelity err
 
 candle-vs-apr discovered **11 YAML contract definitions with zero wired to profiler code** — causing SwiGLU graph recording bug (28 missing kernels) to go undetected for a week. Five-whys root cause: no `#[contract(...)]` macros enforce invariants at runtime.
 
-**Status:** 6 contracts shipped — see **P0.1** at top of spec. Live enforcement via `canaries/apr/train.py` + `score.py`. 64 tests passing. 7 historical APR results scored (`results/contract-classification-20260405.json`). Contracts distinguish: **4/7 REGRESSED** (loss >= 11.93 random), **2/7 NOT-CONVERGED** (loss 11.74, < random, > 2.0 threshold), **1/7 CRASHED** (yoga, 0 backward steps).
+**Status:** 7 contracts shipped — see **P0.1** at top of spec. Live enforcement via `canaries/apr/train.py` + `score.py`. 71 tests passing. 8 historical APR results scored (`results/contract-classification-20260405.json`). Contracts distinguish: **4/8 REGRESSED** (loss >= 11.93 random), **2/8 NOT-CONVERGED** (loss 11.74, < random, > 2.0 threshold), **2/8 CRASHED** (yoga PMAT-498 + gx10 PMAT-494 routing regression, 0 backward steps each).
 
 ### 6.3 Event-Based Sync (candle-vs-apr F12)
 

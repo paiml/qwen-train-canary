@@ -8,11 +8,6 @@
         "baseline": 470,
         "pass": false
       },
-      "vram": {
-        "value": 1166,
-        "baseline": 0,
-        "pass": false
-      },
       "loss": {
         "value": 16.7986,
         "baseline": 12.0,
@@ -66,11 +61,6 @@
         "baseline": 470,
         "pass": false
       },
-      "vram": {
-        "value": 0,
-        "baseline": 0,
-        "pass": true
-      },
       "loss": {
         "value": 12.8166,
         "baseline": 12.0,
@@ -111,11 +101,6 @@
       "throughput": {
         "value": 470.2,
         "baseline": 470,
-        "pass": true
-      },
-      "vram": {
-        "value": 0,
-        "baseline": 0,
         "pass": true
       },
       "loss": {
@@ -160,11 +145,6 @@
         "baseline": 470,
         "pass": true
       },
-      "vram": {
-        "value": 0,
-        "baseline": 0,
-        "pass": true
-      },
       "loss": {
         "value": 14.3943,
         "baseline": 12.0,
@@ -206,11 +186,6 @@
         "value": 421.7,
         "baseline": 470,
         "pass": false
-      },
-      "vram": {
-        "value": 0,
-        "baseline": 0,
-        "pass": true
       },
       "loss": {
         "value": 12.8166,
@@ -254,11 +229,6 @@
         "baseline": 470,
         "pass": true
       },
-      "vram": {
-        "value": 0,
-        "baseline": 0,
-        "pass": true
-      },
       "loss": {
         "value": 11.7398,
         "baseline": 12.0,
@@ -297,13 +267,38 @@
     "pass": false,
     "checks": {
       "throughput": {
-        "value": 2588.1,
+        "value": 993.5,
         "baseline": 470,
         "pass": true
       },
-      "vram": {
+      "loss": {
         "value": 0,
-        "baseline": 0,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "backward_executed": {
+        "value": 0,
+        "threshold": 1,
+        "pass": false,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "estimated",
+        "threshold": "measured",
+        "pass": false,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-regressed-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 2588.1,
+        "baseline": 470,
         "pass": true
       },
       "loss": {
