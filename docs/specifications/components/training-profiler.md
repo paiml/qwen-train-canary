@@ -434,9 +434,25 @@ Three profiling contracts exist in `provable-contracts/contracts/entrenar/`:
 
 Additionally, `gpu-decode-profiling-v1.yaml` (v2.0.0) provides the inference analog: BrickProfiler with 15 invariants, SyncMode::Immediate/Deferred, and brick ordering proofs.
 
-**Gap:** None of these contracts appear in `contracts/entrenar/binding.yaml`. The profiler implementation exists (entrenar `step_profiler.rs`, `WgpuStepProfiler`) but has no formal binding to the contract equations. This means the contracts are DESIGNED but UNVERIFIED — the falsification tests (F-TSP-001 through F-TSP-012) have never been executed against actual profiler output.
+**Verification matrix (2026-04-05):**
 
-**Next:** Add bindings for training-step-profiling-v1 and per-operation-training-profiling-v1 to `contracts/entrenar/binding.yaml`. Wire F-TSP-001 (wall_coverage >= 0.90) to the canary score.py gate.
+| Contract | Implementation | Binding | Per-Layer | Per-Op | Any Model | JSON Output |
+|----------|---------------|---------|-----------|--------|-----------|-------------|
+| `training-step-profiling-v1` | StepProfiler (CUDA) | **NO** | **YES** (begin_layer/end_layer_fwd/bwd, MAX_LAYERS=64) | **YES** (16 ops) | **YES** (num_layers parametric) | **YES** (step_profiler_v2 JSON) |
+| `per-operation-training-profiling-v1` | StepProfiler (CUDA) | **NO** | N/A | **YES** (16 ops: 9 fwd + 7 bwd) | **YES** (ops are architecture-independent) | **YES** (ops:{} in JSON) |
+| `gpu-decode-profiling-v1` | BrickProfiler (trueno) | **YES** (binding.yaml) | **YES** (per-brick per-layer) | **YES** (23 BrickIds) | **YES** (BrickId enum is model-agnostic) | **YES** (JSON report) |
+| WGPU training profiler | wgpu_pipeline.rs Instant::now | **NO** | **NO** (aggregate phases only) | **NO** (7 phase timestamps) | **YES** (uses num_layers) | **YES** (apr_training_profiler_v1 JSON) |
+
+**Assessment: Layer-based tracing EXISTS for CUDA training and CUDA inference, but NOT for WGPU training.**
+
+Chain of evidence:
+1. **CUDA training path** (InstructPipeline → CudaNf4TransformerBlock): `StepProfiler` calls `begin_layer()`/`end_layer_fwd(i)`/`end_layer_bwd(layer_idx)` in `cuda_trainer.rs:1156-1657`. Per-op timing via `CudaBlockScratch::op_us[16]` fed through `record_layer_times()`. JSON output includes `per_layer:[{fwd_ms, bwd_ms}]` and `ops:{rmsnorm_attn, qkv_gemm, ...}`. Works for ANY model up to 64 layers.
+2. **CUDA inference path** (realizar → trueno BrickProfiler): 23 BrickIds (RmsNorm, QkvProjection, AttentionScore, GateProjection, etc.), `SyncMode::Immediate` for real GPU timing, `SyncMode::Deferred` for low-overhead. BOUND in binding.yaml. Model-agnostic (BrickId enum covers standard transformer ops).
+3. **WGPU training path** (WgpuInstructPipeline): Only `Instant::now()` around 7 aggregate phase boundaries (t0-t5). NO per-layer decomposition. NO per-op timing. The `[OP-TRACE]` line on yoga (layer.0 only) comes from a separate debug path, not the systematic profiler.
+
+**Gap:** WGPU training has no per-layer profiling. The provable contracts (training-step-profiling-v1, per-operation-training-profiling-v1) describe what SHOULD exist but are NOT BOUND because the WGPU implementation doesn't have the instrumentation. The CUDA path DOES have it but can't run on gx10 (PTX JIT hang, PMAT-492).
+
+**Next:** Port `StepProfiler::begin_layer()`/`end_layer_fwd()`/`end_layer_bwd()` into `WgpuInstructPipeline::train_step()` by wrapping `encode_forward_layer_training()` calls with layer-level timing. Then add bindings to `contracts/entrenar/binding.yaml`.
 
 ## 9. Profiler v2: Five Improvements (2026-04-05)
 
