@@ -950,18 +950,18 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Phase A: Fix profiling with provable contracts — 6 invariants, CUDA StepProfiler, yoga crash'
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-05T16:00:00Z
-  updated: 2026-04-05T16:00:00Z
+  updated: 2026-04-05T18:05:00Z
   spec: null
   acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
   labels: []
-  notes: 'Phase A (first). Wire 6 provable-contract invariants (wall_coverage, GEMM%, LmHead, loss trajectory, step_time, orphan spans). Port StepProfiler to CUDA path. Fix PMAT-498 yoga crash. Exit: apr finetune --profile on CUDA target with 13 phases, wall_coverage >= 0.85, 6 contracts passing.'
+  notes: 'Phase A (first). **2 of 4 deliverables SHIPPED v6.15.0:** (1) 8 contracts wired into score.py (6 correctness + 2 fidelity) - 64 tests pass. (2) Live enforcement via canary runner (PMAT-506). Historical results classified: 4/7 REGRESSED, 2/7 NOT-CONVERGED, 1/7 CRASHED. **Remaining:** (3) Port StepProfiler to CUDA path (blocked F-ECOSYSTEM-01). (4) Fix PMAT-498 yoga crash (fix exists in entrenar source, deployment blocked). Exit: apr finetune --profile on CUDA target with 13 phases, wall_coverage >= 0.85, 6 contracts passing.'
 - id: PMAT-505
   github_issue: null
   item_type: task
@@ -982,11 +982,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Apply scoring contracts to live gx10 results — catch silent regressions'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-05T17:00:00Z
-  updated: 2026-04-05T17:00:00Z
+  updated: 2026-04-05T18:05:00Z
   spec: null
   acceptance_criteria: []
   phases: []
