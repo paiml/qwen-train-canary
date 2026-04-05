@@ -73,6 +73,15 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 4. **Why did spec work feel more productive?** → Spec versions are monotonically increasing (v1.0 → v6.11.0). Throughput isn't. The spec creates an illusion of velocity that the throughput numbers don't support.
 5. **Why is there an architectural mismatch?** → APR uses WGPU/Vulkan compute shaders on NVIDIA hardware where cuBLAS has decades of per-architecture autotuning. This is not an optimization gap — it's a fundamental platform mismatch. No Rust framework (including Candle) has achieved cuBLAS GEMM parity with custom kernels.
 
+**Convergence root cause UPDATE (2026-04-06, LR 5e-5 test):**
+
+| LR | Loss trajectory | Minimum | Verdict |
+|----|----------------|---------|---------|
+| 2e-4 | 18.9→9.15→12.3→16.3→15.5→12.0→10.8→11.7 | 9.15 (epoch 2) | Oscillates but learns briefly |
+| 5e-5 | 16.4→22.2→18.8→20.2→18.9→19.7→19.9→19.5 | 16.4 (epoch 1) | **NEVER learns** — always above random |
+
+**LR too high is NOT the root cause.** Lower LR should converge better (just slower) — instead it's worse. Loss > ln(151936)=11.93 from step 1 means LoRA adapters push predictions in the WRONG direction immediately. Root cause candidates: (1) LoRA initialization non-zero/corrupted, (2) gradient sign flipped in backward pass, (3) cross-entropy loss computed on wrong token positions, (4) WGSL attention backward still buggy. PMAT-497 reclassified from "LR too high" to "gradient direction defect."
+
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
 | Phase | What | Exit Criterion | PMAT |

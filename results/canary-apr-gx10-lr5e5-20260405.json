@@ -1,0 +1,49 @@
+{
+  "canary": "apr",
+  "backend": "wgpu",
+  "host": "gx10-a5b5",
+  "gpu": {
+    "device": "NVIDIA GB10",
+    "vram_total_mb": 0,
+    "cuda_version": "590.48.01",
+    "compute_capability": "12.1"
+  },
+  "timestamp": "2026-04-05T22:01:15.530597+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 4,
+    "seq_len": 512,
+    "steps": 100,
+    "lr": 5e-05,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 0.82,
+    "tokens_per_sec": 418.6,
+    "peak_vram_mb": 0,
+    "final_loss": 19.5482,
+    "wall_time_sec": 508.87,
+    "nan_backward_skips": 0,
+    "valid_backward_steps": 8,
+    "loss_trajectory": [
+      16.3684,
+      22.1668,
+      18.7807,
+      20.2307,
+      18.9176,
+      19.6705,
+      19.918,
+      19.5482
+    ],
+    "_baseline_status": "measured",
+    "_metrics_quality": "measured"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 8,\n  \"learning_rate\": 0.00005,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 1115528900,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 83.66808972823063,\n    \"total_bytes\": 4125990596\n  },\n  \"memory_gb\": 4.991065796,\n  \"model_params\": 2231057800,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 4.135916514578869,\n  \"utilization_percent\": 62.38832245,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": "mbed=0 fwd=11 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=13)\n[PROFILE] step: 77ms (embed=0 fwd=25 lm=16 ce=0[fwd=0 bwd=0] lm_bwd=19 lora_bwd=16)\n[PROFILE] step: 49ms (embed=0 fwd=15 lm=9 ce=0[fwd=0 bwd=0] lm_bwd=10 lora_bwd=13)\n[PROFILE] step: 26ms (embed=0 fwd=11 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=2 lora_bwd=11)\n[PROFILE] step: 36ms (embed=0 fwd=11 lm=5 ce=0[fwd=0 bwd=0] lm_bwd=6 lora_bwd=13)\n[PROFILE] step: 49ms (embed=0 fwd=15 lm=9 ce=0[fwd=0 bwd=0] lm_bwd=10 lora_bwd=13)\n[PROFILE] step: 66ms (embed=0 fwd=19 lm=14 ce=0[fwd=0 bwd=0] lm_bwd=17 lora_bwd=14)\n[PROFILE] step: 48ms (embed=0 fwd=16 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=13)\n[PROFILE] step: 60ms (embed=0 fwd=19 lm=12 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=14)\n[PROFILE] step: 26ms (embed=0 fwd=11 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=11)\n[PROFILE] step: 26ms (embed=0 fwd=11 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=2 lora_bwd=11)\n[PROFILE] step: 28ms (embed=0 fwd=11 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=12)\n[PROFILE] step: 58ms (embed=0 fwd=18 lm=11 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=14)\n[PROFILE] step: 42ms (embed=0 fwd=14 lm=7 ce=0[fwd=0 bwd=0] lm_bwd=7 lora_bwd=13)\n[PROFILE] step: 77ms (embed=0 fwd=23 lm=17 ce=0[fwd=0 bwd=0] lm_bwd=19 lora_bwd=16)\n[PROFILE] step: 100ms (embed=0 fwd=24 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=30 lora_bwd=14)\n[PROFILE] step: 53ms (embed=0 fwd=16 lm=10 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=14)\n[PROFILE] step: 28ms (embed=0 fwd=12 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=11)\n[PROFILE] step: 62ms (embed=0 fwd=20 lm=12 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=14)\n[PROFILE] step: 63ms (embed=0 fwd=20 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=15)\n[PROFILE] step: 64ms (embed=0 fwd=20 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=15 lora_bwd=15)\n[PROFILE] step: 44ms (embed=0 fwd=14 lm=7 ce=0[fwd=0 bwd=0] lm_bwd=7 lora_bwd=14)\n[PROFILE] step: 61ms (embed=0 fwd=20 lm=12 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=15)\n[PROFILE] step: 106ms (embed=0 fwd=26 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=16)\n[PROFILE] step: 71ms (embed=0 fwd=20 lm=16 ce=0[fwd=0 bwd=0] lm_bwd=18 lora_bwd=15)\n[PROFILE] step: 137ms (embed=0 fwd=34 lm=42 ce=0[fwd=0 bwd=0] lm_bwd=42 lora_bwd=18)\n[PROFILE] step: 109ms (embed=0 fwd=27 lm=32 ce=0[fwd=0 bwd=0] lm_bwd=32 lora_bwd=17)\n[PROFILE] step: 54ms (embed=0 fwd=17 lm=11 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=14)\n[PROFILE] step: 64ms (embed=0 fwd=20 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=15)\n[PROFILE] step: 37ms (embed=0 fwd=13 lm=2 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=11)\n[PROFILE] step: 107ms (embed=0 fwd=26 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=32 lora_bwd=16)\n[PROFILE] step: 47ms (embed=0 fwd=14 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=14)\n[PROFILE] step: 68ms (embed=0 fwd=21 lm=14 ce=0[fwd=0 bwd=0] lm_bwd=16 lora_bwd=15)\n[PROFILE] step: 88ms (embed=0 fwd=26 lm=20 ce=0[fwd=0 bwd=0] lm_bwd=22 lora_bwd=18)\n[PROFILE] step: 126ms (embed=0 fwd=34 lm=35 ce=0[fwd=0 bwd=0] lm_bwd=35 lora_bwd=19)\n[PROFILE] step: 130ms (embed=0 fwd=34 lm=39 ce=0[fwd=0 bwd=0] lm_bwd=39 lora_bwd=17)\n[PROFILE] step: 47ms (embed=0 fwd=15 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=13)\n[PROFILE] step: 179ms (embed=0 fwd=39 lm=58 ce=0[fwd=0 bwd=0] lm_bwd=59 lora_bwd=22)\n[PROFILE] step: 101ms (embed=0 fwd=24 lm=30 ce=0[fwd=0 bwd=0] lm_bwd=30 lora_bwd=15)\n[PROFILE] step: 67ms (embed=0 fwd=19 lm=15 ce=0[fwd=0 bwd=0] lm_bwd=17 lora_bwd=14)\n[PROFILE] step: 84ms (embed=0 fwd=24 lm=19 ce=0[fwd=0 bwd=0] lm_bwd=22 lora_bwd=16)\n[PROFILE] step: 121ms (embed=0 fwd=30 lm=37 ce=0[fwd=0 bwd=0] lm_bwd=37 lora_bwd=15)\n[PROFILE] step: 40ms (embed=0 fwd=12 lm=5 ce=0[fwd=0 bwd=0] lm_bwd=8 lora_bwd=14)\n[PROFILE] step: 31ms (embed=0 fwd=12 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=13)\n[PROFILE] step: 55ms (embed=0 fwd=16 lm=11 ce=0[fwd=0 bwd=0] lm_bwd=12 lora_bwd=14)\n[PROFILE] step: 133ms (embed=0 fwd=34 lm=40 ce=0[fwd=0 bwd=0] lm_bwd=41 lora_bwd=17)\n  Epoch 8 complete: avg_loss=19.5482\n[wgpu] Training complete in 506.0s\n[wgpu] WARNING: adapter export failed: safetensors write: I/O error: No such file or directory (os error 2)\n"
+  }
+}
