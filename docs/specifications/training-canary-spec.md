@@ -32,6 +32,7 @@
 - [Deployment Topology](components/deployment-topology.md)
 - [Optimization Roadmap](components/optimization-roadmap.md)
 - [Dependencies & References](components/dependencies.md)
+- [Training Profiler](components/training-profiler.md) — `apr finetune --profile` central profiling interface (PMAT-496)
 
 ---
 
