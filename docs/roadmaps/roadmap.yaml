@@ -758,11 +758,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: trueno CUDA kernel cache — PTX JIT takes 2 hours on sm_89, needs disk caching
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-04T16:36:59Z
-  updated: 2026-04-04T16:36:59Z
+  updated: 2026-04-05T19:34:33.799215493+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -885,7 +885,7 @@ roadmap:
 - id: PMAT-500
   github_issue: null
   item_type: task
-  title: 'Spec falsification sweep v6.11.0 — 19 issues fixed, arXiv grounding, competitive analysis (PyTorch/Candle/Unsloth/Chronicals)'
+  title: Spec falsification sweep v6.11.0 — 19 issues fixed, arXiv grounding, competitive analysis (PyTorch/Candle/Unsloth/Chronicals)
   status: completed
   priority: critical
   assigned_to: null
@@ -981,7 +981,7 @@ roadmap:
 - id: PMAT-506
   github_issue: null
   item_type: task
-  title: 'Apply scoring contracts to live gx10 results — catch silent regressions'
+  title: Apply scoring contracts to live gx10 results — catch silent regressions
   status: completed
   priority: critical
   assigned_to: null
@@ -993,20 +993,37 @@ roadmap:
   subtasks: []
   estimated_effort: null
   labels: []
-  notes: 'F-REGRESS-01 triggered. gx10 binary regressed loss 11.74→100 between 10:29 and 11:39. Contracts exist but not applied to live JSON results. Wire score.py contracts into nightly.sh + make score to fail CI on regression.'
+  notes: F-REGRESS-01 triggered. gx10 binary regressed loss 11.74→100 between 10:29 and 11:39. Contracts exist but not applied to live JSON results. Wire score.py contracts into nightly.sh + make score to fail CI on regression.
 - id: PMAT-507
   github_issue: null
   item_type: task
-  title: 'Fix Sovereign Stack build ecosystem — apr-cli/trueno diamond dep + aprender compile errors + presentar paths'
-  status: planned
+  title: Fix Sovereign Stack build ecosystem — apr-cli/trueno diamond dep + aprender compile errors + presentar paths
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-05T17:00:00Z
-  updated: 2026-04-05T17:00:00Z
+  updated: 2026-04-05T19:34:25.710827135+00:00
   spec: null
   acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
   labels: []
-  notes: 'F-ECOSYSTEM-01 triggered. apr-cli pins trueno 0.16.0 crates.io (workspace uses 0.17.1 local). entrenar presentar-terminal path stale. aprender build_default_registry undefined. Dev-overrides broken. Phase B blocked until this is fixed.'
+  notes: F-ECOSYSTEM-01 triggered. apr-cli pins trueno 0.16.0 crates.io (workspace uses 0.17.1 local). entrenar presentar-terminal path stale. aprender build_default_registry undefined. Dev-overrides broken. Phase B blocked until this is fixed.
+- id: PMAT-508
+  github_issue: null
+  item_type: task
+  title: gx10 unsloth BLOCKED — aarch64 torch/triton incompatibility
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T20:18:02Z
+  updated: 2026-04-05T20:18:02Z
+  spec: null
+  acceptance_criteria:
+  - 'unsloth on gx10 (Grace Blackwell, sm_121, aarch64) is BLOCKED. Root cause chain: unsloth 2026.4 -> torchao >= 0.13 -> torch.int1 (torch 2.6+). torch 2.6-2.10 cu126 has NO aarch64 wheels with sm_121 support. torch 2.11+cu130 from default PyPI supports sm_120 but triton has no aarch64 wheels, blocking unsloth import. Workaround: cuda-base extra (pytorch/cublas only, no unsloth). Fix: NVIDIA JetPack PyTorch for GB10, or build triton from source for aarch64.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
