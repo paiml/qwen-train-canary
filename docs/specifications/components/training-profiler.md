@@ -39,11 +39,11 @@ The 13-phase WGPU profiler (`wgpu_pipeline.rs`) has 100% wall_coverage. The CUDA
 
 candle-vs-apr found BrickProfiler's `Deferred` sync mode had **3.4x fidelity error**. Apply the same invariants to StepProfiler:
 
-| # | Contract | Rule | Rationale |
-|---|----------|------|-----------|
-| 7 | `lmhead_vs_rmsnorm_ratio` | `gpu_lm_ms > 10x gpu_rmsnorm_ms` | Fidelity lag detection |
-| 8 | `gemm_dominance` | `gemm_pct >= 30%` | Architecture regression |
-| 9 | `no_orphan_spans` | All phases have begin+end | Trace corruption |
+| # | Contract | Rule | Status |
+|---|----------|------|--------|
+| 7 | `lmhead_executed` | `gpu_lm_ms > 0` | **SHIPPED v6.15.0**. Simplified form — full `lmhead_vs_rmsnorm_ratio` (>10x) requires rmsnorm as its own phase, deferred to CUDA StepProfiler port. |
+| 8 | `gemm_dominance` | `gemm_pct >= 30%` | **SHIPPED** (preexisting F-POP-002). Architecture regression detection. |
+| 9 | `no_orphan_spans` | All phases with total_ms > 0 must have avg_ms > 0 | **SHIPPED v6.15.0**. Trace corruption detection. |
 
 ---
 
@@ -439,7 +439,7 @@ candle-vs-apr's cuBLAS parity gate (identical loop, different GEMM backend) dire
 | 1 | 6 provable contracts wired | **SHIPPED v6.14.0** | 64 tests passing |
 | 2 | Live canary contract gating | **SHIPPED v6.14.0** (PMAT-506) | canary exits non-zero on violation |
 | 3 | Port StepProfiler to CUDA path | **NOT STARTED** (blocked by F-ECOSYSTEM-01) | CUDA run produces 13-phase JSON with wall_coverage >= 0.85 |
-| 4 | Profiler fidelity invariants (7-9) | **DESIGNED** | 3 new contracts in score.py |
+| 4 | Profiler fidelity invariants (7-9) | **SHIPPED** (2 new + 1 preexisting, v6.15.0) | 3 contracts in score.py: lmhead_executed, gemm_dominance, no_orphan_spans |
 | 5 | Trueno-parity canary | **DESIGNED** | Compare trueno GEMM vs PyTorch matmul on isolated layer, loss divergence < 0.01 |
 
 ### P1 (Phase B/C support)
