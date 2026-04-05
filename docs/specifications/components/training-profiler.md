@@ -309,33 +309,28 @@ falsification_tests:
 
   - id: F-PROF-005
     rule: pre-allocation fixes the bottleneck
+    status: FALSIFIED (2026-04-05)
     prediction: >
       After implementing buffer pool (ensure_training_activations +
       reuse zeros), wall-clock throughput improves >= 2x.
-      STAlloc saw 79% fragmentation reduction; Burn saw 40-50%
-      memory reduction with chunk/slice pooling.
-    test: >
-      Measure before: wall_time with current zeros() pattern.
-      Implement buffer pool. Measure after.
-      Assert wall_time_after <= wall_time_before * 0.50.
-    if_fails: >
-      Pre-allocation is NOT sufficient. The overhead is in a
-      different phase (sync, submit, encode). Profile again with
-      the pool in place to find the NEXT bottleneck.
+    result: >
+      FALSIFIED: async pipeline (v6.7.0) achieved 0 allocs/step
+      (measured alloc_count=0, wall_coverage=1.000). Wall-clock
+      throughput improved from 421 to 470 tok/s = +12%, NOT 2x.
+      Pre-allocation solved allocation overhead entirely but did
+      NOT solve the throughput gap — bottleneck is GPU compute
+      dispatch speed (gpu_lora_bwd 55.7%), not allocation.
 
   - id: F-PROF-006
     rule: batch scaling confirms overhead-dominated regime
-    prediction: >
-      batch_scaling_efficiency < 0.50. Measured: (509/421)/4 = 0.30.
-      Time-is-Not-Compute (arXiv:2603.28823) predicts short-budget
-      training is overhead-dominated, not compute-dominated.
-    test: >
-      Already measured: batch=4 → 421 tok/s, batch=16 → 509 tok/s.
-      scaling = (509/421)/4 = 0.30. Assert < 0.50.
-    if_fails: >
-      Training is closer to compute-bound than expected. The 99%
-      idle claim needs revision — check if profiled GPU times are
-      undercounting actual GPU work.
+    status: OBSOLETE (2026-04-05)
+    note: >
+      Batch scaling hypothesis was relevant under sync pipeline
+      where 98.3% of wall was inter-step idle. Async pipeline
+      moved device.poll into step, making GPU compute 100% of
+      wall. Batch scaling efficiency on async pipeline has not
+      been re-measured (batch=16 not re-run). If re-measured,
+      efficiency should now be >0.50 (compute-bound regime).
 
 kani_harnesses:
   - id: KANI-PROF-002
