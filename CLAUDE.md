@@ -8,6 +8,8 @@ Five canary workloads: **apr** (Sovereign Stack/entrenar), unsloth (QLoRA), pyto
 
 Uses **forjar** for declarative deployment and deterministic canary datasets for reproducibility.
 
+**Python packaging: uv ONLY.** No pip, conda, poetry, pipenv, or manual venv. All Python dependencies managed via `uv run` / `uv sync` with `pyproject.toml`. Remote hosts use `uv run canaries/*/train.py`.
+
 ## Architecture
 
 ```
@@ -23,6 +25,8 @@ Intel (SECONDARY — Radeon W5700X, 8GB)
 ```
 
 ## Commands
+
+All Python canaries use `uv run`. No pip, conda, or manual venvs.
 
 ```bash
 # Yoga canaries (CUDA)
@@ -44,6 +48,7 @@ make deploy-gx10           # Deploy to gx10
 make canary-gx10           # All canaries on GB10
 
 # Reports & scoring
+make test                  # Run pytest suite (via uv run)
 make report                # Generate comparison report
 make score                 # Pass/fail against baselines
 make score-json            # JSON scorecards to results/

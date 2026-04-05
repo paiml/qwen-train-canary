@@ -86,8 +86,8 @@ def main():
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--gpu-backend", default="auto", choices=["auto", "cuda", "wgpu"])
     parser.add_argument("--model-path", default=None, help="Local path to APR/GGUF model file")
-    parser.add_argument("--profile-interval", type=int, default=0,
-                        help="Step profiler report interval (0=disabled)")
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable apr step profiler (writes JSON to /tmp/canary-apr-profile.json)")
     args = parser.parse_args()
 
     # Check apr is available (with training feature)
@@ -164,8 +164,8 @@ def main():
     if args.method == "qlora":
         cmd.append("--quantize-nf4")
 
-    if args.profile_interval > 0:
-        cmd.extend(["--profile-interval", str(args.profile_interval)])
+    if args.profile:
+        cmd.append("--profile")
 
     print(f"Running: {' '.join(cmd)}")
     t0 = time.perf_counter()
@@ -246,10 +246,21 @@ def main():
                     }
 
     # Compute throughput from wall_time (apr doesn't emit tok/s yet — aprender#566)
-    # Match unsloth/pytorch formula: total_tokens = batch_size * seq_len * steps
-    # APR uses --epochs, so actual steps = epochs * ceil(num_samples / batch_size)
+    # APR uses --epochs, so planned steps = epochs * ceil(num_samples / batch_size)
     epochs = max(1, (args.steps * args.batch_size) // max(num_samples, 1))
-    actual_steps = epochs * ((num_samples + args.batch_size - 1) // args.batch_size)
+    planned_steps = epochs * ((num_samples + args.batch_size - 1) // args.batch_size)
+
+    # Use actual completed steps if profiler data available, else planned
+    profiler_steps = 0
+    if profiler_data and profiler_data.get("steps_profiled"):
+        profiler_steps = profiler_data["steps_profiled"]
+
+    # Count [PROFILE] step lines as fallback for completed step count
+    profile_lines = re.findall(r'\[PROFILE\] step:', stderr)
+    completed_steps = profiler_steps or len(profile_lines) or planned_steps
+
+    # For crashed runs (returncode != 0), use actual completed steps
+    actual_steps = completed_steps if result.returncode != 0 else planned_steps
     total_tokens = actual_steps * args.batch_size * args.seq_len
     tok_s = 0
     if wall_time > 0:

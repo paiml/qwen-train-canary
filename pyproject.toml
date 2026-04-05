@@ -1,0 +1,39 @@
+[project]
+name = "qwen-train-canary"
+version = "0.1.0"
+description = "Competitive fine-tuning benchmarks for Qwen2.5-Coder-1.5B"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# GPU canaries (unsloth, pytorch, cublas) — install on CUDA hosts only
+cuda = [
+    "torch>=2.4",
+    "transformers>=4.45",
+    "datasets>=3.0",
+    "trl>=0.12",
+    "peft>=0.13",
+    "bitsandbytes>=0.44",
+    "unsloth[cu124-torch250]>=2024.12",
+    "accelerate>=1.0",
+]
+# Scoring and reporting — no GPU needed
+score = [
+    "pyyaml>=6.0",
+]
+
+[tool.uv]
+# triton is x86_64 only — skip on aarch64 (gx10 GB10)
+override-dependencies = [
+    "triton>=3.0; platform_machine == 'x86_64'",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }

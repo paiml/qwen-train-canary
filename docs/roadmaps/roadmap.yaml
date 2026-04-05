@@ -598,11 +598,11 @@ roadmap:
   github_issue: 27
   item_type: task
   title: Training step profiling — wire BrickProfiler into training loop
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-03T00:00:00Z
-  updated: 2026-04-03T20:02:36.377648373+00:00
+  updated: 2026-04-05T10:42:26Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -646,11 +646,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'PMAT-483: Per-operation BrickProfiler contract + JSON profiling output'
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-03T13:48:56Z
-  updated: 2026-04-03T20:02:36.938156788+00:00
+  updated: 2026-04-05T10:42:35Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -678,11 +678,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'PMAT-485: Extend probar with training step profiling scorer'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-04-03T13:48:57Z
-  updated: 2026-04-03T20:02:37.173308712+00:00
+  updated: 2026-04-05T10:42:35Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -774,11 +774,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Fix yoga Vulkan: install libvulkan1 — WGPU ''Parent device is lost'' root cause'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-04T20:25:02Z
-  updated: 2026-04-04T20:25:02Z
+  updated: 2026-04-05T10:48:48Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -821,12 +821,44 @@ roadmap:
 - id: PMAT-496
   github_issue: null
   item_type: task
-  title: 'WGPU inter-step overhead: GPU idle 99% — 104x speedup opportunity (24k tok/s GPU-bound)'
+  title: 'WGPU compute dispatch speed: gpu_lora_bwd 55.7% + gpu_fwd 40.6% (100% GPU compute, 0% overhead)'
   status: planned
   priority: critical
   assigned_to: null
   created: 2026-04-05T05:53:00Z
-  updated: 2026-04-05T05:53:00Z
+  updated: 2026-04-05T10:42:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-497
+  github_issue: null
+  item_type: task
+  title: 'APR convergence defect: loss 18.9 (worse than random 11.9) — dequantized weights may be corrupted, not loss bug'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T10:45:00Z
+  updated: 2026-04-05T10:55:19Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-498
+  github_issue: null
+  item_type: task
+  title: 'Yoga WGPU crash after 5 steps: Buffer with empty label is invalid — wgpu buffer validation error in loss readback'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T10:48:32Z
+  updated: 2026-04-05T10:48:32Z
   spec: null
   acceptance_criteria: []
   phases: []

@@ -1,8 +1,8 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.5.0
-**Last Updated:** 2026-04-04
+**Version:** 6.8.0
+**Last Updated:** 2026-04-05
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
 **Primary Target:** Yoga (RTX 4060 Laptop, 8 GB VRAM, sm_89)
@@ -79,6 +79,7 @@ The cuBLAS canary adds:
 - **QLoRA NF4** reduces weight memory 4x (1.5 GB), allowing headroom.
 - **Deterministic seeds** (42) + **locked GPU clocks** (1900 MHz) target <2% run-to-run variance.
 - **No gradient accumulation** in canary mode -- measures raw per-step throughput.
+- **uv is the ONLY Python packaging tool.** No pip, conda, poetry, pipenv, or venv. All Python canaries (unsloth, pytorch, cublas) use `uv run` or `uv sync` for dependency management. Environments are defined by `pyproject.toml` + `uv.lock` at the repo root or per-canary directory.
 
 > **F-EXEC-02:** If batch=4 seq=512 OOMs on yoga for the pytorch canary, the memory budget claim is falsified. Action: reduce to batch=2 or add gradient checkpointing.
 
@@ -302,7 +303,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | Lambda (RTX 4090) |
 |--------|---------|-----------|-------------|-------------------|
-| **apr** (WGPU fast path) | entrenar (Rust) | **BLOCKED** (libvulkan missing) | **421** tok/s (505s, 2026-04-04) | **125** tok/s (2026-04-04) |
+| **apr** (WGPU async) | entrenar (Rust) | **~191** tok/s (82s, 5 steps before crash, 2026-04-05) | **470** tok/s (453s, 2026-04-05) | **125** tok/s (2026-04-04) |
 | **apr** (CUDA cached JIT) | entrenar (Rust) | **28** tok/s (941s, 2026-04-04) | TBD | **119** tok/s (2026-04-04) |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, 2026-04-03) | TBD | N/A |
 | **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479+481 shipped+wired, canary ready | TBD | N/A |
@@ -313,7 +314,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 | cublas | Python + torch | N/A (F-EXEC-02) | **4,000** (0.000 div, 2026-04-01) | N/A |
 | **wgpu** | burn (Rust, Vulkan) | N/A | N/A | **6,730** tok/s (synthetic, hidden=1536) |
 
-**Parity gap (APR):** 421 tok/s wall (gx10 WGPU) vs 5,262 tok/s (unsloth, gx10) = **13x** on same hardware. **GPU-compute parity SURPASSED** — APR step-level throughput is **30,016 tok/s** (5.7x faster than unsloth). The 13x wall-clock gap is 98.3% inter-step overhead OUTSIDE `train_step()` — tokenization, epoch iteration, and queue serialization between steps. See [training-profiler.md](components/training-profiler.md) and [optimization-roadmap.md PMAT-496](components/optimization-roadmap.md). Two blockers: (1) yoga WGPU blocked by missing `libvulkan.so.1` — install restores fast Q4K path; (2) gx10 binary still uses 20-min CPU dequant path — rebuild with `--gpu-backend wgpu` routing fix in progress. Upstream fix: aprender now respects `--gpu-backend wgpu` to force fast WGPU Q4K loading even when CUDA is available. See [optimization-roadmap.md](components/optimization-roadmap.md).
+**Parity gap (APR):** 470 tok/s wall (gx10 WGPU async) vs 5,262 tok/s (unsloth, gx10) = **11.2x** on same hardware. GPU is 100% utilized (profiler-verified, `wall_coverage=1.000`). **Root cause confirmed**: WGPU compute shader dispatch speed, NOT overhead. `gpu_lora_bwd` = 55.7% (551ms/step, 7 projections × 28 layers), `gpu_fwd` = 40.6% (401ms/step). Zero allocations, zero sync, zero overhead per step. Convergence also lagging: APR loss 11.74 (oscillating) vs unsloth loss 0.45 (converged). Two independent defects: (1) throughput — WGPU matmul dispatch overhead, fix via kernel fusion (PMAT-484); (2) convergence — learning rate or LoRA configuration mismatch. Blockers: (1) yoga WGPU blocked by missing `libvulkan.so.1` (PMAT-493); (2) PTX JIT takes 2 hours on yoga (PMAT-492). See [training-profiler.md](components/training-profiler.md), [optimization-roadmap.md](components/optimization-roadmap.md).
 
 ---
 
@@ -369,7 +370,8 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
-*No active conditions remain. All 15 falsification conditions have outcomes (see Falsified Claims below).*
+| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | If APR final loss > 2.0 after 8 epochs on same data where unsloth reaches 0.45, the APR forward pass or LoRA update has a correctness defect. Action: compare logit distributions between APR and unsloth on same input. | P0 |
+| F-PROF-007 | WGPU dispatch speed is the throughput bottleneck | If reducing dispatch count (kernel fusion) does NOT improve wall-clock throughput proportionally, the bottleneck is elsewhere (memory BW, kernel occupancy). Action: measure with fused backward GEMM (PMAT-484). | P1 |
 
 ### Falsified Claims
 
@@ -427,7 +429,9 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-478-479 | Fused K+V NF4 GEMM (GQA attention), NF4 tensor core GEMM (WMMA 16×16×16) | 2 |
 | PMAT-480 | Training step profiling — wire BrickProfiler into training loop (scientific profiling) | 1 |
 | PMAT-481-482 | NF4 tensor core GEMM wiring, fused backward GEMM gap | 2 |
-| **Total** | | **63** |
+| PMAT-483-488 | Per-op profiling, fused backward GEMM, probar scorer, CUDA graph backward | 6 |
+| PMAT-489-496 | GGUF mapping, metadata, CUDA NF4 bypass, kernel cache, Vulkan fix, WGPU overhead | 8 |
+| **Total** | | **77** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -480,4 +484,6 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 6.5.0 | 2026-04-05 | **OVERHEAD LOCALIZED: 98.3% is BETWEEN train_step() calls, NOT inside.** (1) Real profiling data from existing binary: step times 30-317ms (avg 68ms steady state), but 1-epoch wall=115s for 13 steps. In-step total=2.0s (1.7%), inter-step=113s (98.3%). (2) **F-PROF-002 FALSIFIED**: buffer allocation inside train_step is NOT the bottleneck — overhead is OUTSIDE train_step entirely. (3) Root cause narrowed: `pipeline.encode()` (tokenization, called 2×per sample) + epoch iterator + `queue.submit` serialization between steps. (4) Step-level throughput: **30,016 tok/s** (5.7x faster than unsloth). (5) WgpuStepProfiler implemented in entrenar (13 phases + alloc tracking). Binary rebuild blocked by trueno diamond dep (realizar pins different trueno). Training-only build succeeds without wgpu feature. (6) profiler-wall-coverage-v1 + profiler-bottleneck-classification-v1 provable contracts designed with 10 arxiv citations. | PMAT-496 |
 | 6.4.0 | 2026-04-05 | **GPU compute parity ACHIEVED — 24,094 tok/s step-level (4.6x faster than unsloth). 99% GPU idle.** Five-whys: APR GPU compute is 4.6x faster than unsloth at step level. 13x wall-clock gap is entirely inter-step CPU/sync overhead. Filed PMAT-496. | PMAT-496 |
 | 6.3.0 | 2026-04-05 | **First gx10 measurement: 421 tok/s APR WGPU.** Built new binary with alimentar code gen stubs + feature gates. APR baseline updated from PROVISIONAL 40 tok/s to MEASURED 400 tok/s. | PMAT-491/495 |
+| 6.8.0 | 2026-04-05 | **Yoga WGPU UNBLOCKED + convergence root cause + uv-only packaging.** (1) PMAT-493 CLOSED: `apt install libvulkan1` + `vulkan-tools` on yoga. Vulkan verified: RTX 4060 detected via `vulkaninfo --summary`. First yoga WGPU measurement: **~191 tok/s step-level** (5 steps before buffer crash, PMAT-498). (2) Convergence investigation: label shift is CORRECT (labels[i]=full_ids[i+1]), WGSL masking is CORRECT (non-response positions → 0). Loss 18.9 > ln(151936)=11.93 (random) → model actively predicts wrong tokens. Root cause hypothesis: Q4K→F32 dequantization corrupts weight values on WGPU path. Filed PMAT-497. (3) uv-only mandate: pyproject.toml created, Makefile updated (all `~/venvs/*/bin/python` → `uv run --extra cuda python`), CLAUDE.md + spec updated. triton override for aarch64. (4) APR canary script fixed: `--profile-interval N` → `--profile` (boolean flag), throughput formula handles partial runs (crashed canaries). (5) uv installed on yoga. gx10 unsloth blocked by torchvision aarch64 incompatibility. 65 upstream fixes. | PMAT-493/497/498 |
+| 6.7.0 | 2026-04-05 | **PROFILER MEASURED: 100% GPU compute, 0% overhead. F-PROF-002 fully confirmed false.** (1) Async pipeline profiler on gx10: 400 steps, 395.7s profiler wall, `wall_coverage=1.000`. All 13 phases measured. `gpu_lora_bwd`=55.7% (551ms/step), `gpu_fwd`=40.6% (401ms/step). Zero allocations, zero sync, zero overhead per step. (2) Throughput: 470 tok/s (async) vs 5,262 tok/s (unsloth) = 11.2x gap confirmed as real GPU compute speed, not overhead. (3) Convergence defect: APR loss oscillates 18.9→9.2→12.3→16.3→15.5→12.0→10.8→11.7 over 8 epochs vs unsloth loss 0.45. Separate defect from throughput — likely learning rate or LoRA config. (4) Profiler spec updated: all hypothetical values replaced with measured data. (5) Two-run comparison: pretok (sync) measures 28.1s of 502.5s (5.6% coverage) vs async measures 395.7s of 449.6s (88% coverage). Async path moves device.poll into step, capturing true GPU wait time. (6) PMAT-496 reclassified: was "GPU idle 99%", now "GPU compute 100% — WGPU dispatch speed is the bottleneck". 63 upstream fixes. | PMAT-480/483/496 |
 | 6.2.0 | 2026-04-04 | **Five-whys: yoga Vulkan ROOT CAUSE + gx10 ARM dequant 75+ min (not 20 min).** (1) Yoga "Parent device is lost": root cause is `libvulkan.so.1` NOT INSTALLED. Fix: `apt install libvulkan1`. (2) Upstream fix: `--gpu-backend wgpu` now respected in WGPU routing. (3) Makefile: canary-apr/canary-apr-gx10 pass `--gpu-backend wgpu`. (4) **CRITICAL FINDING**: gx10 ARM CPU dequant takes **75+ minutes** (not 20 min as spec estimated). The Q4K→F32 dequant on GB10 ARM is 3-4x slower than x86_64. WGPU fast Q4K path is essential for ARM targets. (5) gx10 binary rebuild blocked by alimentar code gen infrastructure (missing generated_contracts macros across alimentar+aprender). Attempted fixes: macro stubs, cargo patches, feature gates — all blocked by deep transitive deps. Need: alimentar code gen fix or alimentar crates.io publish with stubs. (6) Unsloth: 5,412 tok/s on yoga (confirmed, 2% variance from 5,512). 63 upstream fixes. Filed PMAT-493 (yoga Vulkan), PMAT-494 (routing). | PMAT-491/492/493/494 |

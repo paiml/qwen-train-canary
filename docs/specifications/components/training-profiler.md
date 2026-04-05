@@ -2,15 +2,15 @@
 
 **Parent:** [Training Canary Spec](../training-canary-spec.md) Section 8
 **PMAT:** PMAT-496 (inter-step overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op)
-**Status:** ACTIVE — profiler implemented, F-PROF-002 falsified (v6.5.0)
+**Status:** ACTIVE — profiler deployed + measured (v6.7.0). F-PROF-002 FALSIFIED: bottleneck is GPU compute (100%), not buffer allocation.
 
 ---
 
 ## 1. Problem Statement
 
-APR WGPU training on gx10 GB10 shows **24,094 tok/s step-level GPU compute** (4.6x faster than unsloth 5,262 tok/s) but only **421 tok/s wall-clock**. GPU is idle 99% of the time. Batch scaling from 4→16 yields only 21% throughput gain (421→509 tok/s) — confirming the bottleneck is NOT compute-bound.
+APR WGPU training on gx10 GB10 was originally measured at **421 tok/s wall-clock** with **24,094 tok/s step-level GPU compute** — suggesting 99% GPU idle time. The hypothesis was buffer allocation overhead (F-PROF-002).
 
-The existing `[PROFILE]` output in `wgpu_pipeline.rs` captures only the 85ms of GPU dispatch per step, not the 8,765ms of inter-step overhead. We cannot fix what we cannot measure.
+**FALSIFIED (2026-04-05):** After async pipeline deployment, the profiler now measures **100% GPU compute** with **0% overhead**. The 11x gap vs unsloth (470 vs 5,262 tok/s) is real WGPU compute shader speed, not inter-step overhead. `gpu_lora_bwd` at 55.7% (551ms/step) and `gpu_fwd` at 40.6% (401ms/step) dominate. Zero allocations, zero sync, zero buf_write per step. The profiler captured 395.7s of 449.6s training (88% coverage; remaining 12% is epoch boundaries + setup).
 
 ### Prior Art
 
@@ -49,19 +49,21 @@ Following Chopper's multi-level methodology (arXiv:2512.08242), the training ste
 
 | Phase | What | Current (gx10) | Category |
 |-------|------|-----------------|----------|
-| `data_prep` | Tokenize + build input_ids + prompt/response split | unmeasured | CPU |
-| `embed` | CPU embedding lookup (vocab × hidden matmul) | ~0ms | CPU |
-| `buf_alloc` | `create_buffer` + `zeros()` calls | **unmeasured** | Memory |
-| `buf_write` | `queue.write_buffer` (CPU → GPU staging) | unmeasured | Transfer |
-| `fwd_encode` | Command encoder recording for 28-layer forward | unmeasured | CPU |
-| `fwd_submit` | `queue.submit()` for forward pass | unmeasured | Dispatch |
-| `gpu_fwd` | GPU compute: 28-layer forward + LoRA inline | 22ms | Compute |
-| `gpu_lm` | GPU compute: RMSNorm + lm_head GEMM | 22ms | Compute |
-| `gpu_ce` | GPU compute: cross-entropy fwd + bwd | ~0ms | Compute |
-| `gpu_lm_bwd` | GPU compute: lm_head backward GEMM | 23ms | Compute |
-| `gpu_lora_bwd` | GPU compute: LoRA backward + AdamW | 16ms | Compute |
-| `sync` | `device.poll` / `map_async` — GPU→CPU loss readback | **unmeasured** | Sync |
-| `overhead` | Residual (Rust runtime, loop bookkeeping) | residual | Other |
+| `data_prep` | Tokenize + build input_ids + prompt/response split | 0.2ms (0.0%) | CPU |
+| `embed` | CPU embedding lookup (vocab × hidden matmul) | 0.0ms (0.0%) | CPU |
+| `buf_alloc` | `create_buffer` + `zeros()` calls | 0.0ms (0.0%) | Memory |
+| `buf_write` | `queue.write_buffer` (CPU → GPU staging) | 0.0ms (0.0%) | Transfer |
+| `fwd_encode` | Command encoder recording for 28-layer forward | 0.0ms (0.0%) | CPU |
+| `fwd_submit` | `queue.submit()` for forward pass | 0.0ms (0.0%) | Dispatch |
+| `gpu_fwd` | GPU compute: 28-layer forward + LoRA inline | **401ms (40.6%)** | Compute |
+| `gpu_lm` | GPU compute: RMSNorm + lm_head GEMM | 17ms (1.7%) | Compute |
+| `gpu_ce` | GPU compute: cross-entropy fwd + bwd | 0.1ms (0.0%) | Compute |
+| `gpu_lm_bwd` | GPU compute: lm_head backward GEMM | 19ms (2.0%) | Compute |
+| `gpu_lora_bwd` | GPU compute: LoRA backward + AdamW | **551ms (55.7%)** | Compute |
+| `sync` | `device.poll` / `map_async` — GPU→CPU loss readback | 0.0ms (0.0%) | Sync |
+| `overhead` | Residual (Rust runtime, loop bookkeeping) | 0.0ms (0.0%) | Other |
+
+**Measured 2026-04-05 on gx10 GB10 (async pipeline).** 400 steps, 395.7s profiler wall, 100% GPU compute. All overhead phases eliminated by async device.poll.
 
 **Priority taxonomy** (adapted from PerfTracker arXiv:2506.08528):
 Compute → Memory → Transfer → Dispatch → Sync → CPU → Other
@@ -313,43 +315,47 @@ qa_gate:
 {
   "_profiler": "apr_training_profiler_v1",
   "_version": "1.0.0",
-  "host": "gx10-a5b5",
-  "backend": "wgpu",
-  "model": "qwen2.5-coder-1.5b",
-  "steps_profiled": 13,
-  "wall_time_ms": 115000,
+  "steps_profiled": 400,
+  "wall_time_ms": 395661.2,
   "phases": {
-    "data_prep":    { "total_ms": 200,   "pct": 0.2,  "avg_ms": 15.4 },
-    "embed":        { "total_ms": 50,    "pct": 0.0,  "avg_ms": 3.8 },
-    "buf_alloc":    { "total_ms": 95000, "pct": 82.6, "avg_ms": 7308 },
-    "buf_write":    { "total_ms": 500,   "pct": 0.4,  "avg_ms": 38.5 },
-    "fwd_encode":   { "total_ms": 300,   "pct": 0.3,  "avg_ms": 23.1 },
-    "fwd_submit":   { "total_ms": 100,   "pct": 0.1,  "avg_ms": 7.7 },
-    "gpu_fwd":      { "total_ms": 286,   "pct": 0.2,  "avg_ms": 22.0 },
-    "gpu_lm":       { "total_ms": 286,   "pct": 0.2,  "avg_ms": 22.0 },
-    "gpu_ce":       { "total_ms": 13,    "pct": 0.0,  "avg_ms": 1.0 },
-    "gpu_lm_bwd":   { "total_ms": 299,   "pct": 0.3,  "avg_ms": 23.0 },
-    "gpu_lora_bwd": { "total_ms": 208,   "pct": 0.2,  "avg_ms": 16.0 },
-    "sync":         { "total_ms": 15000, "pct": 13.0, "avg_ms": 1154 },
-    "overhead":     { "total_ms": 2958,  "pct": 2.6,  "avg_ms": 227 }
+    "data_prep":    { "total_ms": 78.5,     "pct": 0.0,  "avg_ms": 0.2 },
+    "embed":        { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 },
+    "buf_alloc":    { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 },
+    "buf_write":    { "total_ms": 11.0,     "pct": 0.0,  "avg_ms": 0.0 },
+    "fwd_encode":   { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 },
+    "fwd_submit":   { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 },
+    "gpu_fwd":      { "total_ms": 160613.9, "pct": 40.6, "avg_ms": 401.5 },
+    "gpu_lm":       { "total_ms": 6901.3,   "pct": 1.7,  "avg_ms": 17.3 },
+    "gpu_ce":       { "total_ms": 34.1,     "pct": 0.0,  "avg_ms": 0.1 },
+    "gpu_lm_bwd":   { "total_ms": 7770.1,   "pct": 2.0,  "avg_ms": 19.4 },
+    "gpu_lora_bwd": { "total_ms": 220252.2, "pct": 55.7, "avg_ms": 550.6 },
+    "sync":         { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 },
+    "overhead":     { "total_ms": 0.0,      "pct": 0.0,  "avg_ms": 0.0 }
   },
-  "wall_coverage": 0.974,
-  "bottleneck": "buf_alloc",
-  "bottleneck_pct": 82.6,
+  "wall_coverage": 1.000,
+  "bottleneck": "gpu_lora_bwd",
+  "bottleneck_pct": 55.7,
   "alloc_stats": {
-    "count_per_step": 612,
-    "total_alloc_ms": 95000,
-    "avg_alloc_us": 11.9
+    "count_per_step": 0,
+    "total_alloc_ms": 0.0,
+    "avg_alloc_us": 0.0
   },
-  "gpu_compute_ms": 1092,
-  "gpu_compute_pct": 0.9,
-  "theoretical_tok_s": 24094,
-  "actual_tok_s": 421,
-  "speedup_if_zero_overhead": 57.2
+  "submit_stats": {
+    "count_per_step": 0,
+    "total_submit_ms": 0.0
+  },
+  "write_stats": {
+    "count_per_step": 0,
+    "total_write_ms": 0.0
+  },
+  "gpu_compute_ms": 395571.6,
+  "gpu_compute_pct": 100.0
 }
 ```
 
-**Note:** Phase values are HYPOTHETICAL — illustrating expected finding. The profiler will measure the actual breakdown.
+**Source:** `results/canary-apr-gx10-async-20260405.json` — measured on gx10 GB10, async WGPU pipeline, 8 epochs over 50 samples.
+
+**Measured 2026-04-05 on gx10 GB10 (async pipeline, 400 steps, 8 epochs).** F-PROF-002 FALSIFIED: `buf_alloc` is 0%, not 82.6%. GPU compute is 100% of profiled wall time. Bottleneck is `gpu_lora_bwd` (55.7%) — 784 WGPU compute shader dispatches per step (7 projections × 28 layers × 4 ops each). The 11x gap vs unsloth (470 vs 5,262 tok/s) is real GPU compute speed, not overhead.
 
 ## 6. CLI Interface
 

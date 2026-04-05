@@ -57,7 +57,7 @@ canary-yoga: canary-apr canary-unsloth
 canary-unsloth:
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
-		~/venvs/unsloth/bin/python canaries/unsloth/train.py \
+		uv run --extra cuda python canaries/unsloth/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size $(CANARY_BATCH) \
@@ -72,7 +72,7 @@ canary-unsloth:
 canary-pytorch-gradacc:
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
-		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+		uv run --extra cuda python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 1 \
@@ -90,7 +90,7 @@ canary-pytorch:
 	@echo "WARNING: F-EXEC-02 — full fine-tune OOMs on yoga 8GB. Use 'make canary-pytorch-gx10' instead." >&2
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
-		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+		uv run --extra cuda python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size $(FT_BATCH) \
@@ -104,7 +104,7 @@ canary-cublas:
 	@echo "WARNING: F-EXEC-02 — cuBLAS parity OOMs on yoga 8GB. Use 'make canary-cublas-gx10' instead." >&2
 	ssh yoga 'cd ~/qwen-train-canary && \
 		sudo nvidia-smi -lgc 1900,1900 && \
-		~/venvs/pytorch-canary/bin/python canaries/cublas/train.py \
+		uv run --extra cuda python canaries/cublas/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CUBLAS_STEPS) \
 			--batch-size $(FT_BATCH) \
@@ -149,7 +149,7 @@ canary-gx10: canary-unsloth-gx10 canary-pytorch-gx10 canary-cublas-gx10
 
 canary-unsloth-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		~/venvs/unsloth/bin/python canaries/unsloth/train.py \
+		uv run --extra cuda python canaries/unsloth/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \
@@ -161,7 +161,7 @@ canary-unsloth-gx10:
 
 canary-pytorch-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+		uv run --extra cuda python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \
@@ -173,7 +173,7 @@ canary-pytorch-gx10:
 
 canary-cublas-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		~/venvs/pytorch-canary/bin/python canaries/cublas/train.py \
+		uv run --extra cuda python canaries/cublas/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CUBLAS_STEPS) \
 			--batch-size 16 \
@@ -204,7 +204,7 @@ canary-apr:
 			--seed $(CANARY_SEED) \
 			--method qlora \
 			--gpu-backend wgpu \
-			--profile-interval 1 \
+			--profile \
 			--output /tmp/canary-apr-$(DATE).json'
 	scp yoga:/tmp/canary-apr-$(DATE).json results/
 
@@ -273,7 +273,7 @@ canary-apr-tc-bwd:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
-			--profile-interval 1 \
+			--profile \
 			--output /tmp/canary-apr-tc-bwd-$(DATE).json'
 	scp yoga:/tmp/canary-apr-tc-bwd-$(DATE).json results/
 
@@ -324,7 +324,7 @@ canary-apr-graph:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
-			--profile-interval 1 \
+			--profile \
 			--output /tmp/canary-apr-graph-$(DATE).json'
 	scp yoga:/tmp/canary-apr-graph-$(DATE).json results/
 
@@ -343,7 +343,7 @@ canary-apr-max:
 			--lr $(CANARY_LR) \
 			--seed $(CANARY_SEED) \
 			--method qlora \
-			--profile-interval 1 \
+			--profile \
 			--output /tmp/canary-apr-max-$(DATE).json'
 	scp yoga:/tmp/canary-apr-max-$(DATE).json results/
 
@@ -361,7 +361,7 @@ canary-apr-profile:
 			--steps 20 --batch-size $(CANARY_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
-			--method qlora --profile-interval 1 \
+			--method qlora --profile \
 			--output /tmp/canary-apr-profile-baseline-$(DATE).json 2>&1' | tee results/profile-apr-baseline-$(DATE).log
 	@echo "--- FP16 GEMM ---"
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -371,7 +371,7 @@ canary-apr-profile:
 			--steps 20 --batch-size $(CANARY_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
-			--method qlora --profile-interval 1 \
+			--method qlora --profile \
 			--output /tmp/canary-apr-profile-fp16-$(DATE).json 2>&1' | tee results/profile-apr-fp16-$(DATE).log
 	@echo "--- Fused NF4 Gate+Up ---"
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -381,7 +381,7 @@ canary-apr-profile:
 			--steps 20 --batch-size $(CANARY_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
-			--method qlora --profile-interval 1 \
+			--method qlora --profile \
 			--output /tmp/canary-apr-profile-fused-$(DATE).json 2>&1' | tee results/profile-apr-fused-$(DATE).log
 	@echo "--- NF4 Tensor Core GEMM ---"
 	ssh yoga 'cd ~/qwen-train-canary && \
@@ -391,7 +391,7 @@ canary-apr-profile:
 			--steps 20 --batch-size $(CANARY_BATCH) \
 			--seq-len $(CANARY_SEQ_LEN) \
 			--lr $(CANARY_LR) --seed $(CANARY_SEED) \
-			--method qlora --profile-interval 1 \
+			--method qlora --profile \
 			--output /tmp/canary-apr-profile-tc-$(DATE).json 2>&1' | tee results/profile-apr-tc-$(DATE).log
 	scp yoga:/tmp/canary-apr-profile-*-$(DATE).json results/
 	@echo "=== Profiling complete — compare results/ logs ==="
@@ -408,7 +408,7 @@ canary-apr-gx10:
 			--seed $(CANARY_SEED) \
 			--method qlora \
 			--gpu-backend wgpu \
-			--profile-interval 1 \
+			--profile \
 			--output /tmp/canary-apr-gx10-$(DATE).json'
 	scp gx10:/tmp/canary-apr-gx10-$(DATE).json results/
 
@@ -420,7 +420,7 @@ canary-apr-gx10:
 
 canary-compile-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		~/venvs/pytorch-canary/bin/python canaries/pytorch/train.py \
+		uv run --extra cuda python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \
@@ -458,7 +458,7 @@ nsys-yoga:
 	@echo "=== nsys: Profiling training step on yoga ==="
 	ssh yoga 'cd ~/qwen-train-canary && sudo nvidia-smi -lgc 1900,1900 && \
 		nsys profile -o /tmp/canary-nsys-$(DATE) -t cuda,nvtx --duration 30 \
-		~/venvs/unsloth/bin/python canaries/unsloth/train.py \
+		uv run --extra cuda python canaries/unsloth/train.py \
 			--model $(MODEL_ID) --steps 10 --batch-size 4 --seq-len 512 \
 			--seed 42 --output /dev/null 2>&1'
 	scp yoga:/tmp/canary-nsys-$(DATE).nsys-rep results/
@@ -470,22 +470,22 @@ nsys-yoga:
 .PHONY: test report parity score score-json score-gate validate-schema
 
 test:
-	python3 -m pytest tests/ -v
+	uv run python -m pytest tests/ -v
 
 report:
-	python scripts/report.py --results-dir results/ --output performance.md
+	uv run python scripts/report.py --results-dir results/ --output performance.md
 
 parity:
-	python3 scripts/parity-report.py --latest --results-dir results/ --baselines baselines.json
+	uv run python scripts/parity-report.py --latest --results-dir results/ --baselines baselines.json
 
 validate-schema:
-	python3 scripts/validate_schema.py results/
+	uv run python scripts/validate_schema.py results/
 
 score: validate-schema
-	python scripts/score.py --results-dir results/ --baselines baselines.json
+	uv run python scripts/score.py --results-dir results/ --baselines baselines.json
 
 score-json:
-	python scripts/score.py --results-dir results/ --baselines baselines.json --format json --output results/scorecard-$(DATE).json
+	uv run python scripts/score.py --results-dir results/ --baselines baselines.json --format json --output results/scorecard-$(DATE).json
 
 # CI gate — exits non-zero if ANY canary fails (same as score, explicit target for spec)
 score-gate: score

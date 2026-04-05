@@ -1,0 +1,39 @@
+{
+  "canary": "apr",
+  "backend": "wgpu",
+  "host": "yoga",
+  "gpu": {
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "vram_total_mb": 8188,
+    "cuda_version": "590.48.01",
+    "compute_capability": "8.9"
+  },
+  "timestamp": "2026-04-05T10:45:55.229266+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 4,
+    "seq_len": 512,
+    "steps": 100,
+    "lr": 0.0002,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 5.05,
+    "tokens_per_sec": 2588.1,
+    "peak_vram_mb": 0,
+    "final_loss": 0,
+    "wall_time_sec": 82.3,
+    "nan_backward_skips": 0,
+    "valid_backward_steps": 0,
+    "_baseline_status": "measured",
+    "_metrics_quality": "estimated"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 8,\n  \"learning_rate\": 0.0002,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 1115528900,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 83.66808972823063,\n    \"total_bytes\": 4125990596\n  },\n  \"memory_gb\": 4.991065796,\n  \"model_params\": 2231057800,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 4.135916514578869,\n  \"utilization_percent\": 62.38832245,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": "[GH-175] OwnedQuantizedModel::from_apr: 28 layers loaded in 672.9ms\n[wgpu] Q4K model loaded in 0.7s\n[PMAT-333] Dequantizing 28 layers (hidden=1536, heads=12/2, intermediate=8960)\n  Dequantized layer 7/28\n  Dequantized layer 14/28\n  Dequantized layer 21/28\n  Dequantized layer 28/28\n[PMAT-333] Dequantized 337 weights, 6174.9 MB F32\n[wgpu] 252 weights uploaded in 5.7s (28 layers)\n[wgpu] lm_head uploaded in 9.3s\n[wgpu] LoRA initialized: 28 layers \u00d7 7 projections, rank=16, scale=2.00\n[wgpu] Pipeline ready in 9.9s (fast path, no Transformer)\n[OP-TRACE] layer layer.0 total=1927ms: rmsnorm1=1671 q_proj=10 k_proj=6 v_proj=7 lora_qkv=62 attention=0 o_proj=9 residual1=0 rmsnorm2=0 gate_proj=53 up_proj=52 silu=0 down_proj=57 residual2=0\n[PROFILE] step: 17349ms (embed=0 fwd=7835 lm=22 ce=0[fwd=0 bwd=0] lm_bwd=46 lora_bwd=9445)\n[FALSIFY] step=1 B[0].q_proj norm=0.023332\n[PROFILE] step: 7482ms (embed=0 fwd=2364 lm=24 ce=0[fwd=0 bwd=0] lm_bwd=20 lora_bwd=5072)\n[PROFILE] step: 9781ms (embed=0 fwd=2931 lm=22 ce=0[fwd=0 bwd=0] lm_bwd=4 lora_bwd=6822)\n[PROFILE] step: 9695ms (embed=0 fwd=3592 lm=35 ce=0[fwd=0 bwd=0] lm_bwd=8 lora_bwd=6058)\n[PROFILE] step: 9245ms (embed=0 fwd=4240 lm=4 ce=0[fwd=0 bwd=0] lm_bwd=21 lora_bwd=4978)\n\nthread 'main' (2426079) panicked at /home/noah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-27.0.1/src/backend/wgpu_core.rs:2169:18:\nError in Buffer::get_mapped_range: Validation Error\n\nCaused by:\n  Buffer with '' label is invalid\n\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+  }
+}

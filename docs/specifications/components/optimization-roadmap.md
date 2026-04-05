@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-**54 fixes landed** in entrenar/trueno/aprender. Pipeline verified complete and IS LEARNING (loss 16.80→converging, 43 tok/s canary confirmed 2026-04-02). Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Two blockers found 2026-04-04: (1) `apr finetune` missing from binary (training feature dropped by trueno-gpu compile errors) — FIXED upstream, (2) GGUF tensor names (`token_embd.weight`) not mapped to HF names (`model.embed_tokens.weight`) — filed PMAT-489. APR metadata completeness enforced via architecture preset fallback (aprender@39d33259).
+**63+ fixes landed** in entrenar/trueno/aprender. WGPU profiler deployed (PMAT-480 DONE): 100% GPU compute, 0% overhead (gx10). Yoga WGPU UNBLOCKED (PMAT-493 DONE, libvulkan1 installed). **First yoga WGPU measurement: ~191 tok/s (5 steps before buffer crash, PMAT-498).** gx10: 470 tok/s (async). Convergence defect filed (PMAT-497): loss 11.74 vs unsloth 0.45. Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Two blockers found 2026-04-04: (1) `apr finetune` missing from binary (training feature dropped by trueno-gpu compile errors) — FIXED upstream, (2) GGUF tensor names (`token_embd.weight`) not mapped to HF names (`model.embed_tokens.weight`) — filed PMAT-489. APR metadata completeness enforced via architecture preset fallback (aprender@39d33259).
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -101,8 +101,10 @@
 | PMAT-489 | GGUF tensor name mapping in apr finetune (token_embd vs model.embed_tokens) | **FIXED** (2026-04-04) — 11 unit tests verify complete mapping |
 | PMAT-490 | APR v2 metadata completeness — GGUF imports missing num_heads/num_layers | **FIXED** via fallback (2026-04-04) — provable-contract enforcement TBD |
 | aprender (local) | Respect `--gpu-backend wgpu` in WGPU routing condition | **FIXED** (2026-04-04, fix #63) — `(!cuda_ok \|\| gpu_backend == "wgpu")` |
-| yoga Vulkan | `libvulkan.so.1` missing — wgpu "Parent device is lost" | **ROOT CAUSE FOUND** — `apt install libvulkan1` unblocks yoga WGPU |
-| PMAT-495 | gx10 binary rebuild blocked — alimentar+trueno code gen (generated_contracts) | **OPEN** (critical) — prevents deploying WGPU fast Q4K path to gx10 |
+| yoga Vulkan | `libvulkan.so.1` missing — wgpu "Parent device is lost" | **FIXED** (2026-04-05) — `apt install libvulkan1`, Vulkan verified, first WGPU measurement |
+| PMAT-495 | gx10 binary rebuild blocked — alimentar+trueno code gen (generated_contracts) | **FIXED** (2026-04-05) — binary built, WGPU training working |
+| PMAT-497 | APR convergence defect: loss 11.74 vs unsloth 0.45 | **OPEN** (critical) — forward pass produces logits worse than random |
+| PMAT-498 | Yoga WGPU crash after 5 steps: Buffer label invalid | **OPEN** (critical) — wgpu buffer validation in loss readback |
 | gx10 ARM dequant | Q4K→F32 CPU dequant takes 100+ min on GB10 ARM (vs 20 min x86_64) | **MEASURED** — WGPU fast path essential for ARM targets |
 
 ### Upstream Fixes (2026-04-03, fixes #27-28)
