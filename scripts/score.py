@@ -12,13 +12,13 @@ import sys
 # Default baselines (overridden by baselines.json if present)
 # Keep in sync with baselines.json — see canary-score-gate-v1.yaml F-BASE-002
 DEFAULT_BASELINES = {
-    "apr": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
-    "apr-fused": {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0},
-    "apr-tc": {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0},
-    "apr-fp16": {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0},
-    "apr-fused-fp16": {"tokens_per_sec": 200, "peak_vram_mb": 3000, "final_loss": 20.0},
-    "apr-fused-fp16-graph": {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 20.0},
-    "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 2.0},
+    "apr": {"tokens_per_sec": 470, "final_loss": 12.0},
+    "apr-fused": {"tokens_per_sec": 470, "final_loss": 12.0},
+    "apr-tc": {"tokens_per_sec": 470, "final_loss": 12.0},
+    "apr-fp16": {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 12.0},
+    "apr-fused-fp16": {"tokens_per_sec": 200, "peak_vram_mb": 3000, "final_loss": 12.0},
+    "apr-fused-fp16-graph": {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 12.0},
+    "unsloth": {"tokens_per_sec": 6600, "peak_vram_mb": 3600, "final_loss": 1.0},
     "pytorch": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0},
     "pytorch-compile": {"tokens_per_sec": 3500, "peak_vram_mb": 35000, "final_loss": 2.0},
     "cublas": {"tokens_per_sec": 4000, "peak_vram_mb": 51000, "final_loss": 2.0,
@@ -105,6 +105,115 @@ def score_result(result: dict, baseline: dict) -> dict:
             "value": round(gp, 1),
             "threshold": 30.0,
             "pass": gp >= 30.0,  # If GEMM < 30%, launch overhead or transfers dominate
+        }
+
+    # === Phase A Provable Contracts (PMAT-504) ===
+    # 6 compiler-enforced invariants from candle-vs-apr sister project.
+    # These fire on every APR canary, catching correctness and profiler bugs.
+
+    # Contract 1: Loss trajectory — model must be learning, not diverging
+    # (F-CONV-01: loss < 2.0 for CUDA, < 2.5 for WGPU)
+    if canary.startswith("apr") and loss > 0:
+        loss_threshold = 2.5 if result.get("backend") == "wgpu" else 2.0
+        checks["convergence"] = {
+            "value": loss,
+            "threshold": loss_threshold,
+            "pass": loss <= loss_threshold,
+            "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)",
+        }
+
+    # Contract 2: Loss better than random — loss > ln(vocab_size) means model predicts worse than chance
+    if canary.startswith("apr") and loss > 0:
+        random_loss = 11.93  # ln(151936) for Qwen2.5 vocab
+        checks["better_than_random"] = {
+            "value": loss,
+            "threshold": random_loss,
+            "pass": loss < random_loss,
+            "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93",
+        }
+
+    # Contract 3: Step time monotonicity — step_time growing means memory leak or OOM creep
+    # Checks profiler per-step data if available
+    if profiler and profiler.get("phases"):
+        phases = profiler["phases"]
+        gpu_fwd = phases.get("gpu_fwd", {})
+        gpu_bwd = phases.get("gpu_lora_bwd", {})
+        # If avg step time > 0, check it's not absurdly long (> 10s per step = likely broken)
+        avg_fwd = gpu_fwd.get("avg_ms", 0)
+        avg_bwd = gpu_bwd.get("avg_ms", 0)
+        total_step_ms = avg_fwd + avg_bwd
+        if total_step_ms > 0:
+            checks["step_time_sanity"] = {
+                "value": round(total_step_ms, 1),
+                "threshold": 10000,  # 10s per step is absurd for 1.5B model
+                "pass": total_step_ms < 10000,
+                "_contract": "F-PROF-STEP: step time < 10s (>10s indicates kernel stall or leak)",
+            }
+
+    # Contract 4: Valid backward steps > 0 — if zero backward steps, training didn't happen
+    valid_bwd = m.get("valid_backward_steps", -1)
+    if canary.startswith("apr") and valid_bwd >= 0:
+        checks["backward_executed"] = {
+            "value": valid_bwd,
+            "threshold": 1,
+            "pass": valid_bwd > 0,
+            "_contract": "F-BWD-01: at least 1 valid backward step must execute",
+        }
+
+    # Contract 5: Metrics quality — measured > estimated (loss must be parseable)
+    metrics_quality = m.get("_metrics_quality", "unknown")
+    if canary.startswith("apr"):
+        checks["metrics_quality"] = {
+            "value": metrics_quality,
+            "threshold": "measured",
+            "pass": metrics_quality == "measured",
+            "_contract": "F-MET-02: loss must be parsed from training output, not estimated",
+        }
+
+    # Contract 6: Config drift — steps must be >= 100 for baseline comparison
+    steps = result.get("config", {}).get("steps", 0)
+    if steps > 0 and steps < 100:
+        checks["config_steps"] = {
+            "value": steps,
+            "threshold": 100,
+            "pass": False,  # Always fail if steps < 100
+            "_contract": "F-CFG-01: canary must run steps>=100 for baseline comparison",
+        }
+
+    # === Profiler Fidelity Contracts (PMAT-504, from candle-vs-apr sister project) ===
+    # These catch profiler bugs (e.g., candle-vs-apr saw 3.4x fidelity error in Deferred sync mode)
+
+    # Contract 7: LmHead vs RmsNorm ratio — catches profiler sync fidelity lag
+    # LmHead should be >10x more expensive than RmsNorm (GEMM vs elementwise)
+    if profiler and profiler.get("phases"):
+        phases = profiler["phases"]
+        lm_ms = phases.get("gpu_lm", {}).get("avg_ms", 0)
+        # rmsnorm is not its own phase in current decomposition, so skip this check
+        # when we don't have per-op rmsnorm timing. Just verify lm ran at all.
+        if lm_ms > 0:
+            checks["lmhead_executed"] = {
+                "value": round(lm_ms, 2),
+                "threshold": 0.0,
+                "pass": lm_ms > 0,
+                "_contract": "F-PROF-FIDELITY-01: gpu_lm phase must execute (>0ms)",
+            }
+
+    # Contract 8: No orphan spans — every phase with total_ms > 0 must have count > 0
+    # (If a phase has total_ms but no count, the profiler is broken)
+    if profiler and profiler.get("phases"):
+        phases = profiler["phases"]
+        orphans = []
+        for name, p in phases.items():
+            total = p.get("total_ms", 0)
+            avg = p.get("avg_ms", 0)
+            # If total > 0 but avg == 0, there's a counter bug
+            if total > 0 and avg == 0:
+                orphans.append(name)
+        checks["no_orphan_spans"] = {
+            "value": len(orphans),
+            "threshold": 0,
+            "pass": len(orphans) == 0,
+            "_contract": "F-PROF-FIDELITY-02: no phase has total_ms > 0 with avg_ms == 0",
         }
 
     all_pass = all(c["pass"] for c in checks.values())

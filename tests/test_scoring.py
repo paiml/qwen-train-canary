@@ -228,11 +228,13 @@ def test_apr_provisional_flagged():
         "metrics": {
             "tokens_per_sec": 194,
             "peak_vram_mb": 4000,
-            "final_loss": 16.8,
+            "final_loss": 1.5,
             "_baseline_status": "PROVISIONAL",
+            "_metrics_quality": "measured",
+            "valid_backward_steps": 8,
         },
     }
-    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert score["provisional"] is True
 
@@ -249,14 +251,15 @@ def test_non_provisional_flagged_false():
 
 # --- FP16 parity scoring (PMAT-473) ---
 
-APR_FP16_BASELINE = {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 20.0}
+APR_FP16_BASELINE = {"tokens_per_sec": 150, "peak_vram_mb": 3000, "final_loss": 2.0}
 
 
 def test_apr_fp16_good_result_passes():
     """FP16 canary with better-than-baseline throughput should PASS."""
     result = {
         "canary": "apr-fp16",
-        "metrics": {"tokens_per_sec": 300, "peak_vram_mb": 2800, "final_loss": 16.8},
+        "metrics": {"tokens_per_sec": 300, "peak_vram_mb": 2800, "final_loss": 1.5,
+                    "_metrics_quality": "measured", "valid_backward_steps": 10},
     }
     score = score_result(result, APR_FP16_BASELINE)
     assert score["pass"]
@@ -280,7 +283,7 @@ def test_apr_fp16_high_nan_rate_fails():
         "metrics": {
             "tokens_per_sec": 300,
             "peak_vram_mb": 2800,
-            "final_loss": 16.8,
+            "final_loss": 1.5,
             "nan_backward_skips": 55,
         },
     }
@@ -296,7 +299,7 @@ def test_apr_fp16_low_nan_rate_passes():
         "metrics": {
             "tokens_per_sec": 300,
             "peak_vram_mb": 2800,
-            "final_loss": 16.8,
+            "final_loss": 1.5,
             "nan_backward_skips": 10,
         },
     }
@@ -342,9 +345,10 @@ def test_apr_fused_passes_at_baseline():
     """apr-fused canary at baseline throughput should PASS."""
     result = {
         "canary": "apr-fused",
-        "metrics": {"tokens_per_sec": 45, "peak_vram_mb": 4000, "final_loss": 16.0},
+        "metrics": {"tokens_per_sec": 45, "peak_vram_mb": 4000, "final_loss": 1.5,
+                    "_metrics_quality": "measured", "valid_backward_steps": 8},
     }
-    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert score["pass"], f"apr-fused at baseline should pass: {score}"
 
@@ -353,9 +357,10 @@ def test_apr_fused_fp16_graph_passes():
     """apr-fused-fp16-graph (max throughput path) should PASS at target."""
     result = {
         "canary": "apr-fused-fp16-graph",
-        "metrics": {"tokens_per_sec": 350, "peak_vram_mb": 2800, "final_loss": 18.0},
+        "metrics": {"tokens_per_sec": 350, "peak_vram_mb": 2800, "final_loss": 1.5,
+                    "_metrics_quality": "measured", "valid_backward_steps": 8},
     }
-    baseline = {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 300, "peak_vram_mb": 3000, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert score["pass"], f"apr-fused-fp16-graph at target should pass: {score}"
 
@@ -364,9 +369,9 @@ def test_apr_fused_regression_detected():
     """30% throughput regression in fused path should FAIL."""
     result = {
         "canary": "apr-fused",
-        "metrics": {"tokens_per_sec": 25, "peak_vram_mb": 4000, "final_loss": 16.0},
+        "metrics": {"tokens_per_sec": 25, "peak_vram_mb": 4000, "final_loss": 1.5},
     }
-    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 40, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert not score["pass"], "30% regression should fail"
 
@@ -380,12 +385,13 @@ def test_apr_tc_passes_at_baseline():
         "metrics": {
             "tokens_per_sec": 60,
             "peak_vram_mb": 4000,
-            "final_loss": 18.0,
+            "final_loss": 1.5,
             "nan_backward_skips": 0,
             "valid_backward_steps": 100,
+            "_metrics_quality": "measured",
         },
     }
-    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert score["pass"], f"apr-tc at baseline should pass: {score}"
 
@@ -397,12 +403,12 @@ def test_apr_tc_regression_detected():
         "metrics": {
             "tokens_per_sec": 30,
             "peak_vram_mb": 4000,
-            "final_loss": 18.0,
+            "final_loss": 1.5,
             "nan_backward_skips": 0,
             "valid_backward_steps": 100,
         },
     }
-    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert not score["pass"], "40% throughput regression should fail"
 
@@ -415,12 +421,12 @@ def test_apr_tc_nan_rate_fails():
         "metrics": {
             "tokens_per_sec": 60,
             "peak_vram_mb": 4000,
-            "final_loss": 18.0,
+            "final_loss": 1.5,
             "nan_backward_skips": 60,
             "valid_backward_steps": 40,
         },
     }
-    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 20.0}
+    baseline = {"tokens_per_sec": 50, "peak_vram_mb": 4200, "final_loss": 2.0}
     score = score_result(result, baseline)
     assert not score["pass"], ">50% NaN rate should fail"
 
@@ -512,3 +518,131 @@ def test_gemm_dominance_absent_skips():
     baseline = {"tokens_per_sec": 40, "final_loss": 20.0}
     score = score_result(result, baseline)
     assert "gemm_dominance" not in score["checks"]
+
+
+# --- Phase A Provable Contracts (PMAT-504) ---
+
+APR_BASELINE = {"tokens_per_sec": 470, "final_loss": 12.0}
+
+
+def test_contract_convergence_loss_above_threshold_fails():
+    """F-CONV-01: APR loss > 2.0 must trigger convergence FAIL."""
+    result = {
+        "canary": "apr",
+        "backend": "wgpu",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 11.74},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert not score["checks"]["convergence"]["pass"], "Loss 11.74 > 2.5 should FAIL"
+
+
+def test_contract_convergence_good_loss_passes():
+    """F-CONV-01: APR loss < 2.0 should pass convergence check."""
+    result = {
+        "canary": "apr",
+        "backend": "cuda",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.8},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["convergence"]["pass"], "Loss 1.8 < 2.0 should PASS"
+
+
+def test_contract_better_than_random_fails():
+    """F-CONV-02: APR loss > ln(vocab)=11.93 means worse than random."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 12.5},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert not score["checks"]["better_than_random"]["pass"], "Loss 12.5 > 11.93 = worse than random"
+
+
+def test_contract_better_than_random_passes():
+    """F-CONV-02: APR loss < 11.93 is better than random."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 8.0},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["better_than_random"]["pass"]
+
+
+def test_contract_backward_executed_zero_fails():
+    """F-BWD-01: Zero valid backward steps = training didn't happen."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 11.74, "valid_backward_steps": 0},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert not score["checks"]["backward_executed"]["pass"]
+
+
+def test_contract_backward_executed_nonzero_passes():
+    """F-BWD-01: Nonzero backward steps should pass."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.5, "valid_backward_steps": 8},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["backward_executed"]["pass"]
+
+
+def test_contract_metrics_quality_estimated_fails():
+    """F-MET-02: Estimated metrics (loss not parsed) must FAIL."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 0, "_metrics_quality": "estimated"},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert not score["checks"]["metrics_quality"]["pass"]
+
+
+def test_contract_metrics_quality_measured_passes():
+    """F-MET-02: Measured metrics should pass."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.5, "_metrics_quality": "measured"},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["metrics_quality"]["pass"]
+
+
+def test_contract_config_steps_below_100_fails():
+    """F-CFG-01: Steps < 100 must FAIL (warm-up dominated, not comparable)."""
+    result = {
+        "canary": "apr",
+        "config": {"steps": 20},
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.5},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert not score["checks"]["config_steps"]["pass"]
+
+
+def test_contract_config_steps_100_no_flag():
+    """F-CFG-01: Steps >= 100 should NOT have config_steps check (no flag needed)."""
+    result = {
+        "canary": "apr",
+        "config": {"steps": 100},
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.5, "_metrics_quality": "measured",
+                    "valid_backward_steps": 8},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert "config_steps" not in score["checks"]
+
+
+def test_contract_step_time_sanity_passes():
+    """F-PROF-STEP: Reasonable step time should pass."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 1.5, "_metrics_quality": "measured",
+                    "valid_backward_steps": 8},
+        "profiler": {
+            "wall_coverage": 0.95,
+            "phases": {
+                "gpu_fwd": {"avg_ms": 401.5},
+                "gpu_lora_bwd": {"avg_ms": 550.6},
+            },
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["step_time_sanity"]["pass"]

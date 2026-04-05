@@ -333,6 +333,30 @@ def main():
             print(f"  top ops: {', '.join(f'{k}={v:.1f}ms' for k, v in top_ops)}")
     print(f"  output: {args.output}")
 
+    # PMAT-506: Apply scoring contracts immediately — catch silent regressions
+    # (F-REGRESS-01: gx10 binary regressed loss 11.74→100 undetected).
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
+        from score import score_result, load_baselines
+        baselines = load_baselines(
+            os.path.join(os.path.dirname(__file__), "..", "..", "baselines.json")
+        )
+        canary_name = output["canary"]
+        baseline = baselines.get(canary_name, baselines.get("apr", {}))
+        score = score_result(output, baseline)
+        print(f"\n=== Scoring Contracts (PMAT-506) ===")
+        for check, info in score["checks"].items():
+            status = "PASS" if info["pass"] else "FAIL"
+            value = info.get("value", "?")
+            threshold = info.get("threshold", info.get("baseline", "?"))
+            print(f"  [{status}] {check}: {value} (threshold: {threshold})")
+        if not score["pass"]:
+            print(f"\nFAIL: canary failed {sum(1 for c in score['checks'].values() if not c['pass'])} contract(s)")
+            sys.exit(1)
+        print(f"\nPASS: all contracts satisfied")
+    except ImportError:
+        print("  (score.py not found — contracts not applied)")
+
 
 if __name__ == "__main__":
     main()
