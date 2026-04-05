@@ -520,6 +520,26 @@ Create `contracts/entrenar/profiler-wall-coverage-v1.yaml` and `profiler-bottlen
 | arXiv:2503.19779 | PyGraph: CUDA Graph Capture for PyTorch Training | Graph capture eliminates launch overhead (6.5x) | Tier 7 (roadmap) |
 | arXiv:2512.22219 | Mirage: Persistent Megakernel Optimization | Single-dispatch megakernel (1.7x) | Tier 9 (roadmap) |
 
+## 9b. Bridging the PyTorch Profiler Gap (Five-Whys Analysis)
+
+**Root cause chain:** (1) Can't compare APR to unsloth → (2) custom JSON vs Chrome Trace → (3) WGPU has no CUPTI → (4) WGPU HAS timestamp queries (unused) → (5) v1 focused on "where" not "why"
+
+**How PyTorch measures:** CUPTI driver hooks → autograd graph linking → Chrome Trace Format → TensorBoard/Perfetto. Per-kernel GPU timing with nanosecond precision, zero training code modification.
+
+**How unsloth measures:** HuggingFace Trainer callbacks → per-step `loss/lr/grad_norm` → WandB/TB export → `torch.cuda.max_memory_allocated()`. Simple wall-clock, no kernel profiling.
+
+**How APR measures:** `Instant::now()` CPU timing → 13 phases → custom JSON → canary score.py. 100% wall coverage but CPU-side only, no per-kernel GPU timing, no per-step metrics, no standard export format.
+
+### Five bridging improvements
+
+| # | Gap | Fix | Falsification | Cite |
+|---|-----|-----|---------------|------|
+| 1 | No standard trace format | Chrome Trace export (`--profile-format chrome`) | Traces load in Perfetto alongside torch.profiler | Chopper (arXiv:2512.08242) uses Kineto traces |
+| 2 | No per-step metrics | Emit loss/lr/grad_norm/step_ms per step (match Trainer.log) | APR loss curve matches unsloth within 0.1 on same data | PerfTracker (arXiv:2506.08528) per-op localization |
+| 3 | No GPU-side kernel timing | WGPU timestamp queries via wgpu-profiler crate | GPU time matches CPU time → timestamps redundant | Chopper §4.2 |
+| 4 | No memory waterfall | Track per-step WGPU alloc/peak/fragmentation | Peak matches planning estimate within 10% | STAlloc (arXiv:2507.16274) |
+| 5 | No automated cross-runtime comparison | Parity scorecard: APR vs unsloth vs pytorch | All metrics within 10% = parity achieved | — |
+
 ## 11. Success Criteria
 
 ### v1 (DONE — 2026-04-05)

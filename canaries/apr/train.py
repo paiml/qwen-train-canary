@@ -304,7 +304,7 @@ def main():
         },
         "apr_output": {
             "raw_output": result.stdout[-1000:] if result.stdout else "",
-            "stderr_summary": stderr[-2000:] if stderr else "",
+            "stderr_summary": stderr[-4000:] if stderr else "",
         },
         **({"profiler": profiler_data} if profiler_data else {}),
     }
