@@ -318,190 +318,82 @@ No parity gap exists within this stack:
 - pytorch full FT: 4,017 tok/s (gx10) — expected 4x slower (full precision vs QLoRA)
 - cublas parity: 0.000 loss divergence — GEMM backends identical
 
-**Path 2: APR training (Sovereign Stack)** — 151x gap, 3 fix tiers
+**Path 2: APR training (Sovereign Stack)** — 11.2x gap (was 151x 2026-03-31, was 34x 2026-04-02), 3 fix tiers
 
-## Recommended Next Steps
+## Historical: NF4 Dequant NaN (RESOLVED 2026-04-02)
 
-### P0: Fix NF4 dequant NaN in trueno — the GPU forward blocker
+> Condensed from v3.x-v4.x iteration. The NF4 dequant NaN blocker is RESOLVED.
+> See git history for full diagnostic chain (DIAG-002 through DIAG-005, H-PARITY-001/002).
 
-**Contract: apr-training-parity-v1.yaml — hypothesis-driven, falsify-first**
+**Root cause (resolved):** trueno's NF4 dequant zeroed V-projection weights (11 tensors
+shape 256x1536). Softmax(0/0)=NaN propagated through 28 layers. Filed as trueno#233,
+fixed in local HEAD. Plus activation explosion across CudaBlockScratch sharing
+between fwd/bwd — fixed by zeroing 21 scratch buffers per forward (PMAT-453).
 
-~~**H-PARITY-001 (FALSIFIED 2026-04-02):** Switch from Q4K to FP16 model.~~
-Tested: FP16 model with `--quantize-nf4` shows **identical** behavior — 0% GPU,
-146% CPU, `[CUDA] NaN in forward output`. The NaN is NOT caused by the Q4K input
-format. Both Q4K and FP16+NF4 produce the same NaN through 28 transformer layers.
-This means the bug is in **trueno's NF4 runtime quantization kernel**, not the model file.
+**TRAINING WORKING (2026-04-02):** APR NF4 QLoRA training on yoga 8GB — 43 tok/s canary
+confirmed. Full GPU pipeline: embed → 28 NF4 layers → BT GEMM lm_head → fused CE loss.
 
-**H-PARITY-002 (TRACED 2026-04-02):** Layer tracing found the precise root cause.
-
-**Root cause:** trueno's NF4 dequant zeros out **V (value) projection weights**.
-
-```
-Diagnostic chain:
-  apr profile --granular → inference works (151 tok/s, Q4K, grade D)
-  apr finetune --quantize-nf4 → NaN in training forward, 0% GPU
-  apr finetune stderr trace → 11 of 196 tensors dequant to ALL ZEROS
-  All 11 are shape 256x1536 = V projection (GQA, 2 KV heads × 128 dim)
-  K projection (same shape) dequantizes correctly
-  Zero V weights → softmax(0/0) = NaN → propagates 28 layers
-```
-
-**Filed:** paiml/trueno#233 — NF4 dequant zeros V projection weights
-
-**H-PARITY-002 (RUNNING 2026-04-02):** FP16 LoRA (no NF4) on gx10 shows **96% GPU utilization**.
-(Cannot test on yoga — FP16 LoRA needs 23.5 GB, yoga has 8 GB.)
-
-```
-Observation:  96% GPU utilization sustained for 30+ minutes
-Comparison:   NF4 QLoRA = 0% GPU (CPU lm_head fallback)
-Conclusion:   NF4 dequant is the SOLE root cause — GPU forward works fine without it
-```
-
-**Two bugs found, one fixed:**
-
-1. **trueno#233 (FIXED in local HEAD):** V-projection NF4 dequant produced all zeros
-   in crates.io release. Fixed in local entrenar — V-proj now dequants correctly
-   (nonzero=350K+). Needs crates.io publish.
-
-2. **entrenar#317 (NEW):** Even with correct dequant, NaN persists in the inference-style
-   CPU forward path. On yoga (8GB), GPU can't fit embeddings (1780MB > 1228MB free),
-   so lm_head runs on CPU via inference-style forward, which produces NaN.
-   On gx10 (120GB), everything fits on GPU → 96% utilization → works.
-
-**VRAM budget on yoga 8GB (measured 2026-04-02):**
-
-| Component | Size | Running Total |
-|-----------|------|---------------|
-| Base model (NF4 28 layers) | ~4.0 GB | 4.0 GB |
-| Embedding (single layout) | 0.89 GB | 4.9 GB |
-| LoRA optimizer states | 0.74 GB | 5.6 GB |
-| Training scratch buffers | ~1.5 GB | 7.1 GB |
-| CUDA overhead | ~0.5 GB | 7.6 GB |
-
-**Three fixes landed upstream (2026-04-02), OOM resolved:**
-- entrenar f9845e07: Embedding VRAM 1780→890MB (single layout)
-- aprender ba0e392f: Rank override `--rank 16` respected (optimizer 0.05 GB)
-- entrenar (local): V-projection NF4 dequant fixed (nonzero=350K+)
-
-**Training state initializes — no OOM.** But layer 0 forward produces ALL ZEROS:
-```
-[CUDA-FWD] layer 0: first8=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-```
-
-Weights are correct (dequant nonzero=350K+), input is non-zero (from embedding),
-but `CudaNf4TransformerBlock::forward` outputs zeros. Filed: entrenar#318.
-
-**DIAG-002 finding (contract apr-training-parity-v1.yaml):**
-```
-[DIAG-002] m=74 k=1536 n=1536 A=[0,0,0,0] B=[0,0,0,0] C=[0,0,0,0]
-```
-Both GEMM inputs (A=RMSNorm output, B=weight buffer) read as zeros in forward,
-despite upload traces showing nonzero=350K+ at construction time. `make_current()`
-added to NF4 forward (pushed to entrenar) — didn't fix it.
-
-**CORRECTION (2026-04-02):** Previous diagnostics (DIAG-002 through 005) were WRONG —
-`copy_to_host` with partial buffer silently fails, producing zero readback. Fixed in
-trueno (4a7838a4: partial readback support). Weights ARE on GPU (nonzero=2.1M).
-
-**Actual finding — activation explosion:**
-```
-[LAYER] L0  output=[-0.09, -0.08, 0.36, -0.12]     (normal)
-[LAYER] L14 output=[332, 33, 1913, 259]             (4 orders of magnitude growth)
-[LAYER] L27 output=[NaN, NaN, NaN, NaN]             (overflow)
-```
-
-Within layer 0: RMSNorm, Q-GEMM, attention, FFN all valid. Activations grow ~100x
-per 14 layers across the residual chain until NaN at layer 27. RMSNorm should prevent
-this. Inference path (realizr, same Q4K model, 151 tok/s) works fine — so the norm
-weights are correct. The bug is in how entrenar's NF4 block applies RMSNorm or
-accumulates residuals.
-
-**Root cause (traced 2026-04-02):** Q4K dequantized weights have sufficient precision
-for single-pass inference (realizr: 151 tok/s) but compound numerical errors through
-28 cuBLAS GEMM residual layers in training. Error grows ~100x per 14 layers until NaN.
-Direct fp32 upload (bypassing NF4 roundtrip) doesn't help — the Q4K→fp32 weights
-themselves are the problem. FP16 model works on gx10 (96% GPU, no NaN) but OOMs on yoga.
-
-**Fix path for yoga 8GB:** mixed-precision (bf16) cuBLAS GEMM or activation clamping.
-**Fix path for gx10 120GB:** use FP16 model (already works, 96% GPU).
-
-**Per-layer trace (2026-04-02):** Activation explosion across samples, not just layers.
-First sample L0-L5: values grow from 0.19 to 7.11 (normal). Between samples,
-values jump to 56, then 1251, then 31668, then NaN. The shared scratch or
-ping-pong buffers may carry contamination between training steps.
-
-The fp32 CudaTransformerBlock (per-block scratch) works. The NF4 block
-(shared scratch C-SCRATCH-001) fails. The shared scratch is used for BOTH
-forward and backward, and may not be properly reset between training steps.
-
-**TRAINING WORKING (2026-04-02):** APR NF4 QLoRA training on yoga 8GB — 43 tok/s canary confirmed.
-Full GPU pipeline: embed → 28 NF4 layers → BT GEMM lm_head → fused cross-entropy.
-Root cause chain: (1) backward gradient contamination of CudaBlockScratch (C-SCRATCH-001) — 
-fixed by zeroing 21 scratch buffers per forward. (2) Multi-epoch NaN cascade from
-InstructGpuTrainingState backward buffers (grad_buf_a/b, grad_hidden_buf, output_scratch,
-logits_buf) — fixed by zeroing 5 training state buffers per forward (PMAT-453).
-(3) L5 violations: `let _ =` on copy_from_buffer silenced GPU errors — all 4 fixed.
-
-**Filed:** entrenar#318 (10+ comments with progressive diagnosis).
-**Upstream fixes pushed (21 commits, 3 repos):**
+**Upstream fixes that landed (21 commits, 3 repos):**
 - trueno 4a7838a4: copy_to_host partial readback
-- entrenar f9845e07: VRAM embedding 1780→890MB
+- entrenar f9845e07: VRAM embedding 1780→890MB (single layout)
 - entrenar c605ea16: make_current in NF4 forward
 - entrenar 475256c6: direct_transpose_upload (skip NF4 roundtrip)
-- entrenar a515d2f9: original fp32 upload (no NF4, no transpose)
+- entrenar a515d2f9: original fp32 upload
 - aprender ba0e392f: respect --rank 16 flag
 - entrenar 8966424b: zero training state GPU buffers + L5 violations (PMAT-453)
 
-**Why this matters:** Every downstream optimization (chunked lm_head, cuBLAS tensor
-cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
-tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
+The V-projection dequant fix unlocked training; all subsequent optimization tiers
+(Tiers 1-6 in Optimization Tiers table) built on top of this working baseline.
 
-### Parity Roadmap: 421 → 5,262 tok/s (13x gap, WGPU path)
+**Contract:** apr-training-parity-v1.yaml — hypothesis-driven, falsify-first (retired 2026-04-02)
 
-**CRITICAL FINDING (2026-04-05, PMAT-496):** APR GPU compute is ALREADY 5.7x FASTER
-than unsloth (30,016 vs 5,262 tok/s at step level). The 13x wall-clock gap is entirely
-**inter-step overhead OUTSIDE train_step()** — 98.3% of wall time is between calls.
+### Parity Roadmap: 470 → 5,262 tok/s (11.2x gap, WGPU path, gx10 2026-04-05)
 
-**REVISED profiling (2026-04-05, v6.5.0):** Real measurement from existing binary
+**CORRECTED FINDING (2026-04-05, v6.7.0, SUPERSEDES v6.4.0/v6.5.0):** After async pipeline
+deployment, the profiler measures **100% GPU compute** with **0% overhead** at
+`wall_coverage=1.000`. The 11.2x gap IS real WGPU compute shader speed, NOT inter-step
+overhead. `gpu_lora_bwd` at 55.7% (551ms/step) and `gpu_fwd` at 40.6% (401ms/step)
+dominate. Zero allocations, zero sync, zero buf_write per step.
+
+The earlier v6.4.0/v6.5.0 claims of "5.7x FASTER step-level GPU compute" and "98.3%
+inter-step overhead" were artifacts of the SYNC pipeline where `device.poll(Wait)`
+serialized per-step. Async pipeline (v6.7.0) resolved that, and the real compute
+speed became visible: 470 tok/s wall-clock IS the GPU compute throughput.
+
+**F-PROF-002 FALSIFIED (still true, different reason):** Buffer allocation inside
+train_step is NOT the bottleneck — there are ZERO allocs/step under async pipeline.
+The overhead we hypothesized doesn't exist; compute shader speed is the ceiling.
+
+**Fix priorities (after async pipeline deployment, v6.7.0):**
+
+**v6.7.0 profiler result (gx10 GB10, 400 steps, 395.7s wall, wall_coverage=1.000):**
 ```
-15 steps profiled (1 epoch):
-  In-step total:   2,001ms  (1.7% of wall)    → avg 68ms/step (steady state)
-  Inter-step:    113,099ms  (98.3% of wall)    → avg 7,540ms between steps
-  Wall clock:    115,100ms  (training phase only, excludes 5s pipeline init)
+gpu_lora_bwd:  55.7% (220.3s, avg 550.6ms/step) ← dominant bottleneck
+gpu_fwd:       40.6% (160.6s, avg 401.5ms/step)
+gpu_lm_bwd:     2.0% (7.8s)
+gpu_lm:         1.7% (6.9s)
+data_prep:      0.0% (78ms)
+sync:           0.0% (zero per-step)
+allocs/step:    0
 ```
 
-**F-PROF-002 FALSIFIED:** Buffer allocation INSIDE train_step is NOT the bottleneck.
-The overhead is OUTSIDE train_step — in `pipeline.encode()` (tokenization, 2×/sample),
-the epoch iterator, and/or `queue.submit` serialization between steps.
+1. **Kernel fusion (P0)** — `gpu_lora_bwd` dominates. Fused backward GEMM (PMAT-484)
+   targets 840→1 launch reduction. Current status: SHIPPED but UNMEASURED (see
+   Measurement Debt table).
 
-**Revised fix priorities (re-ordered by measurement):**
+2. **Pre-tokenize corpus (DONE, v6.7.0)** — eliminated per-step tokenizer calls.
 
-**v6.5.0 profiler result (1-epoch, gx10 GB10):**
-```
-50 steps, 57.7s wall:
-  sync:         92.5%  (53.4s — device.poll(Wait) in read_loss)
-  gpu_compute:   7.4%  (4.3s — actual GPU forward+backward+optimizer)
-  overhead:      0.1%
-  coverage:    100.0%
-```
+3. **Async loss readback (DONE, v6.7.0)** — replaced per-step `device.poll(Wait)` with
+   deferred loss accumulation. This fix eliminated the 92.5% sync overhead identified
+   in v6.5.0.
 
-1. **Async loss readback (P0)** — `read_loss()` calls `device.poll(Maintain::Wait)` which
-   blocks until ALL async GPU dispatches complete. This serializes the pipeline.
-   Fix: read loss once per epoch (not per step), or use non-blocking poll with loss
-   accumulation buffer. **Expected: 1150ms → ~90ms/step = 5,600+ tok/s (parity).**
+4. **Buffer pre-allocation (DONE, v6.7.0)** — zero allocs/step under async pipeline.
 
-2. **Pre-tokenize corpus (DONE)** — eliminated 800 tokenizer calls per training.
-   Saved 3ms total (was not the bottleneck).
-
-3. **Epoch-level loss reporting** — currently reads and prints loss after EVERY sample.
-   Each readback forces a full GPU sync. Moving to epoch-level reporting = 8 syncs
-   instead of 400.
-
-4. **Buffer pre-allocation** — secondary: reduces the 90ms GPU compute time further.
-
-**Key insight:** The async GPU pipeline works perfectly — 7.4% GPU compute for 50
-training steps. But `device.poll(Wait)` after each step destroys the pipeline's
-asynchronous advantage by forcing CPU-GPU synchronization 400 times per training run.
+**Key insight:** The earlier "1150ms → 90ms/step = 5,600+ tok/s (parity)" prediction
+from v6.5.0 was WRONG — the 1150ms was sync overhead, not compute. After fixing sync,
+GPU compute itself is 952ms/step (401ms fwd + 551ms bwd) = 470 tok/s. **Real ceiling
+is WGPU compute shader speed, not synchronization.** Closing the 11.2x gap requires
+Phase B (cuBLAS hybrid) or kernel fusion, not more sync tuning.
 
 Previous five-whys (CUDA path): entrenar uses per-GEMM cuBLAS calls with fp32 dequantized
 weights (9.4 MB/GEMM at 256 GB/s = memory-BW bound), while unsloth uses fused Triton
@@ -521,43 +413,22 @@ kernels that stay entirely on GPU with fp16 tensor core compute.
 | **5** | Fused attention + FFN blocks (196→56 launches) | →5000 | — | Requires trueno kernel work |
 | **6** | Flash attention + memory BW optimization | →6000+ | — | **parity** |
 
-**Measured GPU utilization: 7%** (nvidia-smi). Root cause (revised): NOT kernel launch
-overhead (588 launches × 5μs = 3ms, negligible). The 93% idle is **CPU-bound work**:
-- CPU embedding lookup (151936×1536 matmul per sample)
-- CPU loss gradient through lm_head
-- CPU LoRA AdamW optimizer step
-- Dataset tokenization/iteration
+#### Historical: yoga CUDA path (2026-04-02, SUPERSEDED by v6.7.0)
 
-Also: cuBLAS uses SIMD (~2 TFLOPS) not tensor cores (~83 TFLOPS) due to ALB-076
-(TF32 + transposed backward = NaN at gradient magnitude ~1e5). BF16 backward
-would avoid this bug and use tensor cores.
+> The following section documents yoga CUDA-path measurements at 197 tok/s.
+> Current measurements are on gx10 WGPU (470 tok/s, 100% GPU compute). Preserved
+> for its memory-bandwidth analysis, which still informs kernel-fusion priorities.
 
-**DEFINITIVE FINDING (2026-04-02):** The 197 tok/s ceiling is MEMORY BANDWIDTH bound.
+The yoga CUDA path measured 7% GPU utilization and hit a 197 tok/s memory-bandwidth
+ceiling: TF32 tensor cores (41x compute) produced 0% improvement over cuBLAS SIMD
+because weight matrix loads (1536×1536 = 9.4 MB at 256 GB/s = 37μs) dominated
+compute (1.9μs TF32, 80μs SIMD). Conclusion: reduce memory traffic per sample via
+(1) fused QKV projection, (2) flash attention, (3) FP16 weights, (4) fused FFN.
 
-TF32 tensor cores enabled (41x compute): 196→197 tok/s (0% improvement).
-cuBLAS SIMD (no tensor cores): 196 tok/s. Same throughput.
-Reason: weight matrix loads dominate. 1536×1536 = 9.4 MB at 256 GB/s = 37μs.
-Compute: 1.9μs (TF32) or 80μs (SIMD). Both dwarfed by 37μs memory latency.
-
-**The ONLY path to parity: reduce memory traffic per sample.**
-
-1. **Fused QKV projection** — read weight matrix ONCE, compute Q+K+V in one kernel
-   (3x reduction in weight reads for attention projections)
-2. **Flash attention** — don't materialize seq×seq attention matrix (seq²×heads BW savings)
-3. **FP16 weights** — halve weight memory from 9.4 MB to 4.7 MB per GEMM
-4. **Fused FFN** — gate+up+SwiGLU+down in one kernel (4x reduction in FFN weight reads)
-
-These are all kernel fusion tasks in trueno — the same optimizations that make
-unsloth's Triton kernels fast. Without fusion, the GPU's 256 GB/s bandwidth
-limits throughput regardless of tensor core compute power.
-
-**Tier 2** requires FP16 model (already exists on yoga: 3.4 GB). With the VRAM
-optimizations from this session (embedding halving, rank override), FP16 weights
-should fit. cuBLAS fp16 GEMM uses tensor cores at 2x throughput vs fp32.
-
-**Tiers 3-6** require deeper trueno/entrenar kernel engineering. CUDA graphs (Tier 3)
-are the highest-leverage: `apr profile` showed 84.2% kernel launch overhead on inference.
-Training has even more launches (forward + backward).
+These kernel-fusion priorities still hold — PMAT-475/478/484 all target memory
+traffic reduction. But the CPU-bound diagnosis (93% idle = CPU embedding/loss/AdamW)
+was specific to yoga 8GB, where embeddings spilled to CPU. On gx10 with async
+pipeline, GPU compute is 100% of wall time (no CPU idle).
 
 ### Backend Parity Mandate
 
