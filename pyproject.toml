@@ -9,14 +9,27 @@ dependencies = [
 
 [project.optional-dependencies]
 # GPU canaries (unsloth, pytorch, cublas) — install on CUDA hosts only
+# NOTE: On aarch64 (gx10 GB10), unsloth is BLOCKED — use cuda-base instead.
+# Root cause: unsloth -> torchao >= 0.13 -> torch.int1 (torch 2.6+) but
+# torch 2.6+ from PyPI doesn't support sm_121 (Blackwell). See PMAT-508.
 cuda = [
-    "torch>=2.4",
+    "torch>=2.6",
     "transformers>=4.45",
     "datasets>=3.0",
     "trl>=0.12",
     "peft>=0.13",
-    "bitsandbytes>=0.44",
-    "unsloth[cu124-torch250]>=2024.12",
+    "bitsandbytes>=0.44; platform_machine == 'x86_64'",
+    "bitsandbytes>=0.45; platform_machine == 'aarch64'",
+    "unsloth>=2024.12; platform_machine == 'x86_64'",
+    "accelerate>=1.0",
+]
+# pytorch/cublas canaries only — works on both x86_64 and aarch64
+cuda-base = [
+    "torch>=2.6",
+    "transformers>=4.45",
+    "datasets>=3.0",
+    "trl>=0.12",
+    "peft>=0.13",
     "accelerate>=1.0",
 ]
 # Scoring and reporting — no GPU needed
@@ -31,12 +44,13 @@ override-dependencies = [
 ]
 
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu124" }
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
 
 [dependency-groups]
 dev = [

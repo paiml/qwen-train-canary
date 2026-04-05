@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.16.0
+**Version:** 6.17.0
 **Last Updated:** 2026-04-05
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -77,7 +77,7 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 
 | Phase | What | Exit Criterion | PMAT |
 |-------|------|---------------|------|
-| **A. Fix Profiling** | Wire 6 provable-contract invariants into profiler. Port StepProfiler to CUDA path. Verify convergence (loss < 2.0). Fix yoga crash. | `apr finetune --profile` on CUDA target: 13 phases, wall_coverage >= 0.85, 6 contracts passing, loss < 2.0 | PMAT-504, 497, 498, 506. **Progress:** 6 contracts wired into score.py + canary runner (64 tests passing). Contracts applied to all 8 historical APR results (results/contract-classification-20260405.json) — correctly distinguish: **4/8 REGRESSED** (loss >= random 11.93), **2/8 NOT-CONVERGED** (loss 11.74 < random, > 2.0 threshold), **2/8 CRASHED** (yoga PMAT-498 + gx10 routing regression PMAT-494, 0 backward steps each). PMAT-498 fix in entrenar source (deployment blocked F-ECOSYSTEM-01). gx10 LR 5e-5 test: CUDA hangs on JIT (PMAT-492), WGPU produces loss=100 (regression from prior working binary). |
+| **A. Fix Profiling** | Wire 6 provable-contract invariants into profiler. Port StepProfiler to CUDA path. Verify convergence (loss < 2.0). Fix yoga crash. | `apr finetune --profile` on CUDA target: 13 phases, wall_coverage >= 0.85, 6 contracts passing, loss < 2.0 | PMAT-504, 497, 498, 506. **Progress:** 6 contracts wired into score.py + canary runner (71 tests passing). Contracts applied to all 8 historical APR results. **NEW (2026-04-05 dogfood):** trueno WGSL q4k_gemv shader fixed (bitcast for -inf/NaN, wgpu 27.0.1 compat — PMAT-507). APR on gx10 still blocked: `--gpu-backend cuda` NOT routed (PMAT-494), WGPU shader now crashes on startup due to wgpu 27.0.1 regression (fixed in trueno but apr binary not rebuilt on gx10 yet). gx10 Python env fixed: torch 2.11+cu130 from default PyPI supports sm_121. Unsloth blocked on gx10 (PMAT-508: triton aarch64). pytorch gx10 canary PASSING: 3,906 tok/s (baseline 4,000). |
 | **B. Hybrid cuBLAS Backend** | Fix JIT caching. Wire cuBLAS GEMM into NF4 training. `--gpu-backend auto` selects cuBLAS on NVIDIA, WGPU on AMD/Metal. | `apr finetune --gpu-backend cuda` on gx10 >= 2,000 tok/s (within 3x of unsloth) | PMAT-503, 492 |
 | **C. A/B Test on CUDA Targets** | 8-variant matrix on yoga + gx10. All 6 UNMEASURED tiers measured. Per-variant profiler + convergence check. | All tiers measured. At least one variant >= 2,000 tok/s with loss < 2.0. F-MEASURE-01 retired. | PMAT-501, 505 |
 
@@ -155,7 +155,9 @@ All initial baselines and falsification conditions target yoga. Secondary target
 | CUDA | 13.0 |
 | Network | localhost (runs locally) |
 
-**Active** (PMAT-424 DONE). Canary uses batch=16. Measured: pytorch 4,055 tok/s, unsloth 13,660 tok/s, cublas 0.000 divergence.
+**Active** (PMAT-424 DONE). Canary uses batch=16. Measured: pytorch 3,906 tok/s (v6.17.0), cublas 0.000 divergence. **Unsloth BLOCKED** (PMAT-508: triton aarch64).
+
+**Platform constraint (2026-04-05):** gx10 is aarch64. PyTorch cu124/cu126 wheels have NO aarch64 builds with sm_121 support. Only `torch>=2.11` from default PyPI (cu130) works. This means: (1) unsloth needs triton which has no aarch64 wheels, (2) the `cuda-base` extra must be used instead of `cuda` on gx10. See pyproject.toml and PMAT-508.
 
 ### Intel (SECONDARY -- WGPU/Vulkan)
 

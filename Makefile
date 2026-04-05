@@ -161,7 +161,7 @@ canary-unsloth-gx10:
 
 canary-pytorch-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		uv run --extra cuda python canaries/pytorch/train.py \
+		uv run --extra cuda-base python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \
@@ -173,7 +173,7 @@ canary-pytorch-gx10:
 
 canary-cublas-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		uv run --extra cuda python canaries/cublas/train.py \
+		uv run --extra cuda-base python canaries/cublas/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CUBLAS_STEPS) \
 			--batch-size 16 \
@@ -420,7 +420,7 @@ canary-apr-gx10:
 
 canary-compile-gx10:
 	ssh gx10 'cd ~/qwen-train-canary && \
-		uv run --extra cuda python canaries/pytorch/train.py \
+		uv run --extra cuda-base python canaries/pytorch/train.py \
 			--model $(MODEL_ID) \
 			--steps $(CANARY_STEPS) \
 			--batch-size 16 \

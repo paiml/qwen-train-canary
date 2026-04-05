@@ -65,9 +65,11 @@
     "_loss_note": "Baseline tightened from 2.0 to 1.0 — measured loss is 0.14, old baseline too loose."
   },
   "pytorch": {
-    "tokens_per_sec": 4000,
+    "tokens_per_sec": 3900,
     "peak_vram_mb": 51000,
-    "final_loss": 2.0
+    "final_loss": 2.0,
+    "_status": "MEASURED — 3,906 tok/s on gx10 GB10 (2026-04-05, torch 2.11+cu130, steps=100 batch=16). Loss 0.0087. VRAM 50,580 MB.",
+    "_note": "gx10 requires torch>=2.11 from default PyPI (cu130) for sm_121 support. cu124/cu126 indices have NO aarch64 wheels."
   },
   "pytorch-compile": {
     "tokens_per_sec": 3500,
