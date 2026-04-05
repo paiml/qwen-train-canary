@@ -23,7 +23,12 @@ from datetime import datetime, timezone
 
 
 def get_gpu_info() -> dict:
-    """Collect GPU metadata via nvidia-smi."""
+    """Collect GPU metadata via nvidia-smi.
+
+    Handles partial data (e.g. gx10 GB10 returns "[N/A]" for memory.total)
+    by parsing each field independently so a single failure doesn't drop
+    all fields (F-MET-01 schema compliance).
+    """
     try:
         out = subprocess.check_output(
             ["nvidia-smi", "--query-gpu=name,memory.total,driver_version,compute_cap",
@@ -31,14 +36,26 @@ def get_gpu_info() -> dict:
             text=True,
         ).strip()
         parts = [p.strip() for p in out.split(",")]
-        return {
-            "device": parts[0],
-            "vram_total_mb": int(parts[1]),
-            "cuda_version": parts[2] if len(parts) > 2 else "unknown",
-            "compute_capability": parts[3] if len(parts) > 3 else "unknown",
-        }
     except Exception:
-        return {"device": "unknown"}
+        return {
+            "device": "unknown",
+            "vram_total_mb": 0,
+            "cuda_version": "unknown",
+            "compute_capability": "unknown",
+        }
+
+    def _safe_int(s: str) -> int:
+        try:
+            return int(s)
+        except (ValueError, TypeError):
+            return 0  # e.g. "[N/A]" on gx10 GB10
+
+    return {
+        "device": parts[0] if len(parts) > 0 else "unknown",
+        "vram_total_mb": _safe_int(parts[1]) if len(parts) > 1 else 0,
+        "cuda_version": parts[2] if len(parts) > 2 and parts[2] else "unknown",
+        "compute_capability": parts[3] if len(parts) > 3 and parts[3] else "unknown",
+    }
 
 
 def _apr_canary_name() -> str:
