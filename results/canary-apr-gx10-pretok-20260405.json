@@ -1,0 +1,36 @@
+{
+  "canary": "apr",
+  "backend": "cuda",
+  "host": "gx10-a5b5",
+  "gpu": {
+    "device": "unknown"
+  },
+  "timestamp": "2026-04-05T09:46:39.596955+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 4,
+    "seq_len": 512,
+    "steps": 100,
+    "lr": 0.0002,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 0.82,
+    "tokens_per_sec": 421.7,
+    "peak_vram_mb": 0,
+    "final_loss": 12.8166,
+    "wall_time_sec": 505.1,
+    "nan_backward_skips": 0,
+    "valid_backward_steps": 8,
+    "_baseline_status": "measured",
+    "_metrics_quality": "measured"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 8,\n  \"learning_rate\": 0.0002,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 1115528900,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 83.66808972823063,\n    \"total_bytes\": 4125990596\n  },\n  \"memory_gb\": 4.991065796,\n  \"model_params\": 2231057800,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 4.135916514578869,\n  \"utilization_percent\": 62.38832245,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": "ple 4: train_step=925ms (pre-tokenized)\n  Epoch 1 complete: avg_loss=16.7575\n  Epoch 2 complete: avg_loss=15.0708\n  Epoch 3 complete: avg_loss=12.4879\n  Epoch 4 complete: avg_loss=12.9239\n  Epoch 5 complete: avg_loss=13.7576\n  Epoch 6 complete: avg_loss=12.5817\n  Epoch 7 complete: avg_loss=12.4877\n  Epoch 8 complete: avg_loss=12.8166\n[wgpu] Training complete in 502.5s\n[PROFILE] 400 steps, 28.1s wall, bottleneck=gpu_fwd (28.0%), gpu_compute=99.6%, allocs=0/step, coverage=100.0%\n{\n  \"_profiler\": \"apr_training_profiler_v1\",\n  \"_version\": \"1.0.0\",\n  \"steps_profiled\": 400,\n  \"wall_time_ms\": 28084.7,\n  \"phases\": {\n      \"data_prep\": { \"total_ms\": 94.5, \"pct\": 0.3, \"avg_ms\": 0.2 },\n      \"embed\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 },\n      \"buf_alloc\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 },\n      \"buf_write\": { \"total_ms\": 18.9, \"pct\": 0.1, \"avg_ms\": 0.0 },\n      \"fwd_encode\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 },\n      \"fwd_submit\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 },\n      \"gpu_fwd\": { \"total_ms\": 7875.9, \"pct\": 28.0, \"avg_ms\": 19.7 },\n      \"gpu_lm\": { \"total_ms\": 6331.2, \"pct\": 22.5, \"avg_ms\": 15.8 },\n      \"gpu_ce\": { \"total_ms\": 21.3, \"pct\": 0.1, \"avg_ms\": 0.1 },\n      \"gpu_lm_bwd\": { \"total_ms\": 6786.5, \"pct\": 24.2, \"avg_ms\": 17.0 },\n      \"gpu_lora_bwd\": { \"total_ms\": 6956.4, \"pct\": 24.8, \"avg_ms\": 17.4 },\n      \"sync\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 },\n      \"overhead\": { \"total_ms\": 0.0, \"pct\": 0.0, \"avg_ms\": 0.0 }\n    },\n  \"wall_coverage\": 1.000,\n  \"bottleneck\": \"gpu_fwd\",\n  \"bottleneck_pct\": 28.0,\n  \"alloc_stats\": {\n    \"count_per_step\": 0,\n    \"total_alloc_ms\": 0.0,\n    \"avg_alloc_us\": 0.0\n  },\n  \"submit_stats\": {\n    \"count_per_step\": 0,\n    \"total_submit_ms\": 0.0\n  },\n  \"write_stats\": {\n    \"count_per_step\": 0,\n    \"total_write_ms\": 0.0\n  },\n  \"gpu_compute_ms\": 27971.3,\n  \"gpu_compute_pct\": 99.6\n}\n[wgpu] WARNING: adapter export failed: safetensors write: I/O error: No such file or directory (os error 2)\n"
+  }
+}

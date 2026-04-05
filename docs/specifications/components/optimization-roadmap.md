@@ -325,16 +325,34 @@ than unsloth (30,016 vs 5,262 tok/s at step level). The 13x wall-clock gap is en
 The overhead is OUTSIDE train_step — in `pipeline.encode()` (tokenization, 2×/sample),
 the epoch iterator, and/or `queue.submit` serialization between steps.
 
-**Revised fix priorities (re-ordered by actual root cause):**
-1. **Pre-tokenize all samples once** — currently re-tokenizes every sample every epoch
-   (50 samples × 2 calls × 8 epochs = 800 tokenizer calls)
-2. **Batch samples** — current loop processes one sample at a time. Batching N samples
-   into one train_step reduces per-sample overhead by N×
-3. **Async queue management** — check if `queue.submit()` blocks between steps
-4. **Buffer pre-allocation** — still beneficial inside train_step (reduces 68ms further)
-   but NOT the 98% overhead source
+**Revised fix priorities (re-ordered by measurement):**
 
-Expected: pre-tokenize + batch = 7,540ms → <100ms inter-step = **20,000+ tok/s**.
+**v6.5.0 profiler result (1-epoch, gx10 GB10):**
+```
+50 steps, 57.7s wall:
+  sync:         92.5%  (53.4s — device.poll(Wait) in read_loss)
+  gpu_compute:   7.4%  (4.3s — actual GPU forward+backward+optimizer)
+  overhead:      0.1%
+  coverage:    100.0%
+```
+
+1. **Async loss readback (P0)** — `read_loss()` calls `device.poll(Maintain::Wait)` which
+   blocks until ALL async GPU dispatches complete. This serializes the pipeline.
+   Fix: read loss once per epoch (not per step), or use non-blocking poll with loss
+   accumulation buffer. **Expected: 1150ms → ~90ms/step = 5,600+ tok/s (parity).**
+
+2. **Pre-tokenize corpus (DONE)** — eliminated 800 tokenizer calls per training.
+   Saved 3ms total (was not the bottleneck).
+
+3. **Epoch-level loss reporting** — currently reads and prints loss after EVERY sample.
+   Each readback forces a full GPU sync. Moving to epoch-level reporting = 8 syncs
+   instead of 400.
+
+4. **Buffer pre-allocation** — secondary: reduces the 90ms GPU compute time further.
+
+**Key insight:** The async GPU pipeline works perfectly — 7.4% GPU compute for 50
+training steps. But `device.poll(Wait)` after each step destroys the pipeline's
+asynchronous advantage by forcing CPU-GPU synchronization 400 times per training run.
 
 Previous five-whys (CUDA path): entrenar uses per-GEMM cuBLAS calls with fp32 dequantized
 weights (9.4 MB/GEMM at 256 GB/s = memory-BW bound), while unsloth uses fused Triton
