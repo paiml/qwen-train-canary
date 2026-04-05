@@ -132,6 +132,24 @@ def score_result(result: dict, baseline: dict) -> dict:
             "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93",
         }
 
+    # Contract 2.5: Loss improved — trajectory shows learning occurred at some point.
+    # Passes if min(trajectory) < 0.8 * trajectory[0] (>=20% improvement from epoch 1 minimum).
+    # Distinguishes "model is learning but oscillates" from "model is stuck/diverging".
+    # Only fires when trajectory has >= 2 epochs (need baseline vs. improvement).
+    trajectory = m.get("loss_trajectory", []) if isinstance(m.get("loss_trajectory"), list) else []
+    if canary.startswith("apr") and len(trajectory) >= 2:
+        first_loss = trajectory[0]
+        min_loss = min(trajectory)
+        ratio = min_loss / first_loss if first_loss > 0 else 1.0
+        checks["loss_improved"] = {
+            "value": round(ratio, 3),
+            "threshold": 0.8,
+            "pass": ratio < 0.8,
+            "_first": round(first_loss, 3),
+            "_min": round(min_loss, 3),
+            "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first — at least 20% improvement somewhere",
+        }
+
     # Contract 3: Step time monotonicity — step_time growing means memory leak or OOM creep
     # Checks profiler per-step data if available
     if profiler and profiler.get("phases"):

@@ -222,6 +222,10 @@ def main():
     if loss_matches:
         final_loss = float(loss_matches[-1])  # last loss value
 
+    # Extract per-epoch loss trajectory (for loss_improved contract, F-CONV-03)
+    epoch_matches = re.findall(r'Epoch\s+\d+\s+complete:\s+avg_loss=([\d.]+)', stderr)
+    loss_trajectory = [float(l) for l in epoch_matches]
+
     # Count NaN-skipped backward passes (PMAT-462: inflates throughput)
     nan_skips = len(re.findall(r'NaN/Inf loss detected.*skipping backward', stderr))
     valid_backward_count = len(re.findall(r'loss[=:]\s*[\d.]+', stderr))  # non-NaN losses
@@ -314,6 +318,7 @@ def main():
             "wall_time_sec": round(wall_time, 2),
             "nan_backward_skips": nan_skips,
             "valid_backward_steps": valid_backward_count,
+            "loss_trajectory": loss_trajectory,  # per-epoch losses (F-CONV-03 loss_improved contract)
             # PMAT-462: If nan_skips > 0, throughput is inflated (NaN steps lack backward).
             # True training throughput is unknown until NaN cascade is fixed upstream.
             "_baseline_status": "PROVISIONAL" if nan_skips > 0 else "measured",

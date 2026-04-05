@@ -646,3 +646,87 @@ def test_contract_step_time_sanity_passes():
     }
     score = score_result(result, APR_BASELINE)
     assert score["checks"]["step_time_sanity"]["pass"]
+
+
+def test_contract_loss_improved_learning_passes():
+    """F-CONV-03: Loss trajectory showing >=20% drop should pass."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 470,
+            "final_loss": 11.74,
+            "loss_trajectory": [18.9, 9.15, 12.3, 16.3, 15.5, 12.0, 10.8, 11.74],
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    # min=9.15, first=18.9, ratio=0.484 < 0.8
+    assert score["checks"]["loss_improved"]["pass"]
+    assert score["checks"]["loss_improved"]["value"] < 0.8
+
+
+def test_contract_loss_improved_flat_fails():
+    """F-CONV-03: Flat trajectory (no improvement) should FAIL."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 470,
+            "final_loss": 15.0,
+            "loss_trajectory": [15.0, 15.0, 15.0, 15.0],
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    # min=15.0, first=15.0, ratio=1.0 >= 0.8
+    assert not score["checks"]["loss_improved"]["pass"]
+
+
+def test_contract_loss_improved_diverging_fails():
+    """F-CONV-03: Diverging trajectory (loss going UP) should FAIL."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 470,
+            "final_loss": 20.0,
+            "loss_trajectory": [10.0, 15.0, 20.0],
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    # min=10.0, first=10.0, ratio=1.0 >= 0.8
+    assert not score["checks"]["loss_improved"]["pass"]
+
+
+def test_contract_loss_improved_single_epoch_skipped():
+    """F-CONV-03: Single epoch trajectory should not fire (no baseline for comparison)."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 470,
+            "final_loss": 12.0,
+            "loss_trajectory": [12.0],
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    assert "loss_improved" not in score["checks"]
+
+
+def test_contract_loss_improved_marginal_pass():
+    """F-CONV-03: 20% improvement exactly at threshold — boundary."""
+    result = {
+        "canary": "apr",
+        "metrics": {
+            "tokens_per_sec": 470,
+            "final_loss": 15.0,
+            "loss_trajectory": [20.0, 15.8, 15.0],  # ratio 15.0/20.0 = 0.75 < 0.8
+        },
+    }
+    score = score_result(result, APR_BASELINE)
+    assert score["checks"]["loss_improved"]["pass"]
+
+
+def test_contract_loss_improved_no_trajectory_skipped():
+    """F-CONV-03: No loss_trajectory field should not fire."""
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "final_loss": 11.74},
+    }
+    score = score_result(result, APR_BASELINE)
+    assert "loss_improved" not in score["checks"]
