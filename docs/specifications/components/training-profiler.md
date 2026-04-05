@@ -12,18 +12,19 @@ The profiler is only valuable if it catches regressions automatically. Phase A h
 
 ### P0.1 — Provable-Contract Invariants (SHIPPED v6.14.0)
 
-Six compiler-enforced contracts wired into `score.py` + `canaries/apr/train.py` runner. Every APR canary result is scored against these contracts; the canary exits non-zero if any contract fails (PMAT-506).
+Seven compiler-enforced contracts wired into `score.py` + `canaries/apr/train.py` runner. Every APR canary result is scored against these contracts; the canary exits non-zero if any contract fails (PMAT-506).
 
 | # | Contract | Rule | Rationale |
 |---|----------|------|-----------|
 | 1 | `convergence` | `final_loss <= 2.0` (CUDA) or `<= 2.5` (WGPU) | F-CONV-01: model must converge |
 | 2 | `better_than_random` | `final_loss < ln(vocab_size)` (11.93 for Qwen2.5) | F-CONV-02: worse than random = broken |
-| 3 | `backward_executed` | `valid_backward_steps > 0` | F-BWD-01: training must happen |
-| 4 | `metrics_quality` | `_metrics_quality == "measured"` | F-MET-02: loss parsed, not estimated |
-| 5 | `config_steps` | `steps >= 100` | F-CFG-01: warm-up drift prevention |
-| 6 | `step_time_sanity` | `avg_fwd + avg_bwd < 10000ms` | F-PROF-STEP: catch hangs/leaks |
+| 3 | `loss_improved` | `min(loss_trajectory) < 0.8 * trajectory[0]` | F-CONV-03: >=20% improvement somewhere — distinguishes learning-but-oscillating from stuck |
+| 4 | `backward_executed` | `valid_backward_steps > 0` | F-BWD-01: training must happen |
+| 5 | `metrics_quality` | `_metrics_quality == "measured"` | F-MET-02: loss parsed, not estimated |
+| 6 | `config_steps` | `steps >= 100` | F-CFG-01: warm-up drift prevention |
+| 7 | `step_time_sanity` | `avg_fwd + avg_bwd < 10000ms` | F-PROF-STEP: catch hangs/leaks |
 
-**Live application:** Applied to all 7 historical APR results. **2 of 7 pass `better_than_random`** (async + profile at loss=11.74). The other 5 (losses 12.8-16.8) never crossed random baseline → correctly flagged as regressions.
+**Live application:** Applied to all 7 historical APR results. **2 of 7 pass `better_than_random`** (async + profile at loss=11.74). The other 5 (losses 12.8-16.8) never crossed random baseline → correctly flagged as regressions. **F-CONV-03 retrofitted:** async/profile pass (ratio 0.484 = 52% improvement), pretok passes (ratio 0.745 = 26%), runs with <2 epochs skipped.
 
 > **F-REGRESS-01 (TRIGGERED 2026-04-05):** The gx10 binary regressed silently between 10:29 (loss=11.74 working) and 11:39 (loss=100 NaN sentinel). Contracts exist but weren't applied to live results. **Fix (PMAT-506 SHIPPED):** `canaries/apr/train.py` now calls `score_result()` after every run and exits non-zero on contract failure.
 
