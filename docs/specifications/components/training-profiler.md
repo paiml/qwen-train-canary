@@ -427,26 +427,121 @@ Update `train.py` to pass `--profile` flag and parse output JSON.
 
 Create `contracts/entrenar/profiler-wall-coverage-v1.yaml` and `profiler-bottleneck-classification-v1.yaml` in provable-contracts repo. Add binding to `contracts/entrenar/binding.yaml`.
 
-## 9. References
+## 9. Profiler v2: Five Improvements (2026-04-05)
 
-| ID | Paper | Relevance |
-|----|-------|-----------|
-| arXiv:2512.08242 | Chopper: Multi-Level GPU Characterization for LLM Training | Hierarchical decomposition methodology (kernel→phase→iteration) |
-| arXiv:2506.08528 | EROICA/PerfTracker: Online Performance Troubleshooting | Priority taxonomy for root-cause localization |
-| arXiv:2507.16274 | STAlloc: Reducing GPU Memory Fragmentation | Pre-allocated memory pool eliminates alloc overhead (79% reduction) |
-| arXiv:2401.08156 | GMLake: GPU Memory Defragmentation (ASPLOS'24) | Quantified allocation overhead: 9.2 GB average reclaimed |
-| arXiv:2407.12117 | Memo: Fine-grained Tensor Management | Fragmentation → reorganization → training stall causal chain |
-| arXiv:2603.22774 | CPU-Induced Slowdowns in Multi-GPU Inference | CPU oversubscription creates GPU idle time via launch latency |
-| arXiv:2603.28823 | Time is Not Compute: Scaling Laws for Wall-Clock Training | Dual U-shape: short budgets overhead-dominated, long compute-dominated |
-| arXiv:2501.16909 | Measuring GPU Utilization One Level Deeper | Per-resource idle time decomposition beyond SM-occupancy |
-| arXiv:2410.07192 | PipeFill: Using GPUs During Bubbles | Pipeline bubble baselines (15-30%) for idle-time detection |
-| arXiv:2404.09151 | TapML: Emerging Platforms Meet Emerging LLMs | Vulkan-specific compilation failures and platform testing |
+**Context:** The v1 profiler achieves 100% wall coverage with 13 phases and correctly identified `gpu_lora_bwd` (55.7%) and `gpu_fwd` (40.6%) as bottlenecks on gx10. But it cannot answer the critical question: **is the bottleneck slow shaders, memory bandwidth starvation at rank=16, or dispatch overhead from 784 small compute passes?** The following 5 improvements close that gap.
 
-## 10. Success Criteria
+**Chain of thought:** (1) We measured WHERE time goes (phases) but not WHY. (2) The "why" requires three instruments we lack: GPU-side kernel timing, arithmetic intensity, and dispatch gap measurement. (3) Chopper (arXiv:2512.08242) showed that CPU-side timing conflates launch overhead with kernel execution — on MI300X, DVFS overhead was the dominant source, invisible to CPU timestamps. (4) Our 784 dispatches/step at batch=4 are in exactly the regime where launch overhead dominates (Chopper §5.2). (5) Without per-kernel roofline classification, we can't distinguish "fuse kernels" (dispatch-bound) from "optimize shaders" (compute-bound) from "reduce memory traffic" (bandwidth-bound).
 
-The profiler is complete when:
-1. C-PROF-001: `wall_coverage >= 0.95` on a 5-step gx10 run
-2. C-PROF-002: `bottleneck` field correctly classifies the dominant phase
-3. F-PROF-002 or its falsification identifies the actual bottleneck
-4. F-PROF-006: batch scaling measurement confirms overhead-dominated regime (already measured: 0.30)
-5. The identified bottleneck leads to a fix that improves wall-clock throughput >= 2x
+### 9.1 GPU-side Timestamp Queries
+
+**What:** Replace `Instant::now()` with `wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES` for GPU-side nanosecond timing around each compute dispatch.
+
+**Why (chain of thought):** (1) Current CPU timing measures dispatch+wait, not kernel execution. (2) For async WGPU, CPU sees the full pipeline latency, not individual shader runtime. (3) The 551ms `gpu_lora_bwd` includes 784 dispatch_workgroups calls — we don't know if each takes 0.7ms (compute-bound) or 0.01ms compute + 0.69ms dispatch overhead. (4) GPU timestamps disambiguate. (5) The `wgpu-profiler` crate (github.com/Wumpf/wgpu-profiler) provides nested scopes with automatic query pooling and zero-stall deferred readback.
+
+**Existing infrastructure:** trueno's `BrickProfiler` (`src/brick/profiler/mod.rs`, 447 lines) has `SyncMode::Immediate/Deferred` pattern and O(1) hot path via BrickId enums. Extend to WGPU timestamp queries.
+
+> **F-PROF-008:** If GPU-side kernel time for `gpu_lora_bwd` matches CPU-side time (ratio 0.95-1.05), then dispatch overhead is negligible and the bottleneck is shader execution speed. Action: optimize WGSL shaders, not dispatch count.
+> **F-PROF-009:** If GPU-side kernel time is <50% of CPU-side time, dispatch overhead dominates. Action: kernel fusion (PMAT-484) is the correct fix.
+
+**Cite:** Chopper (arXiv:2512.08242) §4.2: "runtime traces alone cannot explain time differences... hardware performance counters needed." Found kernel launch overhead "relatively constant across configurations, causing it to occupy a larger percentage for small batch sizes."
+
+### 9.2 Per-Kernel Arithmetic Intensity (Roofline Classification)
+
+**What:** For each GEMM dispatch, compute arithmetic intensity `AI = 2*M*N*K / ((M*K + K*N + M*N) * 4)` FLOPs/byte and classify as compute-bound or memory-bound against device ridge point.
+
+**Why (chain of thought):** (1) LoRA backward has rank=16, hidden=1536 — the B matrix is 16×1536 = 24K elements = 96 KB. (2) For a [seq=50, 16] × [16, 1536] GEMM: AI = 2×50×16×1536 / ((50×16 + 16×1536 + 50×1536)×4) = 2.4M / 380K = 6.3 FLOPs/byte. (3) GB10 Blackwell has ~900 GB/s bandwidth and ~100 TFLOPS, ridge point ~111 FLOPs/byte. (4) AI=6.3 << 111 → **LoRA backward is severely memory-bound**. (5) This means shader optimization is useless — need to reduce memory traffic (larger rank, fused reads, or batch multiple LoRA ops).
+
+**Existing infrastructure:** trueno's `BrickStats` has per-brick counts. batuta's histogram infrastructure (886 lines, Prometheus-style buckets) can aggregate FLOPs/byte distributions.
+
+> **F-PROF-010:** If LoRA backward AI > device ridge point, it IS compute-bound (contradicts the memory-bound hypothesis). Action: optimize WGSL shader, not memory access.
+> **F-PROF-011:** If LoRA backward AI < 10% of ridge point, the operation is deeply memory-bound and no amount of shader optimization will help. Action: reduce memory traffic via batched LoRA or increased rank.
+
+**Cite:** Omniwise (arXiv:2506.20886): empirical roofline achieves >98% kernel classification accuracy. "Measuring GPU Utilization One Level Deeper" (arXiv:2501.16909): per-resource contention decomposition beyond SM-occupancy.
+
+### 9.3 Per-Layer Forward+Backward Timing
+
+**What:** Wire layer index into WgpuStepProfiler phase timing. Output `layer_fwd_ms: [l0..l27]` and `layer_bwd_ms: [l0..l27]`.
+
+**Why (chain of thought):** (1) The CUDA `StepProfiler` already has per-layer + per-op timing (16 ops, 28 layers). (2) The WGPU profiler only has 13 aggregate phases. (3) If layer 0 is 3x slower than layer 27 (due to RMSNorm shader JIT or cache effects), we're averaging away actionable information. (4) Per-layer timing enables: (a) detecting warmup effects, (b) identifying layers with anomalous projection sizes, (c) validating that all layers contribute equally to backward time. (5) Already spec'd in §3.3 but not implemented for WGPU.
+
+**Existing infrastructure:** entrenar's `step_profiler.rs` (KAIZEN-047) measures 11 phases with per-layer arrays. Port to WGPU path.
+
+> **F-PROF-012:** If per-layer variance < 5% (all layers within 5% of mean), layer-level profiling adds no actionable information beyond phase-level. Action: keep aggregate-only for WGPU (simpler, less overhead).
+> **F-PROF-013:** If any single layer consumes >10% of total forward or backward time (vs expected 3.6% = 1/28), that layer has a specific bottleneck worth investigating.
+
+**Cite:** PerfTracker (arXiv:2506.08528): "online performance troubleshooting requires per-operation localization." Chopper (arXiv:2512.08242): 7-level hierarchy includes per-layer decomposition.
+
+### 9.4 Per-Step Variance + Anomaly Detection
+
+**What:** Emit per-step phase times (not just cumulative totals). Compute coefficient of variation and flag outlier steps (>3x MAD).
+
+**Why (chain of thought):** (1) Current profiler reports totals/averages over 400 steps. (2) If step 1 takes 17s (shader JIT) and steps 2-400 take 1s each, the average is misleading. (3) The yoga trace showed exactly this: RMSNorm 1671ms on step 1, ~50ms thereafter. (4) Thermal throttling on GB10 (passive cooling) could cause late-step slowdowns invisible to averages. (5) WGPU driver GC pauses (buffer deallocation) would appear as random spikes.
+
+**Existing infrastructure:** renacer's process tracer has z-score anomaly detection with rate limiting. batuta's metrics has p50/p90/p99 histogram percentiles. Both patterns directly applicable.
+
+> **F-PROF-014:** If coefficient of variation < 5% across all steps (excluding step 1 warmup), per-step variance adds no information. Action: averages are sufficient, skip per-step tracking.
+> **F-PROF-015:** If p99/p50 ratio > 2.0 for any phase, there are significant outlier steps requiring investigation (thermal, GC, or driver).
+
+**Cite:** EROICA (arXiv:2506.08528): 3D pattern vector (critical_path_occupancy, mean_utilization, stddev), anomaly threshold at 5x MAD. Chopper (arXiv:2512.08242): found DVFS frequency overhead was the dominant inefficiency on MI300X, exceeding MFMA utilization loss.
+
+### 9.5 Dispatch Count + Inter-Dispatch Gap Profiling
+
+**What:** Log `dispatch_count` per phase and measure inter-dispatch gaps using GPU timestamps between consecutive dispatches within the same compute pass.
+
+**Why (chain of thought):** (1) We have 784 dispatches/step (7 projections × 28 layers × 4 ops) but zero visibility into the gap between them. (2) Each `dispatch_workgroups()` has WGPU encoder overhead (command buffer recording, bind group creation). (3) "CPU-Induced Slowdowns" (arXiv:2603.22774) shows CPU oversubscription creates GPU idle time via launch latency. (4) If inter-dispatch gaps are >1% of total pass time, fusing adjacent kernels (4 LoRA ops/layer → 1 fused dispatch) directly reduces overhead. (5) This is exactly the measurement needed for PMAT-484 (fused backward GEMM) — we can predict the speedup from fusion before implementing it.
+
+**Existing infrastructure:** entrenar's WgpuStepProfiler already wraps `Instant::now()` around phases. Add a dispatch counter increment inside `encode_matmul` and `encode_lora_addmm`.
+
+> **F-PROF-016:** If inter-dispatch gap time < 5% of total `gpu_lora_bwd` time, dispatch overhead is not the bottleneck and kernel fusion (PMAT-484) will NOT improve throughput significantly. Action: focus on shader optimization instead.
+> **F-PROF-017:** If reducing dispatch count by 4x (fusion) reduces wall time by >20%, dispatch overhead IS significant. Action: prioritize PMAT-484 kernel fusion.
+
+**Cite:** TritonForge (arXiv:2512.09196): profiling-guided kernel fusion achieves up to 5x improvement by eliminating inter-kernel launch latency. "CPU-Induced Slowdowns" (arXiv:2603.22774): kernel launch latency analysis.
+
+---
+
+## 10. References
+
+| ID | Paper | Relevance | Used in |
+|----|-------|-----------|---------|
+| arXiv:2512.08242 | Chopper: Multi-Level GPU Characterization for LLM Training | Hierarchical decomposition (kernel→phase→iteration), DVFS overhead dominant | §3, §9.1, §9.3, §9.4 |
+| arXiv:2506.08528 | EROICA/PerfTracker: Online Performance Troubleshooting | Priority taxonomy, 3D pattern vector anomaly detection (5x MAD) | §3, §9.3, §9.4 |
+| arXiv:2507.16274 | STAlloc: Reducing GPU Memory Fragmentation | Pre-allocated memory pool (79% reduction), allocation overhead quantified | §3 (F-PROF-002 falsified) |
+| arXiv:2401.08156 | GMLake: GPU Memory Defragmentation (ASPLOS'24) | Allocation overhead: 9.2 GB reclaimed | §3 |
+| arXiv:2407.12117 | Memo: Fine-grained Tensor Management | Fragmentation → stall causal chain | §3 |
+| arXiv:2603.22774 | CPU-Induced Slowdowns in Multi-GPU Inference | CPU oversubscription → GPU idle via launch latency | §3, §9.5 |
+| arXiv:2603.28823 | Time is Not Compute: Scaling Laws for Wall-Clock Training | Dual U-shape: short budgets overhead-dominated | §3 |
+| arXiv:2501.16909 | Measuring GPU Utilization One Level Deeper | Per-resource idle time beyond SM-occupancy | §3, §9.2 |
+| arXiv:2410.07192 | PipeFill: Using GPUs During Bubbles | Pipeline bubble baselines (15-30%) | §3 |
+| arXiv:2404.09151 | TapML: Emerging Platforms Meet Emerging LLMs | Vulkan compilation failures, platform testing | §1 |
+| arXiv:2506.20886 | Omniwise: Predicting GPU Kernel Performance | Empirical roofline >98% accuracy, kernel classification | §9.2 |
+| arXiv:2512.09196 | TritonForge: Profiling-Guided Kernel Optimization | Kernel fusion achieves up to 5x via launch elimination | §9.5 |
+| arXiv:2407.08608 | FlashAttention-3: Fast Attention with Asynchrony | Attention optimization for Hopper, pipelining overlap | Tier 8 (roadmap) |
+| arXiv:2503.19779 | PyGraph: CUDA Graph Capture for PyTorch Training | Graph capture eliminates launch overhead (6.5x) | Tier 7 (roadmap) |
+| arXiv:2512.22219 | Mirage: Persistent Megakernel Optimization | Single-dispatch megakernel (1.7x) | Tier 9 (roadmap) |
+
+## 11. Success Criteria
+
+### v1 (DONE — 2026-04-05)
+
+1. C-PROF-001: `wall_coverage >= 0.95` — **ACHIEVED** (1.000 on gx10)
+2. C-PROF-002: `bottleneck` correctly classified — **ACHIEVED** (gpu_lora_bwd 55.7%)
+3. F-PROF-002: buffer allocation hypothesis — **FALSIFIED** (0% alloc, 100% GPU compute)
+4. F-PROF-006: batch scaling confirms regime — **CONFIRMED** (0.30 < 0.50)
+
+### v2 (10 new falsification conditions)
+
+| ID | Hypothesis | Falsification | Priority |
+|----|-----------|---------------|----------|
+| F-PROF-008 | Dispatch overhead is significant | GPU kernel time matches CPU time (0.95-1.05x) → overhead negligible | P0 |
+| F-PROF-009 | Dispatch overhead dominates | GPU kernel time <50% of CPU time → fusion is correct fix | P0 |
+| F-PROF-010 | LoRA backward is memory-bound | AI > ridge point → compute-bound (contradicts) | P0 |
+| F-PROF-011 | LoRA backward is deeply memory-bound | AI < 10% ridge → no shader optimization will help | P1 |
+| F-PROF-012 | Per-layer timing adds information | Variance <5% → aggregate is sufficient | P1 |
+| F-PROF-013 | Anomalous layer exists | Any layer >10% of total (vs 3.6% expected) | P1 |
+| F-PROF-014 | Per-step variance matters | CV <5% → averages sufficient | P2 |
+| F-PROF-015 | Outlier steps exist | p99/p50 >2.0 → thermal/GC/driver issue | P2 |
+| F-PROF-016 | Inter-dispatch gaps matter | Gap time <5% → fusion won't help | P0 |
+| F-PROF-017 | Fusion reduces wall time | 4x dispatch reduction → >20% improvement | P0 |
+
+**The profiler v2 is complete when:** F-PROF-008/009 disambiguate dispatch vs kernel overhead, F-PROF-010/011 classify memory vs compute bound, and this classification leads to the correct optimization (fusion, shader, or memory) that closes the 11.2x gap.
