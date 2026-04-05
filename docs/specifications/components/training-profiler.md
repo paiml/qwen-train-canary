@@ -425,7 +425,18 @@ Update `train.py` to pass `--profile` flag and parse output JSON.
 
 ### Phase 5: Provable contract registration
 
-Create `contracts/entrenar/profiler-wall-coverage-v1.yaml` and `profiler-bottleneck-classification-v1.yaml` in provable-contracts repo. Add binding to `contracts/entrenar/binding.yaml`.
+**Status:** Contracts EXIST but are NOT BOUND.
+
+Three profiling contracts exist in `provable-contracts/contracts/entrenar/`:
+1. `training-step-profiling-v1.yaml` — per-layer decomposition (forward=sum(layer_forward[i]), backward=sum(layer_backward[i])), 12 falsification tests (F-TSP-001 through F-TSP-012), roofline + kernel launch overhead equations
+2. `per-operation-training-profiling-v1.yaml` — per-op within each layer (5 forward GEMMs, 4 backward GEMMs, 2 norms, attention), invariant: gemm_time/layer_fwd >= 0.50
+3. `kaizen/step-profiler-v1.yaml` — StepProfiler 11-phase contract for CUDA path
+
+Additionally, `gpu-decode-profiling-v1.yaml` (v2.0.0) provides the inference analog: BrickProfiler with 15 invariants, SyncMode::Immediate/Deferred, and brick ordering proofs.
+
+**Gap:** None of these contracts appear in `contracts/entrenar/binding.yaml`. The profiler implementation exists (entrenar `step_profiler.rs`, `WgpuStepProfiler`) but has no formal binding to the contract equations. This means the contracts are DESIGNED but UNVERIFIED — the falsification tests (F-TSP-001 through F-TSP-012) have never been executed against actual profiler output.
+
+**Next:** Add bindings for training-step-profiling-v1 and per-operation-training-profiling-v1 to `contracts/entrenar/binding.yaml`. Wire F-TSP-001 (wall_coverage >= 0.90) to the canary score.py gate.
 
 ## 9. Profiler v2: Five Improvements (2026-04-05)
 
