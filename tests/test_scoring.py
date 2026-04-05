@@ -125,6 +125,23 @@ def test_vram_skipped_when_baseline_omits():
     assert score["pass"]
 
 
+def test_vram_skipped_when_baseline_is_zero_sentinel():
+    """F-VRAM-01: peak_vram_mb=0 in baseline is a sentinel meaning 'no VRAM tracking'.
+
+    The WGPU path has no torch.cuda.max_memory_allocated equivalent, so the
+    apr baseline uses peak_vram_mb=0. Without this skip, 0 * 1.05 = 0 causes
+    any nonzero VRAM to FAIL the check (false positive).
+    """
+    result = {
+        "canary": "apr",
+        "metrics": {"tokens_per_sec": 470, "peak_vram_mb": 1166, "final_loss": 1.5,
+                    "_metrics_quality": "measured", "valid_backward_steps": 8},
+    }
+    baseline = {"tokens_per_sec": 470, "peak_vram_mb": 0, "final_loss": 12.0}
+    score = score_result(result, baseline)
+    assert "vram" not in score["checks"], "VRAM should be skipped when baseline is 0 sentinel"
+
+
 def test_vram_checked_when_baseline_includes():
     """VRAM check should be present when baseline includes peak_vram_mb."""
     result = {

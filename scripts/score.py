@@ -56,8 +56,10 @@ def score_result(result: dict, baseline: dict) -> dict:
         "pass": tok_s >= base_tok * (1 - THROUGHPUT_TOLERANCE),
     }
 
-    # VRAM regression check — skip when baseline omits peak_vram_mb (apr, wgpu)
-    if "peak_vram_mb" in baseline:
+    # VRAM regression check — skip when baseline omits peak_vram_mb (apr, wgpu).
+    # peak_vram_mb=0 in baseline is a sentinel meaning "no VRAM tracking on this path"
+    # (e.g. WGPU has no torch.cuda.max_memory_allocated equivalent — F-VRAM-01).
+    if "peak_vram_mb" in baseline and baseline["peak_vram_mb"] > 0:
         vram = m.get("peak_vram_mb", 0)
         base_vram = baseline["peak_vram_mb"]
         checks["vram"] = {
