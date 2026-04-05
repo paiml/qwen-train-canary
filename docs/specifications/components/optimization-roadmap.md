@@ -307,11 +307,29 @@ logits_buf) — fixed by zeroing 5 training state buffers per forward (PMAT-453)
 cores, fused kernels) is BLOCKED until GPU forward works. Fixing 11 V-projection
 tensors in trueno's NF4 dequant is the single gate that unlocks 44 → 2000+ tok/s.
 
-### Parity Roadmap: 194 → 6,628 tok/s (34x gap)
+### Parity Roadmap: 421 → 5,262 tok/s (13x gap, WGPU path)
 
-Five-whys root cause: entrenar uses per-GEMM cuBLAS calls with fp32 dequantized weights
-(9.4 MB/GEMM at 256 GB/s = memory-BW bound), while unsloth uses fused Triton kernels
-that stay entirely on GPU with fp16 tensor core compute.
+**CRITICAL FINDING (2026-04-05, PMAT-496):** APR GPU compute is ALREADY 4.6x FASTER
+than unsloth (24,094 vs 5,262 tok/s at step level). The 13x wall-clock gap is entirely
+**inter-step CPU/sync overhead** — GPU is idle 99% of the time.
+
+Profiling breakdown (gx10 GB10, batch=4):
+- GPU compute per step: **85ms** (fwd=22ms, lm=22ms, lm_bwd=23ms, lora_bwd=16ms)
+- Wall clock per step: **8,850ms** (1 epoch: 120s / 13 steps)
+- **Overhead: 8,765ms (99%)** — CPU buffer alloc, data tokenization, WGPU submission sync
+
+This means **no GPU optimization** (fused kernels, tensor cores, CUDA graphs) will help.
+The single fix is eliminating CPU-side overhead between GPU dispatches:
+1. **Pre-allocate buffers** — stop calling `zeros()` per step (784 allocs/step)
+2. **Pipeline data loading** — tokenize next batch while GPU trains current
+3. **Batch WGPU command submissions** — reduce submission + sync overhead
+4. **Persistent compute pipeline** — avoid recreating pipelines each step
+
+Expected: 8,850ms → ~100ms/step = **20,000+ tok/s** (parity + surpass unsloth).
+
+Previous five-whys (CUDA path): entrenar uses per-GEMM cuBLAS calls with fp32 dequantized
+weights (9.4 MB/GEMM at 256 GB/s = memory-BW bound), while unsloth uses fused Triton
+kernels that stay entirely on GPU with fp16 tensor core compute.
 
 | Tier | Fix | Expected | Measured | Status |
 |------|-----|----------|----------|--------|

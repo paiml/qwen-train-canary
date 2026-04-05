@@ -742,11 +742,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'CUDA NF4 training: bypass 20-min CPU dequant — use WGPU/CUDA direct Q4K path'
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-04T12:37:21Z
-  updated: 2026-04-04T17:06:20.886546144+00:00
+  updated: 2026-04-05T05:44:39Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -790,11 +790,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Upstream fix: aprender --gpu-backend wgpu routing — thread param through run_finetune_training'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-04-04T20:25:08Z
-  updated: 2026-04-04T20:25:08Z
+  updated: 2026-04-05T05:44:45Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -806,11 +806,27 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'gx10 binary rebuild blocked: alimentar+trueno code gen infrastructure broken (generated_contracts macros)'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-04-04T21:10:58Z
-  updated: 2026-04-04T21:10:58Z
+  updated: 2026-04-04T22:02:45Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-496
+  github_issue: null
+  item_type: task
+  title: 'WGPU inter-step overhead: GPU idle 99% — 104x speedup opportunity (24k tok/s GPU-bound)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T05:53:00Z
+  updated: 2026-04-05T05:53:00Z
   spec: null
   acceptance_criteria: []
   phases: []
