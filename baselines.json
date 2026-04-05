@@ -1,9 +1,9 @@
 {
   "apr": {
-    "tokens_per_sec": 400,
+    "tokens_per_sec": 420,
     "peak_vram_mb": 4200,
     "final_loss": 13.0,
-    "_status": "MEASURED — 421 tok/s on gx10 GB10 via WGPU fast Q4K path (2026-04-04). 0 NaN skips, loss 12.8."
+    "_status": "MEASURED — 470 tok/s on gx10 GB10 via WGPU async path (2026-04-05). 0 NaN skips, loss 11.74. Profiler: 100% GPU compute, gpu_lora_bwd 55.7%."
   },
   "apr-fp16": {
     "tokens_per_sec": 150,

@@ -303,7 +303,7 @@ All baselines established from measured data (PMAT-424 DONE, 0.34% variance on y
 
 | Canary | Runtime | yoga (8GB) | gx10 (120GB) | Lambda (RTX 4090) |
 |--------|---------|-----------|-------------|-------------------|
-| **apr** (WGPU async) | entrenar (Rust) | **~191** tok/s (82s, 5 steps before crash, 2026-04-05) | **470** tok/s (453s, 2026-04-05) | **125** tok/s (2026-04-04) |
+| **apr** (WGPU async) | entrenar (Rust) | **BLOCKED** (5 steps, buffer crash PMAT-498, 2026-04-05) | **470** tok/s (453s, 2026-04-05) | **125** tok/s (2026-04-04) |
 | **apr** (CUDA cached JIT) | entrenar (Rust) | **28** tok/s (941s, 2026-04-04) | TBD | **119** tok/s (2026-04-04) |
 | **apr** (NF4 fused PTX) | entrenar (Rust) | **33** tok/s (100% GPU, 2026-04-03) | TBD | N/A |
 | **apr-tc** (NF4 tensor core) | entrenar (Rust) | **UNMEASURED** — PMAT-479+481 shipped+wired, canary ready | TBD | N/A |
@@ -370,8 +370,10 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
-| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | **FALSIFIED then FIXED (2026-04-05):** Root cause: WGSL tiled GEMM reads weight `B[k*N+n]` expecting `[K,N]` layout, but weights uploaded in `[N,K]` GEMV layout. Square matrices (q_proj 1536x1536) unaffected, but non-square (k_proj 256x1536, gate_proj 8960x1536) produce garbage. Fix: transpose during training upload (`aprender/finetune.rs`). Reference loss 1.51, APR pre-fix 18.9, expect post-fix ~1.5-3.0. | P0 |
+| F-CONV-01 | APR loss converges to < 2.0 after transpose fix | If APR loss still > 2.0 after weight transpose fix (PMAT-497), the WGSL forward pass has additional correctness bugs beyond layout. Action: dump per-layer activations and compare to HF reference. | P0 |
 | F-PROF-007 | WGPU dispatch speed is the throughput bottleneck | If reducing dispatch count (kernel fusion) does NOT improve wall-clock throughput proportionally, the bottleneck is elsewhere (memory BW, kernel occupancy). Action: measure with fused backward GEMM (PMAT-484). | P1 |
+| F-PROF-008 | Dispatch overhead is significant (>50% of gpu_lora_bwd) | If GPU-side kernel time matches CPU-side time (ratio 0.95-1.05), dispatch overhead is negligible. Action: optimize shaders, not dispatch count. | P0 |
+| F-PROF-010 | LoRA backward is memory-bound (AI=6.3 << ridge=111) | If measured AI > ridge point, LoRA IS compute-bound. Action: optimize WGSL shader, not memory access. | P0 |
 
 ### Falsified Claims
 
@@ -390,6 +392,8 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 | F-MET-01 | Metrics schema valid | 2026-04-01 | TRIGGERED then FIXED: wgpu results missing `timestamp` field (burn binary doesn't emit it, Python wrapper does). Fixed by adding timestamp to existing results. Schema validator (`validate_schema.py`) now runs as `make score` prerequisite. 11/11 results pass. | Contract: canary-metrics-schema-v1.yaml. Validator: scripts/validate_schema.py. Refs: paiml/qwen-train-canary#7 (PMAT-444). |
 | F-SC-01 | Scoring logic correct | 2026-04-01 | CONFIRMED: 5 falsification injection tests pass. 15% slowdown → FAIL, 5% variance → PASS, 10% VRAM → FAIL, cuBLAS div 0.02 → FAIL, cuBLAS ratio 0.94 → FAIL. All match canary-score-gate-v1.yaml contract predictions. | Contract: canary-score-gate-v1.yaml. Baselines: wgpu 100→6600, pytorch-compile added. Refs: PMAT-445. |
 | F-WL-04 | cuBLAS test is meaningful | 2026-04-01 | CONFIRMED: throughput_ratio=1.0043 on gx10, not 1.0000 exactly. TF32 flag IS taking effect (0.43% speedup on Blackwell). cuBLAS test differentiates backend behavior. | Measured: canary-cublas-gx10-20260331.json. Refs: paiml/qwen-train-canary#8 (PMAT-447). |
+| F-PROF-002 | Buffer allocation is the bottleneck (alloc_ratio >= 0.50) | 2026-04-05 | FALSIFIED: alloc_ratio = 0.000 (zero allocations per step). gpu_compute_pct = 100%. The bottleneck is GPU compute dispatch speed (gpu_lora_bwd 55.7%), not buffer allocation. Pre-allocation already solved by WGPU async pipeline. | Profiler v1 measured on gx10: 400 steps, wall_coverage=1.000, alloc_count=0. See training-profiler.md §4.2. |
+| F-CONV-01 (original) | APR loss converges to < 2.0 | 2026-04-05 | FALSIFIED: Reference HF fp32 loss = 1.51, APR epoch 1 = 18.9 (12.5x gap, worse than random 11.93). Root cause: WGSL tiled GEMM reads B[k*N+n] expecting [K,N] layout but weights in [N,K]. Fix: transpose during upload (aprender@e767d6b6). Verification pending (epoch logs not emitted from rebuilt binary). | F-CONV-01 rewritten as "loss < 2.0 after fix" — now active pending verification. |
 
 ### Falsification Protocol
 
