@@ -790,18 +790,18 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Upstream fix: aprender --gpu-backend wgpu routing — thread param through run_finetune_training'
-  status: completed
-  priority: high
+  status: inprogress
+  priority: critical
   assigned_to: null
   created: 2026-04-04T20:25:08Z
-  updated: 2026-04-05T05:44:45Z
+  updated: 2026-04-05T18:25:00Z
   spec: null
   acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
   labels: []
-  notes: null
+  notes: 'REOPENED 2026-04-05 18:25: gx10 apr 0.4.11 (2bfde5d3) binary IGNORES --gpu-backend wgpu flag, routes to CUDA path. Confirmed by direct measurement (results/canary-apr-gx10-regressed-20260405.json). Binary was built BEFORE the 2026-04-05 05:44 fix commit. Either binary needs rebuild OR fix regressed. Either way gx10 is broken on current install.'
 - id: PMAT-495
   github_issue: null
   item_type: task
