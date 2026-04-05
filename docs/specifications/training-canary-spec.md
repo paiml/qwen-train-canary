@@ -370,7 +370,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
-| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | If APR final loss > 2.0 after 8 epochs on same data where unsloth reaches 0.45, the APR forward pass or LoRA update has a correctness defect. Action: compare logit distributions between APR and unsloth on same input. | P0 |
+| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | **FALSIFIED (2026-04-05):** Reference loss = 1.51 (HF fp32), APR epoch 1 = 18.9 (12.5x gap, worse than random 11.93). WGPU Q4K→F32 dequant produces corrupted weights. LoRA partially compensates (18.9→11.74) but cannot fix broken base weights. | P0 |
 | F-PROF-007 | WGPU dispatch speed is the throughput bottleneck | If reducing dispatch count (kernel fusion) does NOT improve wall-clock throughput proportionally, the bottleneck is elsewhere (memory BW, kernel occupancy). Action: measure with fused backward GEMM (PMAT-484). | P1 |
 
 ### Falsified Claims
