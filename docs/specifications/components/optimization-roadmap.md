@@ -103,7 +103,7 @@
 | aprender (local) | Respect `--gpu-backend wgpu` in WGPU routing condition | **FIXED** (2026-04-04, fix #63) — `(!cuda_ok \|\| gpu_backend == "wgpu")` |
 | yoga Vulkan | `libvulkan.so.1` missing — wgpu "Parent device is lost" | **FIXED** (2026-04-05) — `apt install libvulkan1`, Vulkan verified, first WGPU measurement |
 | PMAT-495 | gx10 binary rebuild blocked — alimentar+trueno code gen (generated_contracts) | **FIXED** (2026-04-05) — binary built, WGPU training working |
-| PMAT-497 | APR convergence defect: loss 11.74 vs unsloth 0.45 | **OPEN** (critical) — forward pass produces logits worse than random |
+| PMAT-497 | APR convergence defect: loss 18.9 vs ref 1.51 (12.5x gap) | **OPEN** (critical) — Q4K dequant code looks correct (dequant_q4k.rs, extract_scale_min), layout comment confirms no-transpose. Per-op trace shows `attention=0ms` on yoga — suspect WGSL forward attention returns zeros. Reference: HF fp32 loss = 1.5126 on same input. |
 | PMAT-498 | Yoga WGPU crash after 5 steps: Buffer label invalid | **OPEN** (critical) — wgpu buffer validation in loss readback |
 | gx10 ARM dequant | Q4K→F32 CPU dequant takes 100+ min on GB10 ARM (vs 20 min x86_64) | **MEASURED** — WGPU fast path essential for ARM targets |
 
