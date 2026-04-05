@@ -370,7 +370,7 @@ Every claim carries a falsification condition (F-prefixed IDs inline above). Thi
 
 | ID | Claim | Falsification Condition | Priority |
 |----|-------|------------------------|----------|
-| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | **FALSIFIED (2026-04-05):** Reference loss = 1.51 (HF fp32), APR epoch 1 = 18.9 (12.5x gap). Dequant CONFIRMED correct (CUDA inference shows reasonable Q/K values [2.9, 0.08, -0.89, ...]). Bug is in trueno's WGSL forward pass (`wgsl_forward.rs`), not the dequant. Training uploads correct F32 weights to GPU but WGSL GEMM/attention produces wrong output. | P0 |
+| F-CONV-01 | APR loss converges to < 2.0 on 50-sample dataset | **FALSIFIED then FIXED (2026-04-05):** Root cause: WGSL tiled GEMM reads weight `B[k*N+n]` expecting `[K,N]` layout, but weights uploaded in `[N,K]` GEMV layout. Square matrices (q_proj 1536x1536) unaffected, but non-square (k_proj 256x1536, gate_proj 8960x1536) produce garbage. Fix: transpose during training upload (`aprender/finetune.rs`). Reference loss 1.51, APR pre-fix 18.9, expect post-fix ~1.5-3.0. | P0 |
 | F-PROF-007 | WGPU dispatch speed is the throughput bottleneck | If reducing dispatch count (kernel fusion) does NOT improve wall-clock throughput proportionally, the bottleneck is elsewhere (memory BW, kernel occupancy). Action: measure with fused backward GEMM (PMAT-484). | P1 |
 
 ### Falsified Claims
