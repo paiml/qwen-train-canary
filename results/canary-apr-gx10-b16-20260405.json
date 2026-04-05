@@ -1,0 +1,36 @@
+{
+  "canary": "apr",
+  "backend": "cuda",
+  "host": "gx10-a5b5",
+  "gpu": {
+    "device": "unknown"
+  },
+  "timestamp": "2026-04-05T06:19:33.191565+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 16,
+    "seq_len": 512,
+    "steps": 100,
+    "lr": 0.0002,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 0.99,
+    "tokens_per_sec": 508.9,
+    "peak_vram_mb": 0,
+    "final_loss": 14.3943,
+    "wall_time_sec": 2060.5,
+    "nan_backward_skips": 0,
+    "valid_backward_steps": 32,
+    "_baseline_status": "measured",
+    "_metrics_quality": "measured"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 32,\n  \"learning_rate\": 0.0002,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 1115528900,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 83.66808972823063,\n    \"total_bytes\": 4125990596\n  },\n  \"memory_gb\": 4.991065796,\n  \"model_params\": 2231057800,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 4.135916514578869,\n  \"utilization_percent\": 62.38832245,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": " fwd=21 lm=16 ce=0[fwd=0 bwd=0] lm_bwd=18 lora_bwd=16)\n[PROFILE] step: 134ms (embed=0 fwd=35 lm=40 ce=0[fwd=0 bwd=0] lm_bwd=39 lora_bwd=18)\n[PROFILE] step: 105ms (embed=0 fwd=25 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=16)\n[PROFILE] step: 53ms (embed=0 fwd=16 lm=10 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=15)\n[PROFILE] step: 61ms (embed=0 fwd=19 lm=12 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=15)\n[PROFILE] step: 29ms (embed=0 fwd=11 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=12)\n[PROFILE] step: 101ms (embed=0 fwd=25 lm=29 ce=0[fwd=0 bwd=0] lm_bwd=30 lora_bwd=16)\n[PROFILE] step: 45ms (embed=0 fwd=13 lm=7 ce=0[fwd=0 bwd=0] lm_bwd=8 lora_bwd=15)\n[PROFILE] step: 66ms (embed=0 fwd=19 lm=14 ce=0[fwd=0 bwd=0] lm_bwd=16 lora_bwd=16)\n[PROFILE] step: 86ms (embed=0 fwd=25 lm=19 ce=0[fwd=0 bwd=0] lm_bwd=22 lora_bwd=19)\n[PROFILE] step: 119ms (embed=0 fwd=31 lm=33 ce=0[fwd=0 bwd=0] lm_bwd=35 lora_bwd=19)\n[PROFILE] step: 129ms (embed=0 fwd=33 lm=38 ce=0[fwd=0 bwd=0] lm_bwd=39 lora_bwd=17)\n[PROFILE] step: 49ms (embed=0 fwd=16 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=15)\n[PROFILE] step: 182ms (embed=0 fwd=41 lm=58 ce=0[fwd=0 bwd=0] lm_bwd=59 lora_bwd=24)\n[PROFILE] step: 104ms (embed=0 fwd=26 lm=30 ce=0[fwd=0 bwd=0] lm_bwd=30 lora_bwd=16)\n[PROFILE] step: 70ms (embed=0 fwd=19 lm=16 ce=0[fwd=0 bwd=0] lm_bwd=18 lora_bwd=16)\n[PROFILE] step: 88ms (embed=0 fwd=25 lm=20 ce=0[fwd=0 bwd=0] lm_bwd=23 lora_bwd=18)\n[PROFILE] step: 128ms (embed=0 fwd=33 lm=39 ce=0[fwd=0 bwd=0] lm_bwd=38 lora_bwd=18)\n[PROFILE] step: 35ms (embed=0 fwd=12 lm=4 ce=0[fwd=0 bwd=0] lm_bwd=2 lora_bwd=14)\n[PROFILE] step: 31ms (embed=0 fwd=11 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=14)\n[PROFILE] step: 56ms (embed=0 fwd=15 lm=11 ce=0[fwd=0 bwd=0] lm_bwd=12 lora_bwd=15)\n[PROFILE] step: 134ms (embed=0 fwd=33 lm=41 ce=0[fwd=0 bwd=0] lm_bwd=41 lora_bwd=18)\n  Epoch 32 complete: avg_loss=14.3943\n[wgpu] Training complete in 2057.8s\n[wgpu] WARNING: adapter export failed: safetensors write: I/O error: No such file or directory (os error 2)\n"
+  }
+}

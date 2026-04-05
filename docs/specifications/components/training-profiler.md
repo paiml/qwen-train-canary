@@ -2,7 +2,7 @@
 
 **Parent:** [Training Canary Spec](../training-canary-spec.md) Section 8
 **PMAT:** PMAT-496 (inter-step overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op)
-**Status:** PROPOSED — awaiting approval
+**Status:** ACTIVE — profiler implemented, F-PROF-002 falsified (v6.5.0)
 
 ---
 
