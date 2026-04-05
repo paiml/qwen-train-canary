@@ -1,8 +1,8 @@
 # Training Profiler Specification
 
 **Parent:** [Training Canary Spec](../training-canary-spec.md) Section 8
-**PMAT:** PMAT-496 (inter-step overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op)
-**Status:** ACTIVE — profiler deployed + measured (v6.7.0). F-PROF-002 FALSIFIED: bottleneck is GPU compute (100%), not buffer allocation.
+**PMAT:** PMAT-496 (inter-step overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op), PMAT-499 (unified interface)
+**Status:** ACTIVE — v1 deployed (v6.7.0), v3 unified interface designed (v6.10.0)
 
 ---
 
@@ -566,6 +566,134 @@ Chain of evidence:
 | 3 | No GPU-side kernel timing | WGPU timestamp queries via wgpu-profiler crate | GPU time matches CPU time → timestamps redundant | Chopper §4.2 |
 | 4 | No memory waterfall | Track per-step WGPU alloc/peak/fragmentation | Peak matches planning estimate within 10% | STAlloc (arXiv:2507.16274) |
 | 5 | No automated cross-runtime comparison | Parity scorecard: APR vs unsloth vs pytorch | All metrics within 10% = parity achieved | — |
+
+## 10. Unified Profiling Interface (PMAT-499)
+
+### 10.1 Problem: 18 Profilers, 0 Abstraction
+
+Audit across 8 paiml repos found **18 distinct profilers** with no shared interface:
+
+| Category | Backend-Specific | Abstract |
+|----------|-----------------|----------|
+| trueno | BrickProfiler (SyncMode) | AsyncTaskProfiler, BlisProfiler |
+| entrenar | StepProfiler (CUDA), GpuProfiler | — |
+| renacer | GpuTracerConfig (wgpu) | BrickTracer (OTLP), HPUProfiler, OtlpExporter |
+| realizar | GpuProfile (CUDA cc dispatch) | ProfileReport (CPU wall-clock) |
+| aprender/cgp | NcuProfiler, NsysProfiler, QuantProfiler | ProfilingCollector |
+| batuta | — | Histogram (Prometheus) |
+
+**Five-whys:**
+1. Why can't we compare WGPU training profiler to CUDA training profiler? → Different structs, different output formats
+2. Why different structs? → Each was built for one backend: StepProfiler for CUDA, Instant::now for WGPU
+3. Why no shared trait? → Profilers were built bottom-up from implementation needs, not top-down from a contract
+4. Why no contract? → The contracts exist (training-step-profiling-v1.yaml) but describe OUTPUT, not INTERFACE
+5. **ROOT CAUSE:** No `trait ComputeProfiler` that abstracts over backend. Each profiler talks to its own GPU API directly.
+
+### 10.2 Design: `trait ComputeProfiler`
+
+One trait, implemented per backend. All paiml profiling converges here.
+
+```rust
+/// Unified profiling interface — PMAT-499
+/// Backends: WGPU, CUDA/cuBLAS, CUTLASS, SIMD (CPU)
+pub trait ComputeProfiler: Send + Sync {
+    /// Backend identifier (for output tagging)
+    fn backend(&self) -> ComputeBackend;
+
+    // === Lifecycle ===
+    fn begin_step(&mut self);
+    fn end_step(&mut self);
+
+    // === Phase-level (11 phases from StepProfiler) ===
+    fn begin_phase(&mut self, phase: Phase);
+    fn end_phase(&mut self, phase: Phase);
+
+    // === Layer-level (per-layer from training-step-profiling-v1) ===
+    fn begin_layer(&mut self, layer: usize);
+    fn end_layer_fwd(&mut self, layer: usize);
+    fn end_layer_bwd(&mut self, layer: usize);
+
+    // === Operation-level (16 ops from per-operation-training-profiling-v1) ===
+    fn begin_op(&mut self);
+    fn end_op(&mut self, op: OpId);
+
+    // === Dispatch tracking (PMAT-499 new) ===
+    fn record_dispatch(&mut self, workgroups: [u32; 3], label: &str);
+
+    // === Memory tracking ===
+    fn record_alloc(&mut self, bytes: u64);
+    fn record_dealloc(&mut self, bytes: u64);
+
+    // === Output ===
+    fn report_json(&self) -> serde_json::Value;
+    fn report_otlp(&self) -> Vec<OtlpSpan>;     // renacer compatibility
+    fn report_chrome_trace(&self) -> Vec<ChromeTraceEvent>;  // Perfetto/torch.profiler parity
+}
+
+#[derive(Clone, Copy)]
+pub enum ComputeBackend {
+    Wgpu,       // Vulkan/Metal/DX12 via wgpu
+    CudaPtx,    // trueno PTX JIT kernels
+    CuBlas,     // cuBLAS GEMM
+    Cutlass,    // CUTLASS templates
+    Simd,       // CPU SIMD (trueno BLIS path)
+}
+
+/// 11 phases from entrenar StepProfiler (backend-independent)
+pub enum Phase {
+    Embed, H2D, Forward, NormLm, Loss,
+    GradH2D, LmBwd, NormBwd, BlkBwd, EmbedBwd, Opt,
+}
+
+/// 16 per-op IDs from per-operation-training-profiling-v1.yaml
+pub enum OpId {
+    // Forward (0-8)
+    RmsnormAttn, QkvGemm, Attention, OProj,
+    RmsnormFfn, GateUpGemm, Silu, DownGemm, Lora,
+    // Backward (9-15)
+    DownBwd, SwigluBwd, GateUpBwd, AttnBwd, QkvBwd, NormBwd, LoraBwd,
+}
+```
+
+### 10.3 Backend Implementations
+
+| Backend | GPU Timing | Dispatch Tracking | Memory Tracking | Existing Code to Reuse |
+|---------|-----------|-------------------|-----------------|----------------------|
+| **Wgpu** | `TIMESTAMP_QUERY_INSIDE_PASSES` via wgpu-profiler | `dispatch_workgroups()` counter | `create_buffer()` wrapper | entrenar `wgpu_pipeline.rs` Instant::now |
+| **CudaPtx** | `cudaEventRecord()` around kernel launches | Launch counter per stream | `cuMemAlloc` wrapper | trueno BrickProfiler `SyncMode::Immediate` |
+| **CuBlas** | cuBLAS with stream events | cuBLAS handle call counter | Workspace pre-alloc tracking | entrenar StepProfiler 16 ops |
+| **Cutlass** | Same as CudaPtx (CUTLASS launches on CUDA stream) | Template instantiation counter | Same as CudaPtx | — (future) |
+| **Simd** | `Instant::now()` (CPU-only) | Iteration counter | Process RSS tracking | trueno BlisProfiler levels |
+
+### 10.4 Output Convergence
+
+All backends emit the SAME output schema. Three formats, one data model:
+
+```
+ComputeProfiler
+  ├── report_json()         → training-step-profiling-v1.yaml schema
+  ├── report_otlp()         → renacer OtlpExporter spans (Jaeger/Tempo)
+  └── report_chrome_trace() → Chrome Trace Format (Perfetto/torch.profiler parity)
+```
+
+**Provable contract binding:** `training-step-profiling-v1.yaml` equation `training_step_decomposition` maps directly to Phase enum. `per-operation-training-profiling-v1.yaml` equation `layer_forward_decomposition` maps to OpId enum. The trait IS the binding — implementing the trait satisfies the contract.
+
+### 10.5 Migration Path
+
+| Step | From | To | Effort |
+|------|------|----|--------|
+| 1 | entrenar StepProfiler (CUDA) | Implement `ComputeProfiler for CudaProfiler` | Wrap existing 11 phases + 16 ops + per-layer |
+| 2 | entrenar wgpu_pipeline.rs Instant::now | Implement `ComputeProfiler for WgpuProfiler` | Port begin_layer/end_layer, add wgpu timestamp queries |
+| 3 | trueno BrickProfiler (inference) | Implement `ComputeProfiler for BrickProfilerAdapter` | Map 23 BrickIds to OpId enum |
+| 4 | renacer GpuTracerConfig | Add OTLP export to ComputeProfiler | Wire report_otlp() to existing OtlpExporter |
+| 5 | cgp NcuProfiler/NsysProfiler | CLI wrapper calls ComputeProfiler | Post-process ncu/nsys into same JSON schema |
+
+### 10.6 Falsification Conditions
+
+> **F-UNI-001:** If WGPU and CUDA profilers produce structurally different JSON for the same model, the interface is NOT unified. Action: fix the implementation that diverges from the schema.
+> **F-UNI-002:** If switching `ComputeBackend::Wgpu` to `ComputeBackend::CudaPtx` requires ANY change to the training loop code (beyond the profiler constructor), the abstraction leaks. Action: fix the trait to absorb the backend difference.
+> **F-UNI-003:** If report_chrome_trace() output from APR cannot be loaded alongside torch.profiler output in Perfetto, the format is wrong. Action: fix Chrome Trace event schema.
+> **F-UNI-004:** If adding a new backend (e.g., CUTLASS) requires modifying existing backend implementations, the trait is not properly abstracted. Action: redesign trait to be additive-only.
 
 ## 11. Success Criteria
 
