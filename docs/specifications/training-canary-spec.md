@@ -80,7 +80,16 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 | 2e-4 | 18.9→9.15→12.3→16.3→15.5→12.0→10.8→11.7 | 9.15 (epoch 2) | Oscillates but learns briefly |
 | 5e-5 | 16.4→22.2→18.8→20.2→18.9→19.7→19.9→19.5 | 16.4 (epoch 1) | **NEVER learns** — always above random |
 
-**LR too high is NOT the root cause.** Lower LR should converge better (just slower) — instead it's worse. Loss > ln(151936)=11.93 from step 1 means LoRA adapters push predictions in the WRONG direction immediately. Root cause candidates: (1) LoRA initialization non-zero/corrupted, (2) gradient sign flipped in backward pass, (3) cross-entropy loss computed on wrong token positions, (4) WGSL attention backward still buggy. PMAT-497 reclassified from "LR too high" to "gradient direction defect."
+**LR too high is NOT the root cause.** Lower LR should converge better (just slower) — instead it's worse. Loss > ln(151936)=11.93 from step 1 means LoRA adapters push predictions in the WRONG direction immediately.
+
+**Ruled out (2026-04-06 investigation):**
+- f16_to_f32 WGSL shader: pow(2.0,n) was bit-exact. Fixed to bitwise anyway (trueno 0.17.3)
+- Forward-backward mismatch: Fixed Q/K/V only backward. No effect on loss.
+- LoRA init: Kaiming A, zeros B — correct (verified).
+- AdamW direction: w -= lr * grad — correct (verified).
+- Cross-entropy label shift: labels[i]=input_ids[i+1] — correct (verified).
+
+**Key observation:** Loss trajectory is EXACTLY identical (16.3684→22.1668→...→19.5482) across 3 binary builds with different code changes. The old binary (470 tok/s, epoch 2 loss 9.15) used entrenar code 233 commits behind current main. **Regression in entrenar forward/loss path between old and new code.** PMAT-497 reclassified from "gradient defect" to "entrenar forward path regression."
 
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
