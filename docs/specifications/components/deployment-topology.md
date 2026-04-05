@@ -15,20 +15,18 @@
 
 **All three targets are active.** Yoga baselines established (PMAT-424 DONE, 0.34% variance). gx10 and WGPU canaries have measured results in `results/`.
 
-## Virtual Environment Strategy
+## Python Environment Strategy
 
-All Python dependencies installed via **uv** (not pip):
+All Python dependencies managed via **uv** (the ONLY packaging tool — no pip, conda, poetry):
 
-```yaml
-# forjar-yoga.yaml
-command: |
-  test -d ~/venvs/unsloth/bin || uv venv ~/venvs/unsloth
-  uv pip install -q --python ~/venvs/unsloth/bin/python -r requirements.txt
+```bash
+# All canaries run via uv:
+uv run canaries/unsloth/train.py ...
+uv run canaries/pytorch/train.py ...
+uv run canaries/cublas/train.py ...
 ```
 
-Two venvs per CUDA host:
-1. `~/venvs/unsloth` -- unsloth + dependencies (bitsandbytes, peft, trl)
-2. `~/venvs/pytorch-canary` -- minimal PyTorch + transformers (shared by pytorch + cublas)
+Dependencies defined in `pyproject.toml` with optional extras (`cuda`, `wgpu`). Remote hosts use `uv run` directly — no manual venv management.
 
 ## Nightly Pipeline
 

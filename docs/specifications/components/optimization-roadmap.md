@@ -92,9 +92,9 @@
 | paiml/entrenar#327 | FP16 path crash bugs: resize + guard + alloc (PMAT-474) | **FIXED** (2026-04-03, fix #26) |
 | paiml/qwen-train-canary#22 | NF4 kernel fusion (PMAT-475) | **SHIPPED** — RMSNorm+NF4 GEMV + Gate+Up NF4 GEMM in trueno. Saves 336 MB/step DRAM. |
 | paiml/qwen-train-canary#23 | Backward graph capture (PMAT-464/477) | **SHIPPED** — fused clip + backward_graph.rs + instruct_pipeline split (12 files ≤500) |
-| paiml/qwen-train-canary#24 | FP16 throughput measurement (PMAT-476) | Open — canary-apr-fp16 never executed |
-| paiml/qwen-train-canary#27 | Training step profiling (PMAT-480) | Open — BrickProfiler integration for per-layer training timing |
-| paiml/entrenar#328 | Wire BrickProfiler into training forward+backward | Open — upstream dependency for PMAT-480 |
+| paiml/qwen-train-canary#24 | FP16 throughput measurement (PMAT-476) | **OPEN** — canary-apr-fp16 never executed (PROVISIONAL baseline) |
+| paiml/qwen-train-canary#27 | Training step profiling (PMAT-480) | **DONE** (2026-04-05) — 13-phase profiler deployed, 100% GPU compute measured |
+| paiml/entrenar#328 | Wire BrickProfiler into training forward+backward | **DONE** (2026-04-05) — StepProfiler + per-op instrumentation shipped |
 | paiml/entrenar#329 | Wire NF4 tensor core GEMM into training forward | **FIXED** (2026-04-03, fix #37) — PMAT-481 |
 | paiml/entrenar#330 | Fused backward GEMM for Gate+Up and K+V | Open — PMAT-482 |
 | aprender@39d33259 | Fix APR metadata fallback — 1.5B preset + architecture+hidden_size match (GH-376) | **FIXED** (2026-04-04, fix #54) — PMAT-490 |
@@ -134,32 +134,179 @@
 | cuda-graph-backward-v1.yaml | Designed, 4 falsification tests PENDING (PMAT-477) |
 | training-step-profiling-v1.yaml | Designed, 12 falsification tests PENDING (PMAT-480) |
 
-## Findings Summary (2026-04-01)
+## Measurement Debt: Optimization Tiers SHIPPED but UNMEASURED (2026-04-05)
 
-### Measured Parity (tok/s)
+> **Stop shipping new tiers. Measure the existing ones.**
 
-| Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth |
-|---------|-----------|-------------|------------|
-| **unsloth** QLoRA | **6,628** | **16,118** | baseline |
-| **apr** QLoRA (NF4) | **194** (canary, 2026-04-02) | TBD | **2.9%** (34x gap) |
-| **pytorch** full FT | OOM | **4,017** | 24.9% (4x, expected) |
-| **cublas** parity | OOM | **4,000** | 0.000 divergence |
-| **wgpu** synthetic | — | — | 6,730 (Vulkan) |
+Every optimization tier below was coded, wired, and declared "SHIPPED" in the revision history. None has a canary measurement. Until measured, these are **hypotheses, not improvements.**
 
-### Root Cause: APR 151x Parity Gap
+| Tier | Env Flag | Predicted Impact | Measured Impact | Blocker |
+|------|----------|-----------------|-----------------|---------|
+| Tier 2: FP16 GEMM | `FP16_GEMM=1` | 2.6 GB freed | **UNMEASURED** | No canary-apr-fp16 run |
+| Tier 4: Fused RMSNorm+GEMV | `NF4_FUSED_GEMM=1` | 336 MB/step saved | **UNMEASURED** | No canary-apr-fused run |
+| Tier 4: Fused Gate+Up GEMM | `NF4_FUSED_GEMM=1` | 2× fewer dispatches | **UNMEASURED** | Same |
+| Tier 4: Fused K+V GEMM | `NF4_FUSED_GEMM=1` | 352 MB/step saved | **UNMEASURED** | Same |
+| Tier 4.7: TC GEMM forward | `NF4_TC_GEMM=1` | 5-40× compute | **UNMEASURED** | No canary-apr-tc run |
+| Tier 4.7: TC GEMM backward | `NF4_TC_BWD_GEMM=1` | 196 fewer launches | **UNMEASURED** | No canary-apr-tc-bwd run |
+| Tier 5: Fused backward GEMM | `NF4_FUSED_BWD_GEMM=1` | 84 fewer launches | **UNMEASURED** | No canary-apr-fused-bwd run |
+| Tier 7: CUDA graph backward | `CUDA_GRAPH=1` | 840→1 launch | **UNMEASURED** | No canary-apr-graph run |
 
-Five-whys analysis:
+**The only measured throughput change in 5 days:** async pipeline 421→470 tok/s (+12%). Everything else is speculation.
 
-1. **APR is 151x slower than unsloth** — 44 vs 6,628 tok/s on yoga
-2. **GPU at 0% utilization** — all compute is on CPU (493% CPU, 0% GPU)
-3. **CPU lm_head fallback** — `[CUDA] Skipping GPU embeddings (1780MB > 1228MB free)`
-4. **NaN in GPU forward** — `[CUDA] NaN in forward output — inference-style forward failed`
-5. **Q4K dequantized weights produce near-uniform logits** — Q4K is designed for inference
-   speed, not training. FP16 weights produce differentiated logits that LoRA can learn from.
+### Execution Plan: Three Phases (P0)
 
-The model file format is the root cause. Unsloth loads HF safetensors in FP16 and
-quantizes to NF4 at runtime (bitsandbytes). APR loads a pre-quantized Q4K GGUF which
-has already lost the precision needed for training gradients.
+No new optimization tier may be coded until these three phases complete sequentially. Each phase has a provable exit criterion — not a checklist, a falsifiable gate.
+
+---
+
+#### Phase A: Fix Profiling with Provable Contracts (PMAT-504)
+
+**Goal:** Know exactly where time goes on CUDA targets, with compiler-enforced contracts that detect regressions and correctness bugs automatically.
+
+**Why first:** We can't optimize what we can't measure. The current profiler works on WGPU (13 phases, 100% coverage on gx10) but has **zero coverage on the CUDA path**. The CUDA path is what matters for Phase B. Without profiling, we're guessing. The candle-vs-apr sister project found 3.4x profiler fidelity errors when contracts weren't wired — we must not repeat that.
+
+**Deliverables:**
+
+1. **Wire 6 provable-contract invariants into training profiler** (from candle-vs-apr Phase 15):
+   - `wall_coverage >= 0.85` — catches missing kernels (would have caught PMAT-498 crash)
+   - `GEMM >= 50% of layer_fwd` — architecture regression gate
+   - `LmHead > 10x RmsNorm` — profiler sync fidelity check (candle-vs-apr saw 3.4x error without this)
+   - `loss[epoch_n] < loss[epoch_0]` — convergence sanity (catches PMAT-497 immediately)
+   - `step_time[n] < 2x step_time[n-1]` — memory leak / OOM early warning
+   - `no orphan profiler spans` — trace corruption detection
+   Each invariant enforced via `#[ensures(...)]` or `debug_assert!` — L5 compiler-enforced, not eprintln warnings.
+
+2. **Port StepProfiler to CUDA NF4 path** — the WGPU profiler (13 phases) exists but `CudaNf4TransformerBlock` has no equivalent. Wire `begin_phase`/`end_phase` into the CUDA training forward and backward with the same phase decomposition.
+
+3. **Verify convergence fix (PMAT-497)** — run gx10 canary, assert loss < 2.0 after WGSL transpose fix. If still > 2.0, dump per-layer activations and diff against HF fp32 reference. The `loss[epoch_n] < loss[epoch_0]` contract will catch this automatically going forward.
+
+4. **Fix yoga WGPU crash (PMAT-498)** — add buffer label validation contract, fix the `Buffer with '' label is invalid` error. The `wall_coverage >= 0.85` contract would have caught this before it crashed.
+
+**Exit criterion (falsifiable):**
+> `apr finetune --profile` on CUDA target produces JSON with all 13 phases, wall_coverage >= 0.85, and all 6 contract invariants passing. Loss < 2.0 on at least one target. If this is not achieved, Phase B is blocked.
+
+**PMAT:** PMAT-504 (profiling contracts), PMAT-497 (convergence), PMAT-498 (yoga crash)
+
+---
+
+#### Phase B: Hybrid Backend — cuBLAS on NVIDIA, WGPU on AMD/Metal (PMAT-503)
+
+**Goal:** Use cuBLAS for GEMM on CUDA-capable hardware. Keep WGPU for portability.
+
+**Why second:** The 11.2x gap is an architectural mismatch, not an optimization gap:
+
+| APR path (current) | Unsloth path | APR path (after Phase B) |
+|----------|-------------|--------------------------|
+| WGSL source | Triton/CUDA | Rust + cuBLAS |
+| → SPIR-V → Vulkan | → PTX → cuBLAS | → cuBLAS directly |
+| Hand-written GEMM | cuBLAS autotuned | cuBLAS autotuned |
+| 470 tok/s | 5,262 tok/s | **Target: 3,000+ tok/s** |
+
+cuBLAS has decades of per-architecture autotuning. No Rust framework (Candle, Burn, trueno) has achieved parity with custom kernels. The pragmatic industry pattern (Candle, PyTorch, JAX) is to delegate GEMM to cuBLAS. trueno already has cuBLAS bindings — this is wiring, not research.
+
+**Deliverables:**
+
+1. **Fix CUDA PTX JIT caching (PMAT-492)** — pre-compile trueno kernels to cubin. Current: 2-hour first run, 28 tok/s cached on yoga. After: seconds to load, cuBLAS GEMM speed.
+
+2. **Wire `--gpu-backend cuda` to use cuBLAS GEMM in NF4 training forward+backward** — the `CudaNf4TransformerBlock` already exists and uses cuBLAS for inference. Training needs: (a) cuBLAS for LoRA GEMM in forward, (b) cuBLAS for gradient GEMM in backward, (c) NF4 dequant → cuBLAS SGEMM pipeline (same as bitsandbytes pattern).
+
+3. **Runtime backend selection** — `--gpu-backend auto` detects CUDA capability and selects cuBLAS on NVIDIA, WGPU/Vulkan on AMD/Metal. The `--gpu-backend` flag already exists; this completes its implementation.
+
+4. **Measure cuBLAS path on gx10 and yoga** — run `canary-apr --gpu-backend cuda` on both targets. Compare directly against WGPU path and against unsloth on same hardware.
+
+**Exit criterion (falsifiable):**
+> `apr finetune --gpu-backend cuda` on gx10 produces throughput >= 2,000 tok/s (within 3x of unsloth, proving cuBLAS closes the architectural gap). If throughput is still < 1,000 tok/s, the bottleneck is not GEMM and further profiling (Phase A contracts) is needed. If cuBLAS throughput matches WGPU throughput, the gap is NOT cuBLAS vs WGSL — investigate elsewhere.
+
+**PMAT:** PMAT-503 (hybrid backend), PMAT-492 (JIT cache)
+
+---
+
+#### Phase C: A/B Test on CUDA Targets (PMAT-501)
+
+**Goal:** Rigorous head-to-head comparison of WGPU vs cuBLAS vs optimization tiers on yoga (8GB) and gx10 (120GB).
+
+**Why third:** Phase A gives us the profiler to measure accurately. Phase B gives us the cuBLAS path to compare against. Phase C is the measurement sweep that tells us what actually works — and retires the 6 UNMEASURED tiers from the debt table.
+
+**Deliverables:**
+
+1. **Baseline A/B matrix** — every combination on both targets:
+
+   | Variant | Env Flags | yoga (8GB) | gx10 (120GB) |
+   |---------|-----------|-----------|-------------|
+   | WGPU baseline | (none) | PMAT-498 | 470 tok/s |
+   | CUDA cuBLAS baseline | `--gpu-backend cuda` | TBD | TBD |
+   | CUDA + TC GEMM fwd | `NF4_TC_GEMM=1` | TBD | TBD |
+   | CUDA + TC GEMM fwd+bwd | `NF4_TC_GEMM=1 NF4_TC_BWD_GEMM=1` | TBD | TBD |
+   | CUDA + fused kernels | `NF4_FUSED_GEMM=1 NF4_FUSED_BWD_GEMM=1` | TBD | TBD |
+   | CUDA + FP16 | `FP16_GEMM=1` | TBD | TBD |
+   | CUDA + graph | `CUDA_GRAPH=1` | TBD | TBD |
+   | CUDA + all flags | all flags | TBD | TBD |
+   | Unsloth (reference) | N/A | 6,697 | 16,118 |
+
+2. **Per-variant profiler output** — Phase A profiler runs on every variant. Contract invariants checked automatically. Bottleneck phase identified for each.
+
+3. **Convergence check per variant** — every variant must produce loss < 2.0 at steps=100. Variants that don't converge are marked BROKEN regardless of throughput.
+
+4. **Retire measurement debt** — after Phase C, every tier in the debt table has a number or is marked BROKEN. No more UNMEASURED entries.
+
+5. **Decision: which path ships?** Based on Phase C data:
+   - If cuBLAS baseline > 3,000 tok/s → ship cuBLAS as default on NVIDIA
+   - If any optimization tier adds > 20% over cuBLAS baseline → ship that tier
+   - If WGPU > cuBLAS on any metric → investigate (unexpected, likely a bug)
+   - If nothing reaches 2,000 tok/s → the bottleneck is not GEMM, re-profile
+
+**Exit criterion (falsifiable):**
+> All 8 variants measured on gx10. F-MEASURE-01 retired (0 UNMEASURED tiers). At least one variant achieves >= 2,000 tok/s with loss < 2.0. If no variant meets this bar, the problem is deeper than GEMM backend selection and requires a different approach.
+
+**PMAT:** PMAT-501 (measure tiers), PMAT-505 (A/B test matrix)
+
+---
+
+> **F-MEASURE-01:** If 3+ optimization tiers remain UNMEASURED on 2026-04-12, the project has a measurement problem, not a coding problem. Action: freeze all upstream development. Deploy and measure until every SHIPPED tier has a number.
+
+### Architectural Context: WGPU vs cuBLAS on NVIDIA
+
+The 11.2x gap is not primarily an optimization gap. It's a **platform mismatch:**
+
+| APR WGPU path | Unsloth path | APR cuBLAS path (Phase B) |
+|----------|-------------|--------------------------|
+| WGSL compute shader source | Triton/CUDA source | Rust + cuBLAS FFI |
+| → SPIR-V compilation | → PTX compilation | → cuBLAS library call |
+| → Vulkan compute dispatch | → cuBLAS/cuDNN dispatch | → cuBLAS dispatch |
+| → NVIDIA Vulkan driver | → NVIDIA CUDA driver | → NVIDIA CUDA driver |
+| Hand-written GEMM | cuBLAS autotuned | cuBLAS autotuned |
+
+cuBLAS has decades of per-architecture autotuning by NVIDIA engineers. No framework — including HuggingFace Candle (Rust), Burn, or our trueno — has achieved cuBLAS GEMM parity with custom kernels. The pragmatic industry pattern is to delegate GEMM to cuBLAS (Candle does this, PyTorch does this, JAX does this).
+
+**After Phase B+C:** WGPU remains the correct path for AMD/Metal portability. cuBLAS is the correct path for NVIDIA throughput. `--gpu-backend auto` selects at runtime.
+
+## Findings Summary (2026-04-05)
+
+### Measured Parity (tok/s) — Updated 2026-04-05
+
+| Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth | Loss |
+|---------|-----------|-------------|------------|------|
+| **unsloth** QLoRA | **5,412** (steps=20) / **6,697** (steps=100) | **5,262** (steps=20) / **16,118** (steps=100) | baseline | 0.45 |
+| **apr** QLoRA (WGPU) | **BLOCKED** (crash step 5, PMAT-498) | **470** (async, 2026-04-05) | **8.9%** (11.2x gap) | **11.74** (PMAT-497) |
+| **apr** QLoRA (CUDA) | **28** (cached JIT, 941s) | TBD | **0.5%** (237x gap) | 16.76 |
+| **pytorch** full FT | OOM (F-EXEC-02) | **4,017** (steps=100) | 24.9% (4x, expected) | ~2.0 |
+| **cublas** parity | OOM (F-EXEC-02) | **4,000** (steps=100) | 0.000 divergence | ~2.0 |
+| **wgpu** synthetic | — | — | 6,730 (Vulkan, intel) | 1.0 |
+
+**Config drift warning:** steps=20 results are warm-up-dominated. Always compare at steps=100 for baseline parity.
+
+### Root Cause: APR 11.2x Parity Gap (was 151x, was 34x)
+
+**Gap history:** 151x (2026-03-31) → 34x (2026-04-02) → 11.2x (2026-04-05, current)
+
+Five-whys analysis (UPDATED 2026-04-05 — original root cause RESOLVED, new root cause identified):
+
+~~1. APR is 151x slower — 44 vs 6,628 tok/s~~ **RESOLVED** by 65+ upstream fixes.
+
+**Current root cause (2026-04-05):** Two independent defects remain:
+
+1. **Throughput: 11.2x gap** — 470 vs 5,262 tok/s (gx10, same hardware). GPU is 100% utilized (profiler-verified). Bottleneck is WGPU compute shader dispatch speed: `gpu_lora_bwd`=55.7% (551ms/step), `gpu_fwd`=40.6% (401ms/step). Zero overhead. Fix path: kernel fusion (PMAT-484), WGSL shader optimization. **Phase B (cuBLAS hybrid) targets 3,000+ tok/s.**
+2. **Convergence: oscillating, not stuck** — Loss trajectory (8 epochs): 18.9→**9.15**→12.3→16.3→15.5→12.0→10.8→11.7. **Model IS learning** (epoch 2 reached 9.15, below random 11.93). But oscillates wildly instead of converging. This is NOT a "model doesn't train" problem — it's a **learning rate / optimizer configuration** problem. LR 2e-4 likely too high for WGPU compute precision. Unsloth uses cosine decay with warmup=10; APR uses flat LR. Fix: reduce LR to 5e-5 + add cosine schedule. Prior root cause (WGSL GEMM layout PMAT-497) may also contribute.
 
 ### Two Paths to Parity
 

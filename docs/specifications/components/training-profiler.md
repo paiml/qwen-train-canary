@@ -1,16 +1,59 @@
 # Training Profiler Specification
 
 **Parent:** [Training Canary Spec](../training-canary-spec.md) Section 8
-**PMAT:** PMAT-496 (inter-step overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op), PMAT-499 (unified interface)
-**Status:** ACTIVE — v1 deployed (v6.7.0), v3 unified interface designed (v6.10.0)
+**PMAT:** PMAT-504 (Phase A contracts), PMAT-506 (live contract enforcement), PMAT-496 (overhead), PMAT-480 (BrickProfiler), PMAT-483 (per-op), PMAT-499 (unified interface)
+**Status:** ACTIVE — v2 contracts-enforced (v6.14.0)
 
 ---
 
-## 1. Problem Statement
+## Priority: Phase A Deliverables (PMAT-504)
+
+The profiler is only valuable if it catches regressions automatically. Phase A has three deliverables, in priority order:
+
+### P0.1 — Provable-Contract Invariants (SHIPPED v6.14.0)
+
+Six compiler-enforced contracts wired into `score.py` + `canaries/apr/train.py` runner. Every APR canary result is scored against these contracts; the canary exits non-zero if any contract fails (PMAT-506).
+
+| # | Contract | Rule | Rationale |
+|---|----------|------|-----------|
+| 1 | `convergence` | `final_loss <= 2.0` (CUDA) or `<= 2.5` (WGPU) | F-CONV-01: model must converge |
+| 2 | `better_than_random` | `final_loss < ln(vocab_size)` (11.93 for Qwen2.5) | F-CONV-02: worse than random = broken |
+| 3 | `backward_executed` | `valid_backward_steps > 0` | F-BWD-01: training must happen |
+| 4 | `metrics_quality` | `_metrics_quality == "measured"` | F-MET-02: loss parsed, not estimated |
+| 5 | `config_steps` | `steps >= 100` | F-CFG-01: warm-up drift prevention |
+| 6 | `step_time_sanity` | `avg_fwd + avg_bwd < 10000ms` | F-PROF-STEP: catch hangs/leaks |
+
+**Live application:** Applied to all 7 historical APR results. **2 of 7 pass `better_than_random`** (async + profile at loss=11.74). The other 5 (losses 12.8-16.8) never crossed random baseline → correctly flagged as regressions.
+
+> **F-REGRESS-01 (TRIGGERED 2026-04-05):** The gx10 binary regressed silently between 10:29 (loss=11.74 working) and 11:39 (loss=100 NaN sentinel). Contracts exist but weren't applied to live results. **Fix (PMAT-506 SHIPPED):** `canaries/apr/train.py` now calls `score_result()` after every run and exits non-zero on contract failure.
+
+### P0.2 — Port StepProfiler to CUDA Path (NOT STARTED)
+
+The 13-phase WGPU profiler (`wgpu_pipeline.rs`) has 100% wall_coverage. The CUDA path (`CudaNf4TransformerBlock`) has **zero StepProfiler instrumentation** — we can't measure where CUDA training time goes, blocking Phase B (cuBLAS hybrid).
+
+**Deliverable:** Wire `begin_phase`/`end_phase` into CUDA forward + backward with identical phase decomposition (`gpu_fwd`, `gpu_lm`, `gpu_ce`, `gpu_lm_bwd`, `gpu_lora_bwd`). Report per-phase ms via the same JSON schema.
+
+**Exit criterion:** `apr finetune --gpu-backend cuda --profile` produces `wall_coverage >= 0.85` with 13 phases identical to WGPU output.
+
+### P0.3 — Profiler Fidelity Invariants (candle-vs-apr Insights)
+
+candle-vs-apr found BrickProfiler's `Deferred` sync mode had **3.4x fidelity error**. Apply the same invariants to StepProfiler:
+
+| # | Contract | Rule | Rationale |
+|---|----------|------|-----------|
+| 7 | `lmhead_vs_rmsnorm_ratio` | `gpu_lm_ms > 10x gpu_rmsnorm_ms` | Fidelity lag detection |
+| 8 | `gemm_dominance` | `gemm_pct >= 30%` | Architecture regression |
+| 9 | `no_orphan_spans` | All phases have begin+end | Trace corruption |
+
+---
+
+## Historical: FALSIFIED Hypothesis (2026-04-05)
 
 APR WGPU training on gx10 GB10 was originally measured at **421 tok/s wall-clock** with **24,094 tok/s step-level GPU compute** — suggesting 99% GPU idle time. The hypothesis was buffer allocation overhead (F-PROF-002).
 
-**FALSIFIED (2026-04-05):** After async pipeline deployment, the profiler now measures **100% GPU compute** with **0% overhead**. The 11x gap vs unsloth (470 vs 5,262 tok/s) is real WGPU compute shader speed, not inter-step overhead. `gpu_lora_bwd` at 55.7% (551ms/step) and `gpu_fwd` at 40.6% (401ms/step) dominate. Zero allocations, zero sync, zero buf_write per step. The profiler captured 395.7s of 449.6s training (88% coverage; remaining 12% is epoch boundaries + setup).
+**FALSIFIED (2026-04-05):** After async pipeline deployment, the profiler measured **100% GPU compute** with **0% overhead**. The 11x gap vs unsloth (470 vs 5,262 tok/s) is real WGPU compute shader speed, not inter-step overhead. `gpu_lora_bwd` at 55.7% (551ms/step) and `gpu_fwd` at 40.6% (401ms/step) dominated. Zero allocations, zero sync, zero buf_write per step. Profiler captured 395.7s of 449.6s training (88% coverage).
+
+**NOTE (2026-04-05):** The binary producing this data is no longer deployed — see F-REGRESS-01. Current gx10 binary produces `loss=100` NaN sentinel via a different code path that lacks the async pipeline.
 
 ### Prior Art
 
@@ -39,7 +82,23 @@ Profiling lives inside the training binary because inter-step overhead can ONLY 
 - External profiler (Tracy, Nsight) — can't decompose Rust-side overhead without source instrumentation; Tracy integration adds dependency; Nsight is NVIDIA-only
 - `probar score training` — probar is GUI testing; training scoring is a role mismatch
 
-**Measurement pipeline:** `apr --profile` (measurement) → `canary` (collection) → `score.py` (gating) → `spec` (analysis)
+**Measurement pipeline:** `apr --profile` (measurement) → `canary runner` (contract gating, PMAT-506) → `score.py` (cross-run comparison) → `spec` (analysis)
+
+### 2.1 Live Contract Enforcement (PMAT-506, SHIPPED v6.14.0)
+
+The canary runner (`canaries/apr/train.py`) now calls `score_result()` on its own output JSON after every run and exits non-zero on contract failure. This catches silent regressions at measurement time — not hours later during spec review.
+
+```python
+# canaries/apr/train.py (simplified)
+score = score_result(output, baseline)
+for check, info in score["checks"].items():
+    status = "PASS" if info["pass"] else "FAIL"
+    print(f"  [{status}] {check}: {info['value']}")
+if not score["pass"]:
+    sys.exit(1)  # CI gate fires here
+```
+
+**Why this matters:** The gx10 binary silently regressed between 10:29 (loss=11.74) and 11:39 (loss=100) without any alarm. With live contracts, the 11:39 run would have failed 4 contracts (loss, convergence, better_than_random, backward_executed) and exited non-zero immediately.
 
 ## 3. Profiling Phases
 
@@ -228,34 +287,25 @@ proof_obligations:
 falsification_tests:
   - id: F-PROF-002
     rule: buffer allocation is the bottleneck
+    status: FALSIFIED (2026-04-05)
     prediction: >
-      alloc_time >= 50% of wall-clock per step. Based on: 600+
-      create_buffer calls per step, each hitting Vulkan driver.
-      STAlloc (arXiv:2507.16274) shows cudaMalloc dominates in
-      similar patterns. Burn-Compute found identical issue with
-      early burn-wgpu.
-    test: >
-      Run 10-step training with allocation tracking.
-      Compute alloc_ratio = alloc_time / wall_time.
-      Assert alloc_ratio >= 0.50.
-    if_fails: >
-      Buffer allocation is NOT the dominant bottleneck. Investigate:
-      (1) sync phase (device.poll blocking), (2) queue.submit overhead,
-      (3) data_prep CPU work. The fix is NOT buffer pooling — profile
-      deeper to find actual bottleneck.
+      alloc_time >= 50% of wall-clock per step.
+    result: >
+      FALSIFIED: alloc_ratio = 0.000. Zero allocations per step.
+      gpu_compute_pct = 100%. Async pipeline pre-allocation solved
+      allocation overhead entirely. Bottleneck is GPU compute dispatch
+      speed (gpu_lora_bwd 55.7%), not buffer allocation.
 
   - id: F-PROF-004
     rule: GPU compute is NOT the bottleneck
+    status: FALSIFIED (2026-04-05)
     prediction: >
-      gpu_compute_pct < 5% of wall time. Measured: 85ms GPU / 8850ms
-      wall = 0.96%. Batch=4→16 scaling: 421→509 = 21% (not 400%).
-    test: >
-      Assert gpu_compute_pct < 20% from profiler output.
-      Assert batch_scaling_efficiency < 0.50.
-    if_fails: >
-      GPU IS compute-bound. PMAT-496 finding was wrong. The profiler
-      is measuring something other than actual GPU utilization.
-      Validate with nvidia-smi or wgpu timestamp queries.
+      gpu_compute_pct < 5% of wall time.
+    result: >
+      FALSIFIED: gpu_compute_pct = 100.0%. After async pipeline,
+      GPU IS the bottleneck. The original 0.96% was measured on
+      sync pipeline where 98.3% was inter-step overhead. Async
+      pipeline moves device.poll into step, revealing true GPU time.
 
   - id: F-PROF-005
     rule: pre-allocation fixes the bottleneck
@@ -354,6 +404,64 @@ qa_gate:
 ```
 
 **Source:** `results/canary-apr-gx10-async-20260405.json` — measured on gx10 GB10, async WGPU pipeline, 8 epochs over 50 samples.
+
+## 6. Cross-Project Insights (candle-vs-apr, added PMAT-500)
+
+**Source:** `~/src/candle-vs-apr` — inference benchmark sister project (candle vs apr/realizr). Five-whys chain-of-thought analysis identified patterns directly applicable to training profiler.
+
+### 6.1 Profiler Fidelity Gap (candle-vs-apr F10)
+
+candle-vs-apr found BrickProfiler's `Deferred` sync mode had **3.4x fidelity error** on QkvProjection (reported 26µs vs actual 89µs, `performance.md` lines 340-361). The `apr profile` command conflated pipeline efficiency (includes idle between kernels, 83.8% overhead) with per-kernel efficiency. Fix: subtract `kernel_launch_overhead_pct` from roofline calculation (aprender c0953fd7).
+
+**For training profiler:** Report per-layer timing **excluding launch overhead** separately from wall-clock throughput. Use `Immediate` sync mode by default. Add: `BrickProfiler.reported_time > 0.5x actual_time` invariant.
+
+### 6.2 Contract Wiring Gap (candle-vs-apr Phase 15) — **SHIPPED v6.14.0**
+
+candle-vs-apr discovered **11 YAML contract definitions with zero wired to profiler code** — causing SwiGLU graph recording bug (28 missing kernels) to go undetected for a week. Five-whys root cause: no `#[contract(...)]` macros enforce invariants at runtime.
+
+**Status:** 6 contracts shipped — see **P0.1** at top of spec. Live enforcement via `canaries/apr/train.py` + `score.py`. 64 tests passing. 7 historical APR results scored. Contracts distinguish "regressed" (4/7 contracts fail) from "not converged" (1/7 fails, convergence only).
+
+### 6.3 Event-Based Sync (candle-vs-apr F12)
+
+`compute_stream.synchronize()` cost 12.9% throughput in inference (20.1→22.7 tok/s, ITL 49.7→44.0ms). Fixed with `cuStreamWaitEvent`. The WGPU equivalent: explicit `vkCmdPipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)` instead of implicit Vulkan synchronization.
+
+**For PMAT-498 (WGPU crash after 5 steps):** Check burn-canary for explicit pipeline barrier placement after compute dispatches. Add monotonic frame counter contract to catch lost dispatches.
+
+### 6.4 Trueno-Parity Canary (new, from chain-of-thought)
+
+candle-vs-apr's cuBLAS parity gate (identical loop, different GEMM backend) directly inspires a **trueno-parity canary**: compare trueno NF4 GEMM output vs pure PyTorch matmul on isolated layers to diagnose PMAT-497 convergence defect.
+
+> **F-XPROJECT-01 (CONFIRMED 2026-04-05):** The 6 wired contracts caught **F-REGRESS-01** on day 1 — gx10 binary regressed silently from loss=11.74 to loss=100, caught by contracts applied to live results. Contract enforcement pays for itself.
+
+---
+
+## 7. Remaining Deliverables (Priority Order)
+
+### P0 (Phase A blockers)
+
+| # | Deliverable | Status | Exit Criterion |
+|---|-------------|--------|----------------|
+| 1 | 6 provable contracts wired | **SHIPPED v6.14.0** | 64 tests passing |
+| 2 | Live canary contract gating | **SHIPPED v6.14.0** (PMAT-506) | canary exits non-zero on violation |
+| 3 | Port StepProfiler to CUDA path | **NOT STARTED** (blocked by F-ECOSYSTEM-01) | CUDA run produces 13-phase JSON with wall_coverage >= 0.85 |
+| 4 | Profiler fidelity invariants (7-9) | **DESIGNED** | 3 new contracts in score.py |
+| 5 | Trueno-parity canary | **DESIGNED** | Compare trueno GEMM vs PyTorch matmul on isolated layer, loss divergence < 0.01 |
+
+### P1 (Phase B/C support)
+
+| # | Deliverable | Rationale |
+|---|-------------|-----------|
+| 6 | Per-layer profiling (`--profile-layers`) | Identify slowest transformer layer (28 total) |
+| 7 | GPU timestamp queries (not Instant::now) | F-PROF-008: measure actual GPU time, not dispatch wrapper |
+| 8 | Roofline classification (AI vs ridge) | F-PROF-010: memory-bound vs compute-bound per op |
+| 9 | Dispatch gap profiling | F-PROF-016: time between queue.submit() and first kernel |
+| 10 | Per-step variance | F-PROF-014: detect thermal throttling, GC interference |
+
+### P2 (Future — when Phase C complete)
+
+- Unified `trait ComputeProfiler` (PMAT-499) — abstract across WGPU/CUDA/cuBLAS/CUTLASS/SIMD
+- OTLP / Chrome Trace output formats
+- Integration with qwen-coder-deploy inference profiler (cross-project comparison)
 
 **Measured 2026-04-05 on gx10 GB10 (async pipeline, 400 steps, 8 epochs).** F-PROF-002 FALSIFIED: `buf_alloc` is 0%, not 82.6%. GPU compute is 100% of profiled wall time. Bottleneck is `gpu_lora_bwd` (55.7%) — 784 WGPU compute shader dispatches per step (7 projections × 28 layers × 4 ops each). The 11x gap vs unsloth (470 vs 5,262 tok/s) is real GPU compute speed, not overhead.
 

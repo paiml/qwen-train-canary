@@ -837,12 +837,12 @@ roadmap:
 - id: PMAT-497
   github_issue: null
   item_type: task
-  title: 'APR convergence defect: loss 18.9 (worse than random 11.9) — dequantized weights may be corrupted, not loss bug'
+  title: 'APR convergence: dequant CONFIRMED correct (CUDA Q/K ok) — bug is in WGSL forward pass (trueno wgsl_forward.rs)'
   status: planned
   priority: critical
   assigned_to: null
   created: 2026-04-05T10:45:00Z
-  updated: 2026-04-05T10:55:19Z
+  updated: 2026-04-05T11:16:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -854,7 +854,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Yoga WGPU crash after 5 steps: Buffer with empty label is invalid — wgpu buffer validation error in loss readback'
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-04-05T10:48:32Z
@@ -866,3 +866,147 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-499
+  github_issue: null
+  item_type: task
+  title: 'Unified profiling interface: abstract over WGPU/CUDA/cuBLAS/CUTLASS/SIMD with single contract schema'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T13:19:09Z
+  updated: 2026-04-05T13:19:09Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-500
+  github_issue: null
+  item_type: task
+  title: 'Spec falsification sweep v6.11.0 — 19 issues fixed, arXiv grounding, competitive analysis (PyTorch/Candle/Unsloth/Chronicals)'
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T14:00:00Z
+  updated: 2026-04-05T14:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: '19 issues: 7 stale baselines (APR tok/s, loss, unsloth@gx10, loss gates, WGPU synthetic, parity table, gap title), 6 contradictions (grad accum, target-to-beat, F-WL-06, venv→uv, fake citation, revision order), 3 triggered conditions (F-WL-07, F-VRAM-01, F-CFG-01), 3 dependencies (ticket statuses, competitive analysis, 6 new arXiv citations). Chronicals arXiv:2601.02609 discovered Unsloth 46k benchmark had zero gradients.'
+- id: PMAT-501
+  github_issue: null
+  item_type: task
+  title: 'Phase C: A/B test matrix — 8 variants on yoga + gx10, retire measurement debt'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T15:00:00Z
+  updated: 2026-04-05T16:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'Blocked by PMAT-503 (Phase B). 8 variants: WGPU baseline, CUDA cuBLAS baseline, +TC GEMM, +TC fwd+bwd, +fused, +FP16, +graph, all flags. Every UNMEASURED tier gets a number or is marked BROKEN.'
+- id: PMAT-502
+  github_issue: null
+  item_type: task
+  title: 'Phase A: Verify convergence — loss must be < 2.0 (PMAT-497)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T15:00:00Z
+  updated: 2026-04-05T16:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'Part of Phase A. Model does not train (loss 11.74 > random 11.93). All throughput measures garbage speed. Contract: loss[epoch_n] < loss[epoch_0].'
+- id: PMAT-503
+  github_issue: null
+  item_type: task
+  title: 'Phase B: Hybrid cuBLAS backend — cuBLAS on NVIDIA, WGPU on AMD/Metal'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T15:00:00Z
+  updated: 2026-04-05T16:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'Blocked by PMAT-504 (Phase A). Wire cuBLAS GEMM into NF4 training forward+backward. Fix JIT caching (PMAT-492). --gpu-backend auto. Exit: >= 2000 tok/s on gx10.'
+- id: PMAT-504
+  github_issue: null
+  item_type: task
+  title: 'Phase A: Fix profiling with provable contracts — 6 invariants, CUDA StepProfiler, yoga crash'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T16:00:00Z
+  updated: 2026-04-05T16:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'Phase A (first). Wire 6 provable-contract invariants (wall_coverage, GEMM%, LmHead, loss trajectory, step_time, orphan spans). Port StepProfiler to CUDA path. Fix PMAT-498 yoga crash. Exit: apr finetune --profile on CUDA target with 13 phases, wall_coverage >= 0.85, 6 contracts passing.'
+- id: PMAT-505
+  github_issue: null
+  item_type: task
+  title: 'Phase C: A/B test decision — which path ships based on measured data'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-04-05T16:00:00Z
+  updated: 2026-04-05T16:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'Blocked by PMAT-501. Decision: if cuBLAS > 3000 tok/s ship as default. If any tier adds > 20% over cuBLAS ship that tier. If WGPU > cuBLAS investigate. If nothing > 2000 tok/s re-profile.'
+- id: PMAT-506
+  github_issue: null
+  item_type: task
+  title: 'Apply scoring contracts to live gx10 results — catch silent regressions'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T17:00:00Z
+  updated: 2026-04-05T17:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'F-REGRESS-01 triggered. gx10 binary regressed loss 11.74→100 between 10:29 and 11:39. Contracts exist but not applied to live JSON results. Wire score.py contracts into nightly.sh + make score to fail CI on regression.'
+- id: PMAT-507
+  github_issue: null
+  item_type: task
+  title: 'Fix Sovereign Stack build ecosystem — apr-cli/trueno diamond dep + aprender compile errors + presentar paths'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-04-05T17:00:00Z
+  updated: 2026-04-05T17:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'F-ECOSYSTEM-01 triggered. apr-cli pins trueno 0.16.0 crates.io (workspace uses 0.17.1 local). entrenar presentar-terminal path stale. aprender build_default_registry undefined. Dev-overrides broken. Phase B blocked until this is fixed.'
