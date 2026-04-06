@@ -45,7 +45,7 @@
 
 ## APR Parity: Upstream Fix Tracker
 
-**65+ fixes landed** in entrenar/trueno/aprender. WGPU profiler deployed (PMAT-480 DONE): 100% GPU compute, 0% overhead (gx10). Yoga WGPU UNBLOCKED (PMAT-493 DONE, libvulkan1 installed). **First yoga WGPU measurement: ~191 tok/s (5 steps before buffer crash, PMAT-498).** gx10: 470 tok/s (async). Convergence defect filed (PMAT-497): loss 11.74 vs unsloth 0.45. Tier 2 (FP16), Tier 4 (fused kernels), Tier 4.7 (tensor cores) ALL SHIPPED and WIRED — per-layer profiler shipped (PMAT-480), tensor core GEMM wired into all 7 projections (PMAT-481). Two blockers found 2026-04-04: (1) `apr finetune` missing from binary (training feature dropped by trueno-gpu compile errors) — FIXED upstream, (2) GGUF tensor names (`token_embd.weight`) not mapped to HF names (`model.embed_tokens.weight`) — filed PMAT-489. APR metadata completeness enforced via architecture preset fallback (aprender@39d33259).
+**65+ fixes landed** in entrenar/trueno/aprender. **cuBLAS routing fix (PMAT-494, 2026-04-06): 2,101 tok/s** — 4.5x over WGPU 470. WGPU profiler deployed (PMAT-480 DONE): 100% GPU compute, 0% overhead (gx10). Yoga WGPU UNBLOCKED (PMAT-493 DONE). Convergence: backward_steps=0 on CUDA path (PMAT-512), WGPU loss 11.74 (oscillates). Tier 2-7 (WGPU optimizations) ALL SHIPPED but UNMEASURED — may be deprioritized now that cuBLAS path is 4.5x faster. **Provable-contract Grade A REQUIRED for all cuBLAS training code (PMAT-515).**
 
 | # | Fix | Repo | Impact |
 |---|-----|------|--------|
@@ -151,7 +151,7 @@ Every optimization tier below was coded, wired, and declared "SHIPPED" in the re
 | Tier 5: Fused backward GEMM | `NF4_FUSED_BWD_GEMM=1` | 84 fewer launches | **UNMEASURED** | No canary-apr-fused-bwd run |
 | Tier 7: CUDA graph backward | `CUDA_GRAPH=1` | 840→1 launch | **UNMEASURED** | No canary-apr-graph run |
 
-**The only measured throughput change in 5 days:** async pipeline 421→470 tok/s (+12%). Everything else is speculation.
+**Measured throughput changes (Days 1-6):** async pipeline 421→470 tok/s (+12%, Day 5). cuBLAS routing fix 470→2,101 tok/s (+347%, Day 6). 7 WGPU optimization tiers remain UNMEASURED — these are WGPU-specific and may be deprioritized now that cuBLAS is confirmed.
 
 ### Execution Plan: Three Phases (P0)
 
@@ -193,14 +193,14 @@ No new optimization tier may be coded until these three phases complete sequenti
 
 **Goal:** Use cuBLAS for GEMM on CUDA-capable hardware. Keep WGPU for portability.
 
-**Why second:** The 11.2x gap is an architectural mismatch, not an optimization gap:
+**Why second:** The WGPU 11.2x gap was an architectural mismatch, not an optimization gap. **cuBLAS routing fix (PMAT-494, 2026-04-06) confirmed this:** one-line change = 4.5x throughput.
 
-| APR path (current) | Unsloth path | APR path (after Phase B) |
+| APR path (WGPU) | Unsloth path | APR path (cuBLAS) — **CONFIRMED** |
 |----------|-------------|--------------------------|
 | WGSL source | Triton/CUDA | Rust + cuBLAS |
 | → SPIR-V → Vulkan | → PTX → cuBLAS | → cuBLAS directly |
 | Hand-written GEMM | cuBLAS autotuned | cuBLAS autotuned |
-| 470 tok/s | 5,262 tok/s | **Target: 3,000+ tok/s** |
+| 470 tok/s | 5,262 tok/s | **2,101 tok/s (MEASURED)** |
 
 cuBLAS has decades of per-architecture autotuning. No Rust framework (Candle, Burn, trueno) has achieved parity with custom kernels. The pragmatic industry pattern (Candle, PyTorch, JAX) is to delegate GEMM to cuBLAS. trueno already has cuBLAS bindings — this is wiring, not research.
 
@@ -216,8 +216,12 @@ cuBLAS has decades of per-architecture autotuning. No Rust framework (Candle, Bu
 
 **Exit criterion (falsifiable):**
 > `apr finetune --gpu-backend cuda` on gx10 produces throughput >= 2,000 tok/s (within 3x of unsloth, proving cuBLAS closes the architectural gap). If throughput is still < 1,000 tok/s, the bottleneck is not GEMM and further profiling (Phase A contracts) is needed. If cuBLAS throughput matches WGPU throughput, the gap is NOT cuBLAS vs WGSL — investigate elsewhere.
+>
+> **STATUS (2026-04-06): THROUGHPUT CRITERION MET.** 2,101 tok/s measured (PMAT-494 routing fix). **CONVERGENCE NOT MET:** backward_steps=0, loss not captured (PMAT-512). Phase B remains OPEN until loss < 2.0 on cuBLAS path.
+>
+> **HARD REQUIREMENT (PMAT-515):** All cuBLAS training code must achieve provable-contract penetration at Grade A (score >= 0.60). See parent spec §8.
 
-**PMAT:** PMAT-503 (hybrid backend), PMAT-492 (JIT cache)
+**PMAT:** PMAT-503 (hybrid backend), PMAT-492 (JIT cache), PMAT-494 (routing fix — DONE), PMAT-512 (loss capture), PMAT-515 (contracts)
 
 ---
 
@@ -234,7 +238,7 @@ cuBLAS has decades of per-architecture autotuning. No Rust framework (Candle, Bu
    | Variant | Env Flags | yoga (8GB) | gx10 (120GB) |
    |---------|-----------|-----------|-------------|
    | WGPU baseline | (none) | PMAT-498 | 470 tok/s |
-   | CUDA cuBLAS baseline | `--gpu-backend cuda` | TBD | TBD |
+   | CUDA cuBLAS baseline | `--gpu-backend cuda` | TBD | **2,101 tok/s** (2026-04-06, bwd_steps=0) |
    | CUDA + TC GEMM fwd | `NF4_TC_GEMM=1` | TBD | TBD |
    | CUDA + TC GEMM fwd+bwd | `NF4_TC_GEMM=1 NF4_TC_BWD_GEMM=1` | TBD | TBD |
    | CUDA + fused kernels | `NF4_FUSED_GEMM=1 NF4_FUSED_BWD_GEMM=1` | TBD | TBD |
@@ -266,7 +270,7 @@ cuBLAS has decades of per-architecture autotuning. No Rust framework (Candle, Bu
 
 ### Architectural Context: WGPU vs cuBLAS on NVIDIA
 
-The 11.2x gap is not primarily an optimization gap. It's a **platform mismatch:**
+The WGPU 11.2x gap was a **platform mismatch** — confirmed by cuBLAS routing fix (4.5x in one change):
 
 | APR WGPU path | Unsloth path | APR cuBLAS path (Phase B) |
 |----------|-------------|--------------------------|
@@ -282,14 +286,15 @@ cuBLAS has decades of per-architecture autotuning by NVIDIA engineers. No framew
 
 ## Findings Summary (2026-04-05)
 
-### Measured Parity (tok/s) — Updated 2026-04-05
+### Measured Parity (tok/s) — Updated 2026-04-06
 
 | Runtime | yoga (8GB) | gx10 (120GB) | vs Unsloth | Loss |
 |---------|-----------|-------------|------------|------|
 | **unsloth** QLoRA | **5,412** (steps=20) / **6,697** (steps=100) | **5,262** (steps=20) / **16,118** (steps=100) | baseline | 0.45 |
+| **apr** QLoRA (cuBLAS) | TBD (needs apr-cli 0.4.14) | **2,101** (2026-04-06, bwd_steps=0) | **40%** (2.5x gap) | N/A (PMAT-512) |
 | **apr** QLoRA (WGPU) | **BLOCKED** (crash step 5, PMAT-498) | **470** (async, 2026-04-05) | **8.9%** (11.2x gap) | **11.74** (PMAT-497) |
-| **apr** QLoRA (CUDA) | **28** (cached JIT, 941s) | TBD | **0.5%** (237x gap) | 16.76 |
-| **pytorch** full FT | OOM (F-EXEC-02) | **4,017** (steps=100) | 24.9% (4x, expected) | ~2.0 |
+| **apr** QLoRA (CUDA JIT) | **28** (cached JIT, 941s) | TBD | **0.5%** (237x gap) | 16.76 |
+| **pytorch** full FT | OOM (F-EXEC-02) | **3,957** (steps=100, 2026-04-06) | 24.5% (4x, expected) | 0.0087 |
 | **cublas** parity | OOM (F-EXEC-02) | **4,000** (steps=100) | 0.000 divergence | ~2.0 |
 | **wgpu** synthetic | — | — | 6,730 (Vulkan, intel) | 1.0 |
 

@@ -28,9 +28,9 @@ Seven compiler-enforced contracts wired into `score.py` + `canaries/apr/train.py
 
 > **F-REGRESS-01 (TRIGGERED 2026-04-05):** The gx10 binary regressed silently between 10:29 (loss=11.74 working) and 11:39 (loss=100 NaN sentinel). Contracts exist but weren't applied to live results. **Fix (PMAT-506 SHIPPED):** `canaries/apr/train.py` now calls `score_result()` after every run and exits non-zero on contract failure.
 
-### P0.2 — Port StepProfiler to CUDA Path (NOT STARTED)
+### P0.2 — Port StepProfiler to CUDA Path (NOT STARTED — NOW CRITICAL)
 
-The 13-phase WGPU profiler (`wgpu_pipeline.rs`) has 100% wall_coverage. The CUDA path (`CudaNf4TransformerBlock`) has **zero StepProfiler instrumentation** — we can't measure where CUDA training time goes, blocking Phase B (cuBLAS hybrid).
+The 13-phase WGPU profiler (`wgpu_pipeline.rs`) has 100% wall_coverage. The CUDA path (`CudaNf4TransformerBlock`) has **zero StepProfiler instrumentation** — we can't measure where CUDA training time goes. **UPDATE (2026-04-06):** cuBLAS path now routes correctly and achieves 2,101 tok/s (PMAT-494). Profiling the CUDA path is now the highest priority — we need to understand where the 1.9x gap vs pytorch (3,957 tok/s) comes from.
 
 **Deliverable:** Wire `begin_phase`/`end_phase` into CUDA forward + backward with identical phase decomposition (`gpu_fwd`, `gpu_lm`, `gpu_ce`, `gpu_lm_bwd`, `gpu_lora_bwd`). Report per-phase ms via the same JSON schema.
 

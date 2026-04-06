@@ -39,7 +39,9 @@ scripts/nightly.sh [cuda|wgpu|gx10|all]
 ```
 
 **Default:** `scripts/nightly.sh all` — all three targets active as of 2026-04-01.
-Note: WGPU results carry host="mac-server" (the Vulkan build host); spec refers to this as "intel".
+Note: WGPU results carry host="mac-server" (the Vulkan build host on Intel hardware); spec refers to this as "intel".
+
+**APR canary (2026-04-06):** `canaries/apr/train.py` wraps `apr finetune`. Default `--gpu-backend wgpu`; use `--gpu-backend cuda` for cuBLAS path (2,101 tok/s on gx10). apr-cli 0.4.14 published to crates.io. Install via `cargo install apr-cli`.
 
 ## Scope Boundaries
 
