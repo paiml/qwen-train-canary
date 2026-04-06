@@ -1,8 +1,8 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.17.0
-**Last Updated:** 2026-04-05
+**Version:** 6.18.0
+**Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
 **Primary Target:** Yoga (RTX 4060 Laptop, 8 GB VRAM, sm_89)
@@ -89,7 +89,25 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 - AdamW direction: w -= lr * grad — correct (verified).
 - Cross-entropy label shift: labels[i]=input_ids[i+1] — correct (verified).
 
-**Key observation:** Loss trajectory is EXACTLY identical (16.3684→22.1668→...→19.5482) across 3 binary builds with different code changes. The old binary (470 tok/s, epoch 2 loss 9.15) used entrenar code 233 commits behind current main. **Regression in entrenar forward/loss path between old and new code.** PMAT-497 reclassified from "gradient defect" to "entrenar forward path regression."
+**Key observation:** LR was hardcoded to 2e-4 — FIXED (now wired from CLI). Different LR confirmed to produce different trajectories.
+
+**GPU vs CPU diagnostic (2026-04-06, PMAT-509):**
+
+| Stage | APR (WGPU) | PyTorch (F32) | Ratio | Verdict |
+|-------|-----------|---------------|-------|---------|
+| embed | 7.99 | 5.64 | 1.4x | Q4K noise (acceptable) |
+| layer 0 | 183 | 112 | 1.6x | Diverging |
+| layer 1 | 4523 | 2483 | 1.8x | Growing |
+| layer 27 | 6719 | 1853 | **3.6x** | Significant |
+| logits norm | 1107 | 2646 | **0.42x** | Inverted |
+| logits argmax | 74403 | 16 | — | **WRONG** |
+| CE loss | 16.37 | 0.55 | 30x | Model broken |
+
+PyTorch initial CE: 0.55 (correctly loaded model). APR: 16.37 (above random).
+
+Hidden states diverge PROGRESSIVELY through 28 layers (1.4x→3.6x). Not catastrophic (no NaN/Inf) — consistent with **accumulated rounding error in the tiled GEMM shader**, not a single indexing bug. The Q4K→F32 dequant is correct (verified bit-by-bit), weight transpose is correct, CE loss is correct.
+
+**Root cause hypothesis:** The tiled GEMM (64×64 CUTLASS-derived) may have a precision issue on specific wgpu/Vulkan implementations that compounds through 28 layers × 9 GEMM per layer = 252 matmuls. Alternative: RoPE positional encoding implementation differs from PyTorch. **PMAT-509 open.**
 
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
@@ -577,3 +595,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 6.15.0 | 2026-04-05 | **Profiler spec restructured + 2 fidelity contracts shipped.** Profiler spec now leads with Phase A deliverables (P0 priority) instead of historical/prior-art content. Shipped contracts section prominently at top. Three P0 categories: (1) provable contracts [SHIPPED], (2) CUDA StepProfiler port [NOT STARTED], (3) fidelity invariants [DESIGNED]. Added 2 new fidelity contracts to score.py: `lmhead_executed` (F-PROF-FIDELITY-01) and `no_orphan_spans` (F-PROF-FIDELITY-02) — catches profiler sync bugs. F-XPROJECT-01 CONFIRMED: contracts caught F-REGRESS-01 on day 1. Remaining deliverables table (P0/P1/P2) added to profiler spec for clear prioritization. 64 tests passing. | PMAT-504 |
 | 6.16.0 | 2026-04-05 | **Falsification sweep — stale data cleanup, cross-doc harmonization.** (1) optimization-roadmap.md compressed: removed ~195 lines of v3.x/v4.x H-PARITY-001/002 diagnostic chain (NF4 dequant NaN RESOLVED 2026-04-02), updated "13x gap"→"11.2x gap", rewrote v6.5.0 sync-dominated fix priorities against v6.7.0 async profiler data. (2) training-profiler.md: F-PROF-005/006 marked FALSIFIED/OBSOLETE (0 allocs/step achieved but only +12%, not 2x). (3) Main spec revision history reordered: v6.x entries were in insertion order (6.0,6.1,6.5,6.4,...); now strict version order. (4) Tier count harmonized 6→8 (Tiers 2, 4×3, 4.7×2, 5, 7). (5) README.md updated with current measurements (470 tok/s APR, 16,118 tok/s unsloth@gx10), 64-test count, F-WL-07/F-PROGRESS-01 triggered conditions. (6) PMAT item count: 81→88. | PMAT-500/507 |
 | 6.17.0 | 2026-04-05 | **Dogfood session: 3 ecosystem fixes, 2 fresh measurements, 2 new blockers.** (1) trueno WGSL q4k_gemv shader fixed: `-1.0/0.0` → `bitcast<f32>(0xFF800000u)` for wgpu 27.0.1 compat. Published trueno 0.17.2 to crates.io. (2) gx10 Python env fixed: default PyPI torch 2.11+cu130 supports sm_121 (cu124/cu126 indices have NO aarch64 wheels). pyproject.toml updated: torch>=2.6, cu126 index, `cuda-base` extra for aarch64 without unsloth. (3) Fresh gx10 measurements: **pytorch 3,906 tok/s** (loss 0.0087, VRAM 50.6 GB, PASS), **cublas numerical parity perfect** (0.0 divergence, VRAM delta 1 MB, PASS). (4) PMAT-508 filed: unsloth on gx10 BLOCKED (triton aarch64 + torch.int1 dep chain). (5) PMAT-494 CONFIRMED: `--gpu-backend cuda` NOT routed, APR always uses WGPU Q4K path. (6) 71 tests passing. 89 PMAT items. | PMAT-504/507/508 |
+| 6.18.0 | 2026-04-06 | **PMAT-509 deep investigation: GPU vs CPU forward path diagnostic.** (1) Hardcoded LR 2e-4 FIXED — now wired from CLI. Different LR confirmed producing different trajectories. (2) Per-layer hidden state comparison (APR WGPU vs PyTorch F32): embed 1.4x ratio, layer 0 1.6x, layer 27 3.6x — progressive divergence through 28 layers, consistent with accumulated GEMM rounding error. (3) Logit comparison: APR argmax=74403 vs PyTorch=16 (completely wrong). APR logits norm 1107 vs PyTorch 2646 (0.42x). (4) PyTorch base model CE loss: 0.55. APR: 16.37 (30x worse). (5) Code audit verified: Q4K dequant bit-exact, weight transpose correct, CE loss correct, tiled GEMM indexing correct, scatter/gather correct. (6) Root cause narrowed to **tiled GEMM precision on wgpu/Vulkan** — 252 matmuls compound error. Or RoPE implementation difference. (7) 7 upstream commits across 3 repos (trueno 0.17.2/0.17.3, entrenar Q/K/V + LR + diagnostics, aprender LR wiring). 90 PMAT items. | PMAT-497/507/509 |
