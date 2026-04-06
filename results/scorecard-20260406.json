@@ -1,0 +1,840 @@
+[
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 194.1,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 16.7986,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "nan_rate": {
+        "value": 0.35,
+        "threshold": 0.5,
+        "pass": true
+      },
+      "convergence": {
+        "value": 16.7986,
+        "threshold": 2.0,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 16.7986,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 6,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      },
+      "config_steps": {
+        "value": 20,
+        "threshold": 100,
+        "pass": false,
+        "_contract": "F-CFG-01: canary must run steps>=100 for baseline comparison"
+      }
+    },
+    "provisional": true,
+    "file": "canary-apr-20260402.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 421.5,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 12.8166,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 12.8166,
+        "threshold": 2.0,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 12.8166,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-20260404.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 470.2,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 11.7398,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "convergence": {
+        "value": 11.7398,
+        "threshold": 2.0,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 11.7398,
+        "threshold": 11.93,
+        "pass": true,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-async-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 508.9,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 14.3943,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 14.3943,
+        "threshold": 2.0,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 14.3943,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 32,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-b16-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 418.6,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 19.5482,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 19.5482,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 19.5482,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 16.368,
+        "_min": 16.368,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-lr5e5-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 421.7,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 12.8166,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 12.8166,
+        "threshold": 2.0,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 12.8166,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-pretok-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 470.6,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 11.7398,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "convergence": {
+        "value": 11.7398,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 11.7398,
+        "threshold": 11.93,
+        "pass": true,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-profile-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 993.5,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 0,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "backward_executed": {
+        "value": 0,
+        "threshold": 1,
+        "pass": false,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "estimated",
+        "threshold": "measured",
+        "pass": false,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-regressed-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 2588.1,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 0,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "backward_executed": {
+        "value": 0,
+        "threshold": 1,
+        "pass": false,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "estimated",
+        "threshold": "measured",
+        "pass": false,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-yoga-wgpu-20260405.json"
+  },
+  {
+    "canary": "pytorch-compile",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 3597.7,
+        "baseline": 3500,
+        "pass": true
+      },
+      "vram": {
+        "value": 34215,
+        "baseline": 35000,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.0811,
+        "baseline": 2.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-compile-gx10-20260331.json"
+  },
+  {
+    "canary": "cublas",
+    "pass": true,
+    "checks": {
+      "numerical_parity": {
+        "value": 0.0,
+        "baseline": 0.01,
+        "pass": true
+      },
+      "perf_parity": {
+        "value": 1.0043,
+        "baseline": "0.95-1.05",
+        "pass": true
+      },
+      "throughput": {
+        "value": 4009.5,
+        "baseline": 4000,
+        "pass": true
+      }
+    },
+    "file": "canary-cublas-gx10-20260331.json"
+  },
+  {
+    "canary": "cublas",
+    "pass": true,
+    "checks": {
+      "numerical_parity": {
+        "value": 0.0,
+        "baseline": 0.01,
+        "pass": true
+      },
+      "perf_parity": {
+        "value": 1.0072,
+        "baseline": "0.95-1.05",
+        "pass": true
+      },
+      "throughput": {
+        "value": 3998.1,
+        "baseline": 4000,
+        "pass": true
+      }
+    },
+    "file": "canary-cublas-gx10-20260401.json"
+  },
+  {
+    "canary": "cublas",
+    "pass": false,
+    "checks": {
+      "numerical_parity": {
+        "value": 0.0,
+        "baseline": 0.01,
+        "pass": true
+      },
+      "perf_parity": {
+        "value": 1.433,
+        "baseline": "0.95-1.05",
+        "pass": false
+      },
+      "throughput": {
+        "value": 2804.0,
+        "baseline": 4000,
+        "pass": false
+      }
+    },
+    "file": "canary-cublas-gx10-20260405b.json"
+  },
+  {
+    "canary": "pytorch",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 4055.4,
+        "baseline": 3900,
+        "pass": true
+      },
+      "vram": {
+        "value": 50580,
+        "baseline": 51000,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.0087,
+        "baseline": 2.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-pytorch-gx10-20260331.json"
+  },
+  {
+    "canary": "pytorch",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 4016.8,
+        "baseline": 3900,
+        "pass": true
+      },
+      "vram": {
+        "value": 50580,
+        "baseline": 51000,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.0086,
+        "baseline": 2.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-pytorch-gx10-20260401.json"
+  },
+  {
+    "canary": "pytorch",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 4030.5,
+        "baseline": 3900,
+        "pass": true
+      },
+      "vram": {
+        "value": 50580,
+        "baseline": 51000,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.0087,
+        "baseline": 2.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-pytorch-gx10-20260405b.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6715.7,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.152,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260331-run2.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6660.6,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.152,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260331-run3.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6715.6,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1519,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260331-run4.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6695.5,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1521,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260331-run5.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6695.5,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1521,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260331.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6627.8,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1516,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260401.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 5411.9,
+        "baseline": 6600,
+        "pass": false
+      },
+      "vram": {
+        "value": 3515,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.4677,
+        "baseline": 1.0,
+        "pass": true
+      },
+      "config_steps": {
+        "value": 20,
+        "threshold": 100,
+        "pass": false,
+        "_contract": "F-CFG-01: canary must run steps>=100 for baseline comparison"
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260404.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 6390.8,
+        "baseline": 6600,
+        "pass": true
+      },
+      "vram": {
+        "value": 3663,
+        "baseline": 3600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1519,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-20260405c.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 13659.7,
+        "baseline": 16100,
+        "pass": false
+      },
+      "vram": {
+        "value": 10219,
+        "baseline": 10300,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1367,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-gx10-20260331.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 16118.3,
+        "baseline": 16100,
+        "pass": true
+      },
+      "vram": {
+        "value": 10219,
+        "baseline": 10300,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.1365,
+        "baseline": 1.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-gx10-20260401.json"
+  },
+  {
+    "canary": "unsloth",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 5261.8,
+        "baseline": 16100,
+        "pass": false
+      },
+      "vram": {
+        "value": 10219,
+        "baseline": 10300,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.4523,
+        "baseline": 1.0,
+        "pass": true
+      },
+      "config_steps": {
+        "value": 20,
+        "threshold": 100,
+        "pass": false,
+        "_contract": "F-CFG-01: canary must run steps>=100 for baseline comparison"
+      }
+    },
+    "provisional": false,
+    "file": "canary-unsloth-gx10-20260405.json"
+  },
+  {
+    "canary": "wgpu",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 10378.570151914633,
+        "baseline": 6600,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.9959284663200378,
+        "baseline": 2.5,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-wgpu-20260331.json"
+  },
+  {
+    "canary": "wgpu",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 6730.105508744758,
+        "baseline": 6600,
+        "pass": true
+      },
+      "loss": {
+        "value": 1.0104376077651978,
+        "baseline": 2.5,
+        "pass": true
+      },
+      "config_steps": {
+        "value": 50,
+        "threshold": 100,
+        "pass": false,
+        "_contract": "F-CFG-01: canary must run steps>=100 for baseline comparison"
+      }
+    },
+    "provisional": false,
+    "file": "canary-wgpu-large-20260331.json"
+  }
+]

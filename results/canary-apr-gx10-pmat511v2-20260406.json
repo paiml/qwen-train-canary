@@ -1,0 +1,73 @@
+{
+  "canary": "apr",
+  "backend": "wgpu",
+  "host": "gx10-a5b5",
+  "gpu": {
+    "device": "NVIDIA GB10",
+    "vram_total_mb": 0,
+    "cuda_version": "590.48.01",
+    "compute_capability": "12.1"
+  },
+  "timestamp": "2026-04-06T10:14:21.908492+00:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "batch_size": 16,
+    "seq_len": 512,
+    "steps": 100,
+    "lr": 5e-05,
+    "seed": 42,
+    "method": "qlora",
+    "rank": 16,
+    "quantization": "nf4",
+    "runtime": "apr (aprender/entrenar)"
+  },
+  "metrics": {
+    "throughput_samples_sec": 0.52,
+    "tokens_per_sec": 264.0,
+    "peak_vram_mb": 0,
+    "final_loss": 17.77,
+    "wall_time_sec": 3972.27,
+    "nan_backward_skips": 0,
+    "valid_backward_steps": 32,
+    "loss_trajectory": [
+      3.6299,
+      8.7862,
+      13.3321,
+      14.8151,
+      15.7736,
+      15.5978,
+      16.0583,
+      16.5553,
+      17.5367,
+      17.45,
+      18.2339,
+      17.2433,
+      17.4427,
+      16.5999,
+      17.6484,
+      17.4555,
+      18.3701,
+      17.9278,
+      17.6603,
+      19.0619,
+      19.0189,
+      19.0213,
+      19.208,
+      18.7374,
+      17.9239,
+      16.7676,
+      16.6583,
+      16.6226,
+      17.9106,
+      17.9183,
+      18.1959,
+      17.77
+    ],
+    "_baseline_status": "measured",
+    "_metrics_quality": "measured"
+  },
+  "apr_output": {
+    "raw_output": "{\n  \"epochs\": 32,\n  \"learning_rate\": 0.00005,\n  \"memory_breakdown\": {\n    \"activation_bytes\": 2952790016,\n    \"adapter_bytes\": 11534336,\n    \"model_bytes\": 888544000,\n    \"optimizer_bytes\": 46137344,\n    \"savings_percent\": 81.18573740563463,\n    \"total_bytes\": 3899005696\n  },\n  \"memory_gb\": 4.764080896,\n  \"model_params\": 1777088000,\n  \"plan_only\": false,\n  \"recommended_alpha\": 32.0,\n  \"recommended_method\": \"QLoRA\",\n  \"recommended_rank\": 16,\n  \"speedup\": 1.8,\n  \"trainable_params\": 92274688,\n  \"trainable_percent\": 5.192465876760183,\n  \"utilization_percent\": 59.551011200000005,\n  \"vram_gb\": 8.0\n}\n",
+    "stderr_summary": "mbed=0 fwd=34 lm=19 ce=0[fwd=0 bwd=0] lm_bwd=20 lora_bwd=753)\n[PROFILE] step: 784ms (embed=0 fwd=22 lm=10 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=740)\n[PROFILE] step: 711ms (embed=0 fwd=14 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=692)\n[PROFILE] step: 727ms (embed=0 fwd=17 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=703)\n[PROFILE] step: 741ms (embed=0 fwd=20 lm=9 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=700)\n[PROFILE] step: 770ms (embed=0 fwd=26 lm=15 ce=0[fwd=0 bwd=0] lm_bwd=17 lora_bwd=710)\n[PROFILE] step: 739ms (embed=0 fwd=20 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=10 lora_bwd=700)\n[PROFILE] step: 737ms (embed=0 fwd=25 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=684)\n[PROFILE] step: 691ms (embed=0 fwd=13 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=673)\n[PROFILE] step: 686ms (embed=0 fwd=13 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=667)\n[PROFILE] step: 691ms (embed=0 fwd=15 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=671)\n[PROFILE] step: 759ms (embed=0 fwd=23 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=707)\n[PROFILE] step: 717ms (embed=0 fwd=18 lm=7 ce=0[fwd=0 bwd=0] lm_bwd=7 lora_bwd=683)\n[PROFILE] step: 766ms (embed=0 fwd=31 lm=17 ce=0[fwd=0 bwd=0] lm_bwd=17 lora_bwd=699)\n[PROFILE] step: 811ms (embed=0 fwd=32 lm=30 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=717)\n[PROFILE] step: 739ms (embed=0 fwd=20 lm=9 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=697)\n[PROFILE] step: 706ms (embed=0 fwd=14 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=687)\n[PROFILE] step: 791ms (embed=0 fwd=27 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=736)\n[PROFILE] step: 795ms (embed=0 fwd=28 lm=15 ce=0[fwd=0 bwd=0] lm_bwd=15 lora_bwd=736)\n[PROFILE] step: 783ms (embed=0 fwd=28 lm=15 ce=0[fwd=0 bwd=0] lm_bwd=15 lora_bwd=723)\n[PROFILE] step: 763ms (embed=0 fwd=19 lm=7 ce=0[fwd=0 bwd=0] lm_bwd=8 lora_bwd=727)\n[PROFILE] step: 796ms (embed=0 fwd=26 lm=15 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=741)\n[PROFILE] step: 853ms (embed=0 fwd=35 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=754)\n[PROFILE] step: 822ms (embed=0 fwd=29 lm=18 ce=0[fwd=0 bwd=0] lm_bwd=18 lora_bwd=755)\n[PROFILE] step: 893ms (embed=0 fwd=44 lm=41 ce=0[fwd=0 bwd=0] lm_bwd=42 lora_bwd=765)\n[PROFILE] step: 858ms (embed=0 fwd=35 lm=32 ce=0[fwd=0 bwd=0] lm_bwd=32 lora_bwd=757)\n[PROFILE] step: 780ms (embed=0 fwd=22 lm=10 ce=0[fwd=0 bwd=0] lm_bwd=11 lora_bwd=736)\n[PROFILE] step: 797ms (embed=0 fwd=26 lm=13 ce=0[fwd=0 bwd=0] lm_bwd=14 lora_bwd=743)\n[PROFILE] step: 720ms (embed=0 fwd=14 lm=3 ce=0[fwd=0 bwd=0] lm_bwd=1 lora_bwd=700)\n[PROFILE] step: 849ms (embed=0 fwd=35 lm=30 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=752)\n[PROFILE] step: 773ms (embed=0 fwd=21 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=9 lora_bwd=734)\n[PROFILE] step: 779ms (embed=0 fwd=28 lm=16 ce=0[fwd=0 bwd=0] lm_bwd=16 lora_bwd=716)\n[PROFILE] step: 817ms (embed=0 fwd=34 lm=22 ce=0[fwd=0 bwd=0] lm_bwd=22 lora_bwd=737)\n[PROFILE] step: 848ms (embed=0 fwd=41 lm=35 ce=0[fwd=0 bwd=0] lm_bwd=34 lora_bwd=737)\n[PROFILE] step: 869ms (embed=0 fwd=45 lm=39 ce=0[fwd=0 bwd=0] lm_bwd=39 lora_bwd=745)\n[PROFILE] step: 750ms (embed=0 fwd=21 lm=8 ce=0[fwd=0 bwd=0] lm_bwd=10 lora_bwd=709)\n[PROFILE] step: 950ms (embed=0 fwd=56 lm=61 ce=0[fwd=0 bwd=0] lm_bwd=60 lora_bwd=771)\n[PROFILE] step: 836ms (embed=0 fwd=35 lm=31 ce=0[fwd=0 bwd=0] lm_bwd=31 lora_bwd=738)\n[PROFILE] step: 808ms (embed=0 fwd=29 lm=17 ce=0[fwd=0 bwd=0] lm_bwd=18 lora_bwd=742)\n[PROFILE] step: 807ms (embed=0 fwd=35 lm=20 ce=0[fwd=0 bwd=0] lm_bwd=20 lora_bwd=730)\n[PROFILE] step: 873ms (embed=0 fwd=43 lm=40 ce=0[fwd=0 bwd=0] lm_bwd=38 lora_bwd=751)\n[PROFILE] step: 721ms (embed=0 fwd=17 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=4 lora_bwd=698)\n[PROFILE] step: 715ms (embed=0 fwd=17 lm=1 ce=0[fwd=0 bwd=0] lm_bwd=3 lora_bwd=693)\n[PROFILE] step: 779ms (embed=0 fwd=21 lm=12 ce=0[fwd=0 bwd=0] lm_bwd=13 lora_bwd=732)\n[PROFILE] step: 887ms (embed=0 fwd=43 lm=41 ce=0[fwd=0 bwd=0] lm_bwd=42 lora_bwd=759)\n  Epoch 32 complete: avg_loss=17.7700\n[wgpu] Training complete in 3968.6s\n[wgpu] WARNING: adapter export failed: safetensors write: I/O error: No such file or directory (os error 2)\n"
+  }
+}
