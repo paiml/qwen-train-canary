@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.26.0
+**Version:** 6.28.0
 **Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -46,27 +46,35 @@ Competitive benchmark for fine-tuning throughput across five training runtimes �
 
 **Yoga is the initial primary target.** All baselines, thresholds, and falsification conditions are calibrated against the RTX 4060 Laptop (8 GB VRAM, sm_89). Secondary targets (gx10, intel) validate at larger batch sizes and alternative backends.
 
-### Honesty Check: Progress Stall → Breakthrough (2026-04-05 → 2026-04-06)
+### Honesty Check: 7-Day Retrospective (2026-03-31 → 2026-04-06)
 
 > **F-PROGRESS-01:** If measured APR throughput does not improve >2x within 7 days of an optimization tier being SHIPPED, the tier either doesn't work, isn't wired, or was never deployed. Action: stop shipping new tiers. Measure the existing ones.
 >
 > **STATUS (2026-04-06): PARTIALLY RESOLVED.** cuBLAS routing fix (PMAT-494) delivered 4.5x throughput improvement (470→2,101 tok/s). F-PROGRESS-01 >2x criterion MET for throughput. Convergence criterion NOT MET (backward_steps=0 on CUDA path — loss not captured).
+>
+> **F-PROGRESS-02 DEADLINE: 2026-04-12.** If this section is still accurate at deadline, the project methodology is falsified. The two remaining blockers are convergence (PMAT-512) and yoga deployment (PMAT-498).
 
-**Hard facts (2026-03-31 → 2026-04-06):**
+**Hard facts (2026-03-31 → 2026-04-06, Day 1 → Day 7):**
 
-| Metric | Day 1 | Day 5 | Day 6 | Delta |
+| Metric | Day 1 | Day 5 | Day 7 | Delta |
 |--------|-------|-------|-------|-------|
 | APR throughput (gx10 WGPU) | 0 (broken) | 470 tok/s | 470 tok/s | ∞→470 (functional) |
 | APR throughput (gx10 cuBLAS) | N/A | N/A | **2,101 tok/s** | **4.5x over WGPU** |
+| APR throughput (yoga) | 0 (broken) | 28 tok/s (JIT) | **TBD** | Needs apr-cli 0.4.15 |
+| Unsloth throughput (yoga) | 6,697 tok/s | 6,391 tok/s | 6,391 tok/s | <2% variance |
 | Unsloth throughput (gx10) | 16,118 tok/s | 16,118 tok/s | 16,118 tok/s | 0% (already fast) |
-| APR parity gap (vs unsloth) | ∞ | 11.2x (WGPU) | **2.5x** (cuBLAS) | **Narrowed from 11x to 2.5x** |
+| PyTorch throughput (gx10) | N/A | N/A | **3,957 tok/s** | Measured, PASSING |
+| cuBLAS parity (gx10) | N/A | N/A | **0.000 divergence** | Perfect numerical parity |
+| APR parity gap (vs unsloth) | ∞ | 11.2x (WGPU) | **2.5x** (cuBLAS) | **Narrowed from ∞ to 2.5x** |
 | APR parity gap (vs pytorch) | ∞ | 8.4x (WGPU) | **1.9x** (cuBLAS) | **Near-parity** |
-| APR convergence (cuBLAS) | N/A | N/A | **backward_steps=0** | Loss not captured (PMAT-512) |
-| Yoga APR status | broken | broken (crash step 5) | **TBD** | Needs apr-cli 0.4.14 test |
-| Optimization tiers measured | 0 | 0 | **1** (cuBLAS routing) | F-PROGRESS-01 partially resolved |
-| Spec revisions | v1.0 | v6.15.0 | v6.24.0 | 44 revisions |
+| APR convergence | N/A | loss 11.74 (broken) | **backward_steps=0** | Loss not captured (PMAT-512) |
+| Yoga APR status | broken | crash step 5 | **TBD** | Needs apr-cli 0.4.15 test |
+| WGPU burn (intel) | 6,730 tok/s (synthetic) | 6,730 tok/s | 6,730 tok/s | Synthetic only, no real model |
+| Optimization tiers measured | 0 | 0 | **1** (cuBLAS routing) | 7 tiers still UNMEASURED |
+| Spec revisions | v1.0 | v6.15.0 | **v6.27.0** | 47 revisions |
 | Upstream fixes | 0 | 65+ | 65+ | Most were bug fixes, not perf |
-| PMAT items | 19 | 88 | 93 | +74 items |
+| PMAT items | 19 | 88 | **94** | +75 items |
+| Tests | 0 | 53 | **71** | +71 tests |
 
 **Five-whys root cause (UPDATED 2026-04-06):**
 
@@ -156,7 +164,7 @@ Simplifications (acceptable for QLoRA convergence, can optimize later):
 | Phase | What | Exit Criterion | PMAT |
 |-------|------|---------------|------|
 | **A. Fix Profiling** | Wire 6 provable-contract invariants into profiler. Port StepProfiler to CUDA path. Verify convergence (loss < 2.0). Fix yoga crash. | `apr finetune --profile` on CUDA target: 13 phases, wall_coverage >= 0.85, 6 contracts passing, loss < 2.0 | PMAT-504, 497, 498, 506. **Progress:** 6 contracts wired into score.py + canary runner (71 tests passing). Contracts applied to all 8 historical APR results. **PMAT-494 FIXED (2026-04-06):** `--gpu-backend cuda` now routed correctly → 2,101 tok/s. Convergence exit criterion (loss < 2.0) still NOT MET. pytorch gx10 canary PASSING: 3,957 tok/s (2026-04-06). Unsloth blocked on gx10 (PMAT-508: triton aarch64). |
-| **B. Hybrid cuBLAS Backend** | Fix JIT caching. Wire cuBLAS GEMM into NF4 training. `--gpu-backend auto` selects cuBLAS on NVIDIA, WGPU on AMD/Metal. | `apr finetune --gpu-backend cuda` on gx10 >= 2,000 tok/s (within 3x of unsloth) | PMAT-503, 492. **THROUGHPUT MET (2026-04-06):** 2,101 tok/s measured via PMAT-494 routing fix. **CONVERGENCE NOT MET:** backward_steps=0, loss not captured (PMAT-512). Phase B remains OPEN until loss < 2.0. |
+| **B. Hybrid cuBLAS Backend** | Fix JIT caching. Wire cuBLAS GEMM into NF4 training. `--gpu-backend auto` selects cuBLAS on NVIDIA, WGPU on AMD/Metal. | `apr finetune --gpu-backend cuda` on gx10 >= 2,000 tok/s (within 3x of unsloth) | PMAT-503, 492. **THROUGHPUT MET (2026-04-06):** 2,101 tok/s measured via PMAT-494 routing fix. **PMAT-512 FIX SHIPPED (2026-04-06):** InstructTrainer now emits per-epoch `avg_loss=` + final `final_loss=` to stderr — published entrenar 0.7.12 + apr-cli 0.4.16. **CONVERGENCE VERIFICATION PENDING:** needs re-run with apr-cli 0.4.16 on gx10 to capture actual loss values. Phase B remains OPEN until loss < 2.0. |
 | **C. A/B Test on CUDA Targets** | 8-variant matrix on yoga + gx10. All 6 UNMEASURED tiers measured. Per-variant profiler + convergence check. | All tiers measured. At least one variant >= 2,000 tok/s with loss < 2.0. F-MEASURE-01 retired. | PMAT-501, 505 |
 
 **Phase A must complete before B starts. Phase B must complete before C starts.** No new optimization tier may be coded until Phase C completes. See [optimization-roadmap.md](components/optimization-roadmap.md) for full deliverables per phase.
@@ -577,7 +585,8 @@ Unacceptable gaps: missing features (apr not training), unoptimized paths (torch
 | PMAT-506-511 | WGSL shader fix, gx10 platform, GPU diagnostic, per-layer backward, RMSNorm backward | 6 |
 | PMAT-512-514 | cuBLAS loss capture, CUDA graph enablement, apr-cli 0.4.14 publish | 3 |
 | PMAT-515 | Provable-contract Level A for cuBLAS training code | 1 |
-| **Total** | | **94** |
+| PMAT-516 | PMAT-512 fix: InstructTrainer loss emission to stderr (entrenar 0.7.12 + apr-cli 0.4.16) | 1 |
+| **Total** | | **95** |
 
 See [components/optimization-roadmap.md](components/optimization-roadmap.md) for full phase details.
 
@@ -783,3 +792,5 @@ Write a custom WGSL batched GEMM shader that handles all 84 LoRA projections in 
 | 6.24.0 | 2026-04-06 | **PATH B CONFIRMED: 2,101 tok/s cuBLAS (4.5x over WGPU 470).** First-ever `--gpu-backend cuda` run via routing fix. The cuBLAS backward loop in `backward.rs` (lines 116-252) was implemented since PMAT-486 but NEVER REACHABLE from CLI. One routing fix = 4.5x throughput. sm_121 JIT workaround applied (no 2-hour hang). Loss not captured (canary parser format mismatch — PMAT-512). CUDA_GRAPH=1 not yet enabled (PMAT-513). Remaining gap to PyTorch (3,957): ~1.9x. apr-cli 0.4.14 published to crates.io. PMAT-494 COMPLETED, PMAT-511 COMPLETED (reverted). 93 PMAT items. | PMAT-494/512/513/514 |
 | 6.25.0 | 2026-04-06 | **Spec sweep: 12 stale references fixed + provable-contract Level A requirement.** Updated all body sections with cuBLAS 2,101 tok/s data (was 470 everywhere). Parity gap corrected: 2.5x vs unsloth (was 11.2x), 1.9x vs pytorch. Phase B exit criterion: throughput MET, convergence NOT MET (backward_steps=0). F-PROGRESS-01 downgraded P0→P1 (partially resolved). Recommendation matrix updated: Path B CHOSEN/CONFIRMED, Path A superseded. **NEW: provable-contract Grade A (score >= 0.60) is HARD REQUIREMENT for all cuBLAS training code (PMAT-515).** F-CONTRACT-01 added. PMAT count: 93→94. pytorch gx10 baseline updated (3,957 tok/s, 2026-04-06). | PMAT-515 |
 | 6.26.0 | 2026-04-06 | **F-ECOSYSTEM-01 RESOLVED: `cargo install apr-cli` works.** Dogfood caught build failure (0.4.14: `load_model_tensors` pub(crate)). Five-whys: `.cargo/config.toml` had `[patch.crates-io]` masking diamond dep (apr-cli → aprender 0.27.8 vs entrenar → aprender 0.27.7). Fix: published aprender 0.27.8 + apr-cli 0.4.15, added `make publish CRATE=name` to temporarily strip patches. `cargo install apr-cli` verified: v0.4.15, `--gpu-backend cuda` flag present. MUDA eliminated: independent crate releases now possible. | PMAT-515 |
+| 6.27.0 | 2026-04-06 | **Day 7 retrospective: what we learned, what's left.** Spec updated with full 7-day progress table (Day 1→7 arc). **What worked:** cuBLAS routing fix (PMAT-494) = 4.5x throughput (single biggest win). Forward path fixes (RoPE + QKV bias, PMAT-509) got epoch 1 loss below random. Ecosystem fix (PMAT-515) = independent crate releases. Provable contracts caught regressions on day 1 (F-XPROJECT-01). **What didn't work:** 8 WGPU optimization tiers shipped but only 1 measured — cuBLAS obsoleted them (4.5x from routing fix vs diminishing returns from shader tuning). Per-layer backward experiments (PMAT-510/511) were a dead end — simplified FFN backward without SiLU derivative injects wrong-direction gradient. Scratch buffer pre-allocation (v6.0.0) regressed 119→73 tok/s. **Critical blockers remaining:** (1) PMAT-512: cuBLAS backward_steps=0 (loss not captured), (2) PMAT-511: RMSNorm backward not implemented (gradient explosion after epoch 2), (3) PMAT-498: yoga WGPU buffer crash. **F-PROGRESS-02 deadline: 2026-04-12.** | PMAT-512/498/511 |
+| 6.28.0 | 2026-04-06 | **PMAT-512 ROOT CAUSE FOUND AND FIXED: InstructTrainer silent on stderr.** Five-whys: (1) backward_steps=0 on cuBLAS path → (2) canary parser found zero loss lines in stderr → (3) `InstructTrainer::train()` computed `train_loss` per epoch but never called `eprintln!` → (4) WGPU path prints per-sample loss in `execute_training_wgpu()` (finetune.rs:662-678) but CUDA path through InstructTrainer had no loss emission → (5) InstructTrainer was written before canary infrastructure existed. **Fix (3 changes, 2 repos):** (1) entrenar `instruct_trainer.rs`: added `eprintln!("  Epoch {} complete: avg_loss={:.4}", ...)` per epoch + `[training] final_loss=X.XXXX` summary after loop — format matches WGPU path for parser regex compatibility. (2) apr-cli `finetune.rs`: added `eprintln!("[training] final_loss=...")` after `trainer.train()` returns (was only printing to stdout). (3) Published entrenar 0.7.12 + apr-cli 0.4.16 to crates.io. **Verification:** `cargo install apr-cli` → 0.4.16 with loss emission. Needs re-run on gx10 to confirm loss capture + convergence values. 66 upstream fixes across 5 repos. | PMAT-512 |

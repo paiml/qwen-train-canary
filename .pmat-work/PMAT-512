@@ -1,0 +1,23 @@
+PMAT-512: cuBLAS backward_steps=0 — loss not captured by canary parser
+
+STATUS: FIX SHIPPED (2026-04-06)
+
+ROOT CAUSE:
+InstructTrainer::train() in entrenar computed per-epoch train_loss but never
+emitted it to stderr. The canary parser reads stderr for loss[=:] patterns.
+WGPU path had per-sample + per-epoch eprintln, CUDA path was silent.
+
+FIX (3 changes, 2 repos):
+1. entrenar instruct_trainer.rs: eprintln!("  Epoch {} complete: avg_loss={:.4}")
+   per epoch + "[training] Training complete: final_loss={:.4}" at end
+2. apr-cli finetune.rs: eprintln!("[training] final_loss={:.4}") after trainer.train()
+3. Published entrenar 0.7.12 + apr-cli 0.4.16
+
+VERIFICATION:
+- cargo install apr-cli → 0.4.16 (confirmed)
+- Canary parser regex compatible (tested against new format)
+- Needs gx10 re-run to confirm actual loss values captured
+
+UPSTREAM COMMITS:
+- entrenar: 6f86e8d0 (fix) + aa016837 (version bump)
+- aprender: ae491cbf (fix) + 16b6338b (version bump + publish)

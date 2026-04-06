@@ -1,0 +1,9 @@
+PMAT-516: InstructTrainer loss emission to stderr (entrenar 0.7.12 + apr-cli 0.4.16)
+
+STATUS: SHIPPED (2026-04-06)
+
+Implements PMAT-512 fix: InstructTrainer now emits per-epoch avg_loss and
+final training summary to stderr, matching WGPU path format for canary
+parser compatibility.
+
+Versions: entrenar 0.7.12, apr-cli 0.4.16
