@@ -183,6 +183,136 @@
     "pass": false,
     "checks": {
       "throughput": {
+        "value": 410.1,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 17.8751,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 17.8751,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 17.8751,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 3.604,
+        "_min": 3.604,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-converge-lr5e5-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 2101.4,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 0,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "backward_executed": {
+        "value": 0,
+        "threshold": 1,
+        "pass": false,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "estimated",
+        "threshold": "measured",
+        "pass": false,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-cublas-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 419.8,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 21.8799,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 21.8799,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 21.8799,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 0.96,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 17.583,
+        "_min": 16.887,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-lr1e3-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
         "value": 418.6,
         "baseline": 470,
         "pass": false
@@ -227,6 +357,156 @@
     },
     "provisional": false,
     "file": "canary-apr-gx10-lr5e5-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 264.5,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 16.1085,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 16.1085,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 16.1085,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 2.972,
+        "_min": 2.972,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 32,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-pmat510-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 265.1,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 16.1085,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 16.1085,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 16.1085,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 2.972,
+        "_min": 2.972,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 32,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-pmat511-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 264.0,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 17.77,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 17.77,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 17.77,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 3.63,
+        "_min": 3.63,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 32,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-pmat511v2-20260406.json"
   },
   {
     "canary": "apr",
@@ -317,6 +597,56 @@
     "pass": false,
     "checks": {
       "throughput": {
+        "value": 418.7,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 19.5482,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 19.5482,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 19.5482,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 16.368,
+        "_min": 16.368,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-qkv-fix-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
         "value": 993.5,
         "baseline": 470,
         "pass": true
@@ -341,6 +671,86 @@
     },
     "provisional": false,
     "file": "canary-apr-gx10-regressed-20260405.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 409.3,
+        "baseline": 470,
+        "pass": false
+      },
+      "loss": {
+        "value": 17.3787,
+        "baseline": 12.0,
+        "pass": false
+      },
+      "convergence": {
+        "value": 17.3787,
+        "threshold": 2.5,
+        "pass": false,
+        "_contract": "F-CONV-01: model must converge (loss > random=11.93 means broken)"
+      },
+      "better_than_random": {
+        "value": 17.3787,
+        "threshold": 11.93,
+        "pass": false,
+        "_contract": "F-CONV-02: loss must be below random baseline ln(vocab_size)=11.93"
+      },
+      "loss_improved": {
+        "value": 1.0,
+        "threshold": 0.8,
+        "pass": false,
+        "_first": 10.579,
+        "_min": 10.579,
+        "_contract": "F-CONV-03: min(loss_trajectory) < 0.8 * first \u2014 at least 20% improvement somewhere"
+      },
+      "backward_executed": {
+        "value": 8,
+        "threshold": 1,
+        "pass": true,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "measured",
+        "threshold": "measured",
+        "pass": true,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-gx10-rope-bias-20260406.json"
+  },
+  {
+    "canary": "apr",
+    "pass": false,
+    "checks": {
+      "throughput": {
+        "value": 3144.5,
+        "baseline": 470,
+        "pass": true
+      },
+      "loss": {
+        "value": 0,
+        "baseline": 12.0,
+        "pass": true
+      },
+      "backward_executed": {
+        "value": 0,
+        "threshold": 1,
+        "pass": false,
+        "_contract": "F-BWD-01: at least 1 valid backward step must execute"
+      },
+      "metrics_quality": {
+        "value": "estimated",
+        "threshold": "measured",
+        "pass": false,
+        "_contract": "F-MET-02: loss must be parsed from training output, not estimated"
+      }
+    },
+    "provisional": false,
+    "file": "canary-apr-yoga-pmat511v2-20260406.json"
   },
   {
     "canary": "apr",
@@ -529,6 +939,29 @@
     },
     "provisional": false,
     "file": "canary-pytorch-gx10-20260405b.json"
+  },
+  {
+    "canary": "pytorch",
+    "pass": true,
+    "checks": {
+      "throughput": {
+        "value": 3957.3,
+        "baseline": 3900,
+        "pass": true
+      },
+      "vram": {
+        "value": 50581,
+        "baseline": 51000,
+        "pass": true
+      },
+      "loss": {
+        "value": 0.0087,
+        "baseline": 2.0,
+        "pass": true
+      }
+    },
+    "provisional": false,
+    "file": "canary-pytorch-gx10-20260406.json"
   },
   {
     "canary": "unsloth",

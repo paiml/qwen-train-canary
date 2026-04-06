@@ -3,7 +3,10 @@
   "backend": "wgpu",
   "host": "gx10-a5b5",
   "gpu": {
-    "device": "unknown"
+    "device": "unknown",
+    "vram_total_mb": 122502,
+    "cuda_version": "13.0",
+    "compute_capability": "12.1"
   },
   "timestamp": "2026-04-05T16:22:47.548279+00:00",
   "config": {

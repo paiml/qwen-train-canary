@@ -4,7 +4,7 @@
   "host": "gx10-a5b5",
   "gpu": {
     "device": "NVIDIA GB10",
-    "vram_total_mb": 0,
+    "vram_total_mb": 122502,
     "cuda_version": "590.48.01",
     "compute_capability": "12.1"
   },
