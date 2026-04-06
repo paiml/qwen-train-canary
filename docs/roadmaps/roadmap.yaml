@@ -1027,3 +1027,37 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-509
+  github_issue: null
+  item_type: task
+  title: Q4K WGSL dequantization produces wrong logits — base model loss 16.37 vs expected 11.93
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 2026-04-06T00:25:14Z
+  updated: 2026-04-06T06:00:33Z
+  spec: null
+  acceptance_criteria:
+  - 'APR WGPU training base model (B=0 LoRA, no training effect) produces epoch-1 loss 16.37, which is 4.44 above random (ln(151936)=11.93). The Q4K->F32 dequantization in trueno q4k_gemv WGSL shader produces incorrect weight values on WGPU path. Evidence: (1) LR fix confirmed working (different LR = different trajectory), (2) B norm 0.023 after step 1 (optimizer updating), (3) f16_to_f32 pow() was bit-exact (not the cause), (4) old binary reached loss 9.15 but exact build config unknown. Next: compare Q4K GEMV output against CPU dequant reference; check block structure interpretation (scales, mins, nibble ordering).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-510
+  github_issue: null
+  item_type: task
+  title: Backward path uses single grad_hidden for all 28 LoRA layers — per-layer gradient needed
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 2026-04-06T05:20:57Z
+  updated: 2026-04-06T05:59:26.813842937+00:00
+  spec: null
+  acceptance_criteria:
+  - 'The WGPU LoRA backward pass (wgpu_pipeline.rs:1066) uses a single grad_hidden_buf as the gradient for ALL 28 layers'' LoRA updates. This means layer 0 and layer 27 receive the SAME gradient signal. Correct backward requires: (1) per-layer gradient propagation through residual+FFN+attention, (2) RoPE backward on Q/K gradients, (3) layer-specific gradient extraction for Q/K/V projections. Result: training diverges after epoch 1 (loss 3.60→17.88) because gradient updates push LoRA weights in wrong directions. This is the root cause of the remaining convergence failure.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

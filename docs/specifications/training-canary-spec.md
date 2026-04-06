@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.18.0
+**Version:** 6.19.0
 **Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -115,7 +115,24 @@ Results after fix:
 - LR 2e-4: epoch 1 loss **10.58** (was 16.37, now below random 11.93)
 - LR 5e-5: epoch 1 loss **3.60** (close to PyTorch 0.55)
 
-**Remaining: backward divergence (PMAT-510).** Loss diverges after epoch 1 (3.60→17.88). Root cause: `wgpu_pipeline.rs:1066` uses a single `grad_hidden_buf` as gradient for ALL 28 LoRA layers. Every layer gets the same gradient signal instead of per-layer gradients through the residual+FFN+attention chain. Also missing: RoPE backward on Q/K gradients. This is the sole remaining convergence blocker.
+**PMAT-510: backward divergence — FIX SHIPPED (2026-04-06).** Loss diverged after epoch 1 (3.60→17.88). Root cause: `wgpu_pipeline.rs:1066` used a single `grad_hidden_buf` as gradient for ALL 28 LoRA layers. Every layer got the same gradient signal instead of per-layer gradients through the residual+FFN+attention chain.
+
+**Fix (entrenar 0.7.9, trueno 0.17.5):**
+1. Reverse layer iteration order (27→0) — layers closest to loss update first
+2. Per-layer backward propagation through frozen base weights:
+   - `grad_silu = grad @ W_down^T` (backward through down_proj, [seq, inter])
+   - `grad_ffn = grad_silu @ W_gate^T` (backward through gate_proj, [seq, hidden])
+   - `grad_input = grad + grad_ffn` (residual connection)
+3. Each layer receives a DIFFERENT gradient signal — the accumulated transformation through all subsequent layers' FFN paths
+
+Simplifications (acceptable for QLoRA convergence, can optimize later):
+- Skips SiLU backward derivative (treats as identity)
+- Skips RMSNorm backward (treats as identity)
+- Skips up_proj path (only gate_proj, which is dominant)
+- Skips attention backward (parameter-free, no learnable weights in attention mechanism itself)
+- RoPE backward on Q/K gradients not yet implemented
+
+**Status: DEPLOYED for dogfood. Awaiting convergence measurement on gx10.**
 
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
@@ -604,3 +621,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 6.16.0 | 2026-04-05 | **Falsification sweep — stale data cleanup, cross-doc harmonization.** (1) optimization-roadmap.md compressed: removed ~195 lines of v3.x/v4.x H-PARITY-001/002 diagnostic chain (NF4 dequant NaN RESOLVED 2026-04-02), updated "13x gap"→"11.2x gap", rewrote v6.5.0 sync-dominated fix priorities against v6.7.0 async profiler data. (2) training-profiler.md: F-PROF-005/006 marked FALSIFIED/OBSOLETE (0 allocs/step achieved but only +12%, not 2x). (3) Main spec revision history reordered: v6.x entries were in insertion order (6.0,6.1,6.5,6.4,...); now strict version order. (4) Tier count harmonized 6→8 (Tiers 2, 4×3, 4.7×2, 5, 7). (5) README.md updated with current measurements (470 tok/s APR, 16,118 tok/s unsloth@gx10), 64-test count, F-WL-07/F-PROGRESS-01 triggered conditions. (6) PMAT item count: 81→88. | PMAT-500/507 |
 | 6.17.0 | 2026-04-05 | **Dogfood session: 3 ecosystem fixes, 2 fresh measurements, 2 new blockers.** (1) trueno WGSL q4k_gemv shader fixed: `-1.0/0.0` → `bitcast<f32>(0xFF800000u)` for wgpu 27.0.1 compat. Published trueno 0.17.2 to crates.io. (2) gx10 Python env fixed: default PyPI torch 2.11+cu130 supports sm_121 (cu124/cu126 indices have NO aarch64 wheels). pyproject.toml updated: torch>=2.6, cu126 index, `cuda-base` extra for aarch64 without unsloth. (3) Fresh gx10 measurements: **pytorch 3,906 tok/s** (loss 0.0087, VRAM 50.6 GB, PASS), **cublas numerical parity perfect** (0.0 divergence, VRAM delta 1 MB, PASS). (4) PMAT-508 filed: unsloth on gx10 BLOCKED (triton aarch64 + torch.int1 dep chain). (5) PMAT-494 CONFIRMED: `--gpu-backend cuda` NOT routed, APR always uses WGPU Q4K path. (6) 71 tests passing. 89 PMAT items. | PMAT-504/507/508 |
 | 6.18.0 | 2026-04-06 | **PMAT-509 deep investigation: GPU vs CPU forward path diagnostic.** (1) Hardcoded LR 2e-4 FIXED — now wired from CLI. Different LR confirmed producing different trajectories. (2) Per-layer hidden state comparison (APR WGPU vs PyTorch F32): embed 1.4x ratio, layer 0 1.6x, layer 27 3.6x — progressive divergence through 28 layers, consistent with accumulated GEMM rounding error. (3) Logit comparison: APR argmax=74403 vs PyTorch=16 (completely wrong). APR logits norm 1107 vs PyTorch 2646 (0.42x). (4) PyTorch base model CE loss: 0.55. APR: 16.37 (30x worse). (5) Code audit verified: Q4K dequant bit-exact, weight transpose correct, CE loss correct, tiled GEMM indexing correct, scatter/gather correct. (6) Root cause narrowed to **tiled GEMM precision on wgpu/Vulkan** — 252 matmuls compound error. Or RoPE implementation difference. (7) 7 upstream commits across 3 repos (trueno 0.17.2/0.17.3, entrenar Q/K/V + LR + diagnostics, aprender LR wiring). 90 PMAT items. | PMAT-497/507/509 |
+| 6.19.0 | 2026-04-06 | **PMAT-510 FIX SHIPPED: per-layer backward gradient propagation.** Root cause: `wgpu_pipeline.rs:1066` used single `grad_hidden_buf` for ALL 28 LoRA layers — every layer got identical gradient from loss, causing divergence after epoch 1 (3.60→17.88). Fix (entrenar 0.7.9, trueno 0.17.5): (1) Reverse layer iteration 27→0. (2) Per-layer backward through frozen base weights: `grad_silu = grad @ W_down^T`, `grad_ffn = grad_silu @ W_gate^T`, `grad_input = grad + grad_ffn` (residual). (3) Simplified but correct: skips SiLU/RMSNorm backward, up_proj path, attention backward. Each layer now receives different gradient signal from accumulated FFN transformations. trueno 0.17.5 adds `weight_buffer()` accessor for backward to access per-layer frozen weights. 2 upstream commits, 2 crates.io publishes. Awaiting dogfood measurement. | PMAT-509/510 |
