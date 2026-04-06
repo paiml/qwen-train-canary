@@ -10,13 +10,14 @@ Competitive fine-tuning benchmarks for **Qwen2.5-Coder-1.5B** across five traini
 
 | Runtime | Engine | yoga (8GB) | gx10 (120GB) | intel (Vulkan) |
 |---------|--------|-----------|-------------|---------------|
-| **apr** | entrenar (Rust) | BLOCKED (WGPU crash, PMAT-498) | **470 tok/s** (WGPU async, loss 11.74 F-WL-07) | — |
+| **apr** (cuBLAS) | entrenar (Rust) | TBD | **2,101 tok/s** (4.5x over WGPU) | — |
+| **apr** (WGPU) | entrenar (Rust) | BLOCKED (PMAT-498) | **470 tok/s** (loss 11.74) | — |
 | **unsloth** | Python QLoRA | **6,697 tok/s** (loss 0.47) | **16,118 tok/s** (loss 0.14) | — |
-| **pytorch** | Python full FT | OOM (F-EXEC-02) | **4,017 tok/s** | — |
+| **pytorch** | Python full FT | OOM (F-EXEC-02) | **3,957 tok/s** (loss 0.009) | — |
 | **cublas** | Python parity | OOM | **4,000 tok/s** | divergence: 0.000 |
 | **wgpu** (synthetic) | burn (Rust) | — | — | **6,730 tok/s** (hidden=1536, not real model) |
 
-All measurements: locked clocks, seed=42, deterministic dataset, steps=100. Yoga variance: 0.34% across 5 runs. APR parity gap: **11.2x** vs unsloth on same gx10 hardware (was 151x on 2026-03-31).
+All measurements: locked clocks, seed=42, deterministic dataset, steps=100. Yoga variance: 0.34% across 5 runs. **APR cuBLAS parity gap: 2.5x vs unsloth, 1.9x vs pytorch** (gx10). WGPU gap: 11.2x (was 151x on 2026-03-31).
 
 ## Why Canaries?
 
@@ -31,9 +32,10 @@ All measurements: locked clocks, seed=42, deterministic dataset, steps=100. Yoga
 
 ```
 Yoga (PRIMARY — RTX 4060L, 8GB, sm_89)    gx10 (GB10, 120GB, sm_121)
-├── apr QLoRA (Sovereign Stack)            ├── apr QLoRA WGPU (470 tok/s, async)
-├── unsloth QLoRA (6,697 tok/s)            ├── unsloth QLoRA (16,118 tok/s)
-└── Clock-locked 1900 MHz                  ├── pytorch full FT (4,017 tok/s)
+├── apr QLoRA (Sovereign Stack)            ├── apr QLoRA cuBLAS (2,101 tok/s)
+├── unsloth QLoRA (6,697 tok/s)            ├── apr QLoRA WGPU (470 tok/s)
+└── Clock-locked 1900 MHz                  ├── unsloth QLoRA (16,118 tok/s)
+                                           ├── pytorch full FT (3,957 tok/s)
                                            └── cublas parity (0.000 divergence)
 Intel (Radeon W5700X, 8GB, Vulkan)
 └── wgpu/burn (6,730 tok/s @ hidden=1536, synthetic MLP)
@@ -73,11 +75,11 @@ make nsys-yoga             # NVIDIA kernel timeline
 
 **F-WL-03 (confirmed):** cuBLAS parity is perfect on Blackwell. Zero loss divergence, 1.004x throughput ratio.
 
-**F-WL-06 (apr gap narrowing):** 65+ upstream fixes across trueno/aprender/entrenar. APR WGPU async pipeline reaches **470 tok/s** on gx10 (11.2x gap vs unsloth, down from 151x on 2026-03-31). Profiler: 100% GPU compute, zero sync, `gpu_lora_bwd` 55.7% dominant.
+**F-WL-06 (apr gap narrowing):** 65+ upstream fixes. **cuBLAS routing fix (PMAT-494): 2,101 tok/s** — 4.5x over WGPU 470. Gap vs unsloth: 2.5x (cuBLAS) / 11.2x (WGPU), down from 151x on 2026-03-31.
 
-**F-WL-07 (apr oscillation):** APR loss trajectory oscillates 18.9→9.15→12.3→16.3→15.5→12.0→10.8→11.7 across 8 epochs. Model IS learning (epoch 2 reached 9.15 < random 11.93) but oscillates. Likely cause: LR 2e-4 too high, needs cosine decay + warmup.
+**Path B CONFIRMED (2026-04-06):** cuBLAS hybrid backend chosen. One routing fix = 4.5x throughput. Backward not yet confirmed on CUDA path (backward_steps=0, PMAT-512). Convergence is the remaining blocker.
 
-**F-PROGRESS-01 (TRIGGERED):** 6 optimization tiers SHIPPED, 0 MEASURED. Only measured delta in 5 days is +12% from async pipeline. Three-phase execution plan in effect (Phase A: contracts, Phase B: cuBLAS hybrid, Phase C: A/B matrix). Deadline: 2026-04-12.
+**F-PROGRESS-01 (PARTIALLY RESOLVED):** cuBLAS routing delivered >2x improvement. 7 WGPU tiers still UNMEASURED but deprioritized. Provable-contract Grade A REQUIRED for all cuBLAS training code (PMAT-515).
 
 **WGPU parity (synthetic only):** burn/Vulkan at 6,730 tok/s matches unsloth/CUDA at 6,697 tok/s on equivalent hidden dim — but this is a synthetic MLP, NOT real Qwen model training.
 
