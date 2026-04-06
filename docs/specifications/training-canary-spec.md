@@ -107,7 +107,15 @@ PyTorch initial CE: 0.55 (correctly loaded model). APR: 16.37 (above random).
 
 Hidden states diverge PROGRESSIVELY through 28 layers (1.4x→3.6x). Not catastrophic (no NaN/Inf) — consistent with **accumulated rounding error in the tiled GEMM shader**, not a single indexing bug. The Q4K→F32 dequant is correct (verified bit-by-bit), weight transpose is correct, CE loss is correct.
 
-**Root cause hypothesis:** The tiled GEMM (64×64 CUTLASS-derived) may have a precision issue on specific wgpu/Vulkan implementations that compounds through 28 layers × 9 GEMM per layer = 252 matmuls. Alternative: RoPE positional encoding implementation differs from PyTorch. **PMAT-509 open.**
+**Root cause RESOLVED (2026-04-06, PMAT-509):**
+1. **Missing RoPE** in training forward (both `encode_forward_layer_training` + `forward_layer_traced`). Fixed in trueno 0.17.4.
+2. **Missing QKV biases** — Qwen2 Q/K/V biases stored CPU-side but never applied in GPU training. Fixed in trueno.
+
+Results after fix:
+- LR 2e-4: epoch 1 loss **10.58** (was 16.37, now below random 11.93)
+- LR 5e-5: epoch 1 loss **3.60** (close to PyTorch 0.55)
+
+**Remaining: backward divergence (PMAT-510).** Loss diverges after epoch 1 (3.60→17.88). Root cause: `wgpu_pipeline.rs:1066` uses a single `grad_hidden_buf` as gradient for ALL 28 LoRA layers. Every layer gets the same gradient signal instead of per-layer gradients through the residual+FFN+attention chain. Also missing: RoPE backward on Q/K gradients. This is the sole remaining convergence blocker.
 
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
