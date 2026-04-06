@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.21.0
+**Version:** 6.22.0
 **Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -583,6 +583,108 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 
 ---
 
+## 8.1. Strategic Assessment: Why APR Performance Stalled (2026-04-06)
+
+> **F-STRATEGY-01:** If after 7 days of optimization work, the gap between APR and the next-fastest runtime has not closed by at least 2x, the optimization strategy is wrong — not the implementation.
+
+### Diagnosis
+
+**Profile breakdown (gx10, entrenar 0.7.11):**
+
+| Phase | Time (ms) | % of step | What it does |
+|-------|----------|-----------|--------------|
+| Forward (28 layers) | 20-35 | 3% | Q4K dequant + tiled GEMM + attention + FFN |
+| CE loss | <1 | <0.1% | Cross-entropy on GPU |
+| lm_head backward | 8-31 | 3% | grad_hidden = grad_logits @ lm_head |
+| **LoRA backward** | **700-760** | **90%** | 28 layers × 3 projections × (transpose + GEMM + AdamW) |
+| **Total** | **750** | 100% | ~264 tok/s (batch=16, seq=512) |
+
+**The bottleneck is clear:** LoRA backward consumes 90% of step time. The forward pass is already reasonably fast. No amount of forward-path optimization (fused kernels, tensor cores) will help because they touch 3% of the runtime.
+
+**Why LoRA backward is slow:** Each of 28 layers × 3 QKV projections = 84 LoRA updates. Each update requires:
+1. `XA = X @ A` (GEMM: seq×hidden @ hidden×rank)
+2. `dB = (XA)^T @ grad` (transpose + GEMM: rank×seq @ seq×out_dim)
+3. `dA = X^T @ (grad @ B^T)` (transpose + GEMM + transpose + GEMM)
+4. Two AdamW steps (A and B)
+
+That's **~336 GPU dispatches per step** through the WGSL tiled GEMM shader. PyTorch does the same math via cuBLAS batched GEMM (1 kernel launch for all 84 projections). Unsloth fuses further.
+
+**8 optimization tiers SHIPPED but 0 MEASURED.** The spec's own F-PROGRESS-01 falsification condition has been triggered for 7+ days. Every tier (FP16, fused kernels, tensor cores, CUDA graph, fused backward) sits behind env flags never enabled in production.
+
+**Convergence is also unsolved.** Even at 470 tok/s (pre-backward-experiments), the model diverges after epoch 1. Today's per-layer backward experiments confirmed: the simplified backward (without SiLU derivative) injects wrong-direction gradient that makes training WORSE. The epoch 1→2 divergence root cause is still unknown.
+
+### Five Paths Forward (Choose One)
+
+#### Path A: Accept WGPU, Fix Convergence Only
+**Effort:** 1-2 weeks | **Expected throughput:** 470 tok/s (no change) | **Expected convergence:** loss < 2.0
+
+Revert all per-layer backward experiments (they made things worse). Focus entirely on why loss diverges after epoch 1:
+- Dump LoRA A/B weight norms per epoch (check if updates are in correct direction)
+- Compare AdamW state (m/v) against PyTorch reference implementation
+- Check if Q4K dequant rounding accumulates across training steps
+- Verify cross-entropy label alignment across epoch boundaries
+
+**Pro:** Convergence is the actual blocker. A model that converges at 470 tok/s is infinitely more useful than one at 16,000 tok/s that diverges. **Con:** APR stays 34x behind unsloth, 8x behind pytorch. The throughput gap remains a permanent competitive disadvantage.
+
+#### Path B: cuBLAS Backend for NVIDIA (Hybrid)
+**Effort:** 2-3 weeks | **Expected throughput:** 2,000-4,000 tok/s | **Expected convergence:** likely (cuBLAS is proven)
+
+Wire cuBLAS GEMM into the LoRA backward path on NVIDIA targets. Keep WGPU for AMD/Metal/portability. This is the Phase B from the execution plan (PMAT-503) that was designed but never started.
+
+- Replace WGSL tiled GEMM with cuBLAS sgemm/hgemm for the 84 LoRA backward GEMMs
+- Use `--gpu-backend auto` to select cuBLAS on NVIDIA, WGPU on other platforms
+- trueno already has CUDA PTX kernels (trueno-gpu crate) — wire them through
+
+**Pro:** Addresses the 90% bottleneck directly. cuBLAS batched GEMM could handle all 84 projections in 1-2 kernel launches instead of 336 dispatches. Expected 5-15x speedup on the dominant operation. **Con:** Requires trueno CUDA PTX JIT cache (PMAT-492, 2-hour cold start on sm_89). Adds CUDA dependency for NVIDIA targets.
+
+#### Path C: PyTorch Backend via FFI
+**Effort:** 1-2 weeks | **Expected throughput:** 3,000-4,000 tok/s | **Expected convergence:** yes (uses PyTorch's proven backward)
+
+Use PyTorch's C++ API (libtorch) or Python FFI for the LoRA backward GEMM. Keep the APR model loading, Q4K dequant, and forward in Rust. Only delegate the hot loop (LoRA backward + AdamW) to PyTorch.
+
+- Call `torch.mm()` via FFI for the backward GEMMs
+- Use PyTorch's fused AdamW optimizer
+- Keep the Rust pipeline for everything except the 90% bottleneck
+
+**Pro:** Gets PyTorch-level GEMM performance immediately. Convergence comes for free (PyTorch backward is battle-tested). **Con:** Adds Python/libtorch dependency. "Sovereign Stack" is no longer fully sovereign. Deployment complexity increases.
+
+#### Path D: Abandon WGPU Training, Use PyTorch with APR Inference
+**Effort:** 0 (already works) | **Expected throughput:** 3,957 tok/s (pytorch) / 16,118 tok/s (unsloth) | **Expected convergence:** yes
+
+Accept that training via WGPU compute shaders on NVIDIA hardware is a structural mismatch. Use the existing pytorch canary (which already converges at 3,957 tok/s) or unsloth canary (16,118 tok/s) for actual training. APR focuses on what it's good at: fast GGUF inference via WGPU.
+
+- Training: `unsloth` or `pytorch` canary (already working)
+- Inference: `apr run` (WGPU, cross-platform, already fast)
+- Bridge: export LoRA adapters from pytorch → merge with APR model
+
+**Pro:** Immediately functional. Uses each tool for what it's best at. No more time spent on a 34x performance gap. **Con:** APR doesn't own the full training stack. The "Sovereign Stack" story loses its training chapter.
+
+#### Path E: Double Down on WGPU — Ship Batched GEMM Shader
+**Effort:** 3-4 weeks | **Expected throughput:** 1,000-2,000 tok/s | **Expected convergence:** unknown (still need to fix epoch 1→2 divergence)
+
+Write a custom WGSL batched GEMM shader that handles all 84 LoRA projections in a single dispatch (vs 336 today). This is the "make WGPU fast" path.
+
+- Design batched GEMM: one workgroup per (layer, projection) pair
+- Shared memory tiling within each workgroup (8x cache benefit)
+- Fuse transpose into the GEMM (eliminate 56 standalone transposes)
+- Fuse AdamW into the GEMM output (eliminate 168 separate dispatches)
+
+**Pro:** Keeps the sovereign stack story. Could close gap to 3-5x (from 34x). Pushes WGPU state of the art. **Con:** Speculative — no one has achieved cuBLAS parity with WGSL. Requires deep GPU shader expertise. Convergence still unsolved independently. 3-4 weeks is optimistic.
+
+### Recommendation Matrix
+
+| Path | Throughput | Convergence | Effort | Sovereign | Risk |
+|------|-----------|-------------|--------|-----------|------|
+| **A: Fix convergence** | 470 tok/s | Likely | 1-2w | Yes | Low |
+| **B: cuBLAS hybrid** | 2,000-4,000 | Likely | 2-3w | Partial | Medium |
+| **C: PyTorch FFI** | 3,000-4,000 | Yes | 1-2w | No | Low |
+| **D: Abandon WGPU train** | 3,957-16,118 | Yes | 0 | No | Zero |
+| **E: Batched WGSL GEMM** | 1,000-2,000 | Unknown | 3-4w | Yes | High |
+
+**The spec's recommendation: Path A first (convergence is the actual blocker), then Path B (cuBLAS hybrid gives 80% of the benefit for 20% of the effort of Path E).**
+
+---
+
 ## 9. Revision History
 
 | Version | Date | Changes | PMAT |
@@ -637,3 +739,4 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 6.19.0 | 2026-04-06 | **PMAT-510 FIX SHIPPED: per-layer backward gradient propagation.** Root cause: `wgpu_pipeline.rs:1066` used single `grad_hidden_buf` for ALL 28 LoRA layers. Fix (entrenar 0.7.9, trueno 0.17.5): reverse iteration 27→0, per-layer backward through W_down^T + W_gate^T + residual. Dogfood: epoch 1 loss improved (2.97 vs 3.60) but diverges from epoch 2 (→16.11). Root cause: unscaled backward GEMMs amplify gradient ~5400x/layer. | PMAT-509/510 |
 | 6.20.0 | 2026-04-06 | **PMAT-511 v1 FAILED: 1/sqrt(dim) scale too aggressive.** Combined scale 0.00018x → FFN backward effectively zero → identical results to unscaled (epoch 1: 2.97, final: 16.11). Pytorch gx10 3,957 tok/s PASS (torch 2.11+cu130, NCCL 2.29.7 for sm_120). | PMAT-510/511 |
 | 6.21.0 | 2026-04-06 | **PMAT-511 v2: residual mixing ratio alpha=0.1.** Five-whys on v1 failure: 1/sqrt(dim) per-GEMM = 0.018% contribution → identical to no backward. Fix: alpha=0.1 folded into cached W_down^T transpose. Each layer's FFN backward contributes 10% of unscaled magnitude. Growth bounded by (1+0.1k)^28 ≈ 14x total instead of exponential. Also cached transposed weights (eliminates 56 transposes/step). Shipped entrenar 0.7.11. Awaiting dogfood. 91 PMAT items. | PMAT-511 |
+| 6.22.0 | 2026-04-06 | **Strategic assessment: why APR performance stalled + 5 paths forward.** PMAT-511v2 result: alpha=0.1 WORSE than no mixing (3.63→17.77 vs 2.97→16.11) because simplified FFN backward without SiLU derivative injects wrong-direction gradient. Per-layer backward experiments are a DEAD END. Profile shows 90% of step time in LoRA backward (336 WGSL dispatches vs 1-2 cuBLAS batched calls). 8 optimization tiers SHIPPED but 0 MEASURED (F-PROGRESS-01 falsified). Yoga PMAT-498 crash confirmed. Section 8.1 added: five strategic paths (A: fix convergence, B: cuBLAS hybrid, C: PyTorch FFI, D: abandon WGPU training, E: batched WGSL GEMM). Recommendation: Path A then B. | PMAT-500/511 |
