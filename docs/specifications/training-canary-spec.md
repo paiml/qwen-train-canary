@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.23.0
+**Version:** 6.24.0
 **Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -740,3 +740,5 @@ Write a custom WGSL batched GEMM shader that handles all 84 LoRA projections in 
 | 6.20.0 | 2026-04-06 | **PMAT-511 v1 FAILED: 1/sqrt(dim) scale too aggressive.** Combined scale 0.00018x → FFN backward effectively zero → identical results to unscaled (epoch 1: 2.97, final: 16.11). Pytorch gx10 3,957 tok/s PASS (torch 2.11+cu130, NCCL 2.29.7 for sm_120). | PMAT-510/511 |
 | 6.21.0 | 2026-04-06 | **PMAT-511 v2: residual mixing ratio alpha=0.1.** Five-whys on v1 failure: 1/sqrt(dim) per-GEMM = 0.018% contribution → identical to no backward. Fix: alpha=0.1 folded into cached W_down^T transpose. Each layer's FFN backward contributes 10% of unscaled magnitude. Growth bounded by (1+0.1k)^28 ≈ 14x total instead of exponential. Also cached transposed weights (eliminates 56 transposes/step). Shipped entrenar 0.7.11. Awaiting dogfood. 91 PMAT items. | PMAT-511 |
 | 6.22.0 | 2026-04-06 | **Strategic assessment: why APR performance stalled + 5 paths forward.** PMAT-511v2 result: alpha=0.1 WORSE than no mixing (3.63→17.77 vs 2.97→16.11) because simplified FFN backward without SiLU derivative injects wrong-direction gradient. Per-layer backward experiments are a DEAD END. Profile shows 90% of step time in LoRA backward (336 WGSL dispatches vs 1-2 cuBLAS batched calls). 8 optimization tiers SHIPPED but 0 MEASURED (F-PROGRESS-01 falsified). Yoga PMAT-498 crash confirmed. Section 8.1 added: five strategic paths (A: fix convergence, B: cuBLAS hybrid, C: PyTorch FFI, D: abandon WGPU training, E: batched WGSL GEMM). Recommendation: Path A then B. | PMAT-500/511 |
+| 6.23.0 | 2026-04-06 | **Path B chosen: cuBLAS hybrid.** PMAT-494 routing fix: thread `gpu_backend` param through `run_finetune_training` → `execute_training`. "cuda" → `InstructPipeline::from_apr()` with cuBLAS backward. PMAT-511 per-layer backward reverted (dead end). | PMAT-494/511 |
+| 6.24.0 | 2026-04-06 | **PATH B CONFIRMED: 2,101 tok/s cuBLAS (4.5x over WGPU 470).** First-ever `--gpu-backend cuda` run via routing fix. The cuBLAS backward loop in `backward.rs` (lines 116-252) was implemented since PMAT-486 but NEVER REACHABLE from CLI. One routing fix = 4.5x throughput. sm_121 JIT workaround applied (no 2-hour hang). Loss not captured (canary parser format mismatch — PMAT-512). CUDA_GRAPH=1 not yet enabled (PMAT-513). Remaining gap to PyTorch (3,957): ~1.9x. apr-cli 0.4.14 published to crates.io. PMAT-494 COMPLETED, PMAT-511 COMPLETED (reverted). 93 PMAT items. | PMAT-494/512/513/514 |
