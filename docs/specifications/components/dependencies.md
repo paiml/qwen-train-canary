@@ -15,7 +15,7 @@
 | trl | >=0.9.0 | SFTTrainer | API changes |
 | peft | >=0.12.0 | LoRA implementation | Adapter format changes |
 | burn | latest (git) | WGPU training | Synthetic MLP working (6,730 tok/s, PMAT-431 DONE); real model loading deferred |
-| apr-cli | 0.4.14 (crates.io) | Sovereign Stack training | cuBLAS: 2,101 tok/s on gx10 (PMAT-494) |
+| apr-cli | **0.4.15** (crates.io) | Sovereign Stack training | cuBLAS: 2,101 tok/s on gx10. F-ECOSYSTEM-01 fixed: `cargo install apr-cli` works. |
 | uv | latest | Package management | N/A (stable) |
 | forjar | latest | Deployment | N/A (PAIML internal) |
 
