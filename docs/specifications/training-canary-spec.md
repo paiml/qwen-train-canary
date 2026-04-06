@@ -1,7 +1,7 @@
 # Training Canary Performance Specification
 
 **Document ID:** PAIML-TRAIN-CANARY-001
-**Version:** 6.19.0
+**Version:** 6.20.0
 **Last Updated:** 2026-04-06
 **Status:** ACTIVE
 **Methodology:** Popperian Falsification + Deterministic Canary Benchmarks
@@ -132,7 +132,20 @@ Simplifications (acceptable for QLoRA convergence, can optimize later):
 - Skips attention backward (parameter-free, no learnable weights in attention mechanism itself)
 - RoPE backward on Q/K gradients not yet implemented
 
-**Status: DEPLOYED for dogfood. Awaiting convergence measurement on gx10.**
+**Dogfood result (2026-04-06, gx10 GB10, LR 5e-5, 32 epochs):**
+
+| Epoch | Loss (before fix) | Loss (PMAT-510 fix) | Verdict |
+|-------|-------------------|---------------------|---------|
+| 1 | 3.60 | **2.97** | Improved — per-layer gradient works |
+| 2 | 17.88 | 10.06 | Still diverging but slower |
+| 3 | — | 13.11 | Above random (11.93) |
+| 32 | — | 16.11 | Fully diverged |
+
+**Partial success:** Epoch 1 improved (2.97 < 3.60), confirming per-layer gradient propagation produces better LoRA updates. But loss still diverges from epoch 2 — the simplified backward (skip RMSNorm, SiLU, up_proj, attention) causes gradient explosion through 28 layers. Without RMSNorm backward to re-normalize, the FFN backward `grad @ W_down^T @ W_gate^T` amplifies gradient magnitude exponentially.
+
+**PMAT-511: RMSNorm backward needed.** The next fix must implement RMSNorm backward in the per-layer gradient chain. RMSNorm normalizes hidden states; its backward re-normalizes gradients, preventing explosion. This is the key missing piece for multi-epoch convergence.
+
+**Profile:** lora_bwd=700-800ms (90% of 750ms/step). Throughput: 264 tok/s (down from 470 without backward GEMMs — expected, 56 extra large matrix ops per step).
 
 **Execution plan (three sequential phases, each with provable exit criteria):**
 
@@ -621,4 +634,5 @@ See [components/optimization-roadmap.md](components/optimization-roadmap.md) for
 | 6.16.0 | 2026-04-05 | **Falsification sweep — stale data cleanup, cross-doc harmonization.** (1) optimization-roadmap.md compressed: removed ~195 lines of v3.x/v4.x H-PARITY-001/002 diagnostic chain (NF4 dequant NaN RESOLVED 2026-04-02), updated "13x gap"→"11.2x gap", rewrote v6.5.0 sync-dominated fix priorities against v6.7.0 async profiler data. (2) training-profiler.md: F-PROF-005/006 marked FALSIFIED/OBSOLETE (0 allocs/step achieved but only +12%, not 2x). (3) Main spec revision history reordered: v6.x entries were in insertion order (6.0,6.1,6.5,6.4,...); now strict version order. (4) Tier count harmonized 6→8 (Tiers 2, 4×3, 4.7×2, 5, 7). (5) README.md updated with current measurements (470 tok/s APR, 16,118 tok/s unsloth@gx10), 64-test count, F-WL-07/F-PROGRESS-01 triggered conditions. (6) PMAT item count: 81→88. | PMAT-500/507 |
 | 6.17.0 | 2026-04-05 | **Dogfood session: 3 ecosystem fixes, 2 fresh measurements, 2 new blockers.** (1) trueno WGSL q4k_gemv shader fixed: `-1.0/0.0` → `bitcast<f32>(0xFF800000u)` for wgpu 27.0.1 compat. Published trueno 0.17.2 to crates.io. (2) gx10 Python env fixed: default PyPI torch 2.11+cu130 supports sm_121 (cu124/cu126 indices have NO aarch64 wheels). pyproject.toml updated: torch>=2.6, cu126 index, `cuda-base` extra for aarch64 without unsloth. (3) Fresh gx10 measurements: **pytorch 3,906 tok/s** (loss 0.0087, VRAM 50.6 GB, PASS), **cublas numerical parity perfect** (0.0 divergence, VRAM delta 1 MB, PASS). (4) PMAT-508 filed: unsloth on gx10 BLOCKED (triton aarch64 + torch.int1 dep chain). (5) PMAT-494 CONFIRMED: `--gpu-backend cuda` NOT routed, APR always uses WGPU Q4K path. (6) 71 tests passing. 89 PMAT items. | PMAT-504/507/508 |
 | 6.18.0 | 2026-04-06 | **PMAT-509 deep investigation: GPU vs CPU forward path diagnostic.** (1) Hardcoded LR 2e-4 FIXED — now wired from CLI. Different LR confirmed producing different trajectories. (2) Per-layer hidden state comparison (APR WGPU vs PyTorch F32): embed 1.4x ratio, layer 0 1.6x, layer 27 3.6x — progressive divergence through 28 layers, consistent with accumulated GEMM rounding error. (3) Logit comparison: APR argmax=74403 vs PyTorch=16 (completely wrong). APR logits norm 1107 vs PyTorch 2646 (0.42x). (4) PyTorch base model CE loss: 0.55. APR: 16.37 (30x worse). (5) Code audit verified: Q4K dequant bit-exact, weight transpose correct, CE loss correct, tiled GEMM indexing correct, scatter/gather correct. (6) Root cause narrowed to **tiled GEMM precision on wgpu/Vulkan** — 252 matmuls compound error. Or RoPE implementation difference. (7) 7 upstream commits across 3 repos (trueno 0.17.2/0.17.3, entrenar Q/K/V + LR + diagnostics, aprender LR wiring). 90 PMAT items. | PMAT-497/507/509 |
-| 6.19.0 | 2026-04-06 | **PMAT-510 FIX SHIPPED: per-layer backward gradient propagation.** Root cause: `wgpu_pipeline.rs:1066` used single `grad_hidden_buf` for ALL 28 LoRA layers — every layer got identical gradient from loss, causing divergence after epoch 1 (3.60→17.88). Fix (entrenar 0.7.9, trueno 0.17.5): (1) Reverse layer iteration 27→0. (2) Per-layer backward through frozen base weights: `grad_silu = grad @ W_down^T`, `grad_ffn = grad_silu @ W_gate^T`, `grad_input = grad + grad_ffn` (residual). (3) Simplified but correct: skips SiLU/RMSNorm backward, up_proj path, attention backward. Each layer now receives different gradient signal from accumulated FFN transformations. trueno 0.17.5 adds `weight_buffer()` accessor for backward to access per-layer frozen weights. 2 upstream commits, 2 crates.io publishes. Awaiting dogfood measurement. | PMAT-509/510 |
+| 6.19.0 | 2026-04-06 | **PMAT-510 FIX SHIPPED: per-layer backward gradient propagation.** Root cause: `wgpu_pipeline.rs:1066` used single `grad_hidden_buf` for ALL 28 LoRA layers. Fix (entrenar 0.7.9, trueno 0.17.5): reverse iteration 27→0, per-layer backward through W_down^T + W_gate^T + residual. Dogfood: epoch 1 loss improved (2.97 vs 3.60) but diverges from epoch 2 (→16.11). Root cause: unscaled backward GEMMs amplify gradient ~5400x/layer. | PMAT-509/510 |
+| 6.20.0 | 2026-04-06 | **PMAT-511 FIX: variance-preserving gradient scale.** Scale backward transpose by 1/sqrt(reduction_dim): W_down scale=1/sqrt(1536)≈0.025, W_gate scale=1/sqrt(18944)≈0.0073. Combined: ~0.00018x/layer instead of ~29Mx/layer. Kaiming-style variance preservation — same principle as Xavier/He init. Shipped entrenar 0.7.10. Also: pytorch gx10 3,957 tok/s PASS (torch 2.11+cu130, NCCL 2.29.7 for sm_120). pyproject.toml platform-conditional torch index. PMAT-511 filed. 91 PMAT items. | PMAT-510/511 |
