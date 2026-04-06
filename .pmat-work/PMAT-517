@@ -1,0 +1,25 @@
+PMAT-517: Publish safety gate — cargo install verification after every publish
+
+STATUS: SHIPPED (2026-04-06)
+
+FIVE-WHYS (from 19 incidents across 5 paiml repos):
+1. entrenar 0.7.12 fails cargo install → missing contract_pre_with_resident_weights! macro
+2. Stubs existed in local lib.rs but not in published crate
+3. cargo publish --no-verify skipped build check
+4. No post-publish cargo install verification
+5. Each broken publish treated as one-off fix instead of systemic gate
+
+FIX (3 deliverables):
+1. entrenar scripts/check_publish_safety.sh: verifies 1171 contract macros all defined
+2. Removed --no-verify from aprender make publish
+3. Post-publish cargo install apr-cli --force in BOTH Makefiles
+4. Added 4 missing contract macro stubs to entrenar lib.rs
+
+VERSIONS: entrenar 0.7.13, apr-cli 0.4.17
+FALSIFICATION: F-PUBLISH-01
+
+INCIDENTS RESEARCHED:
+- entrenar: 10 incidents (missing deps, patch masking, stale contracts, unpublished APIs)
+- aprender: 9 incidents (symlinks, companion lookup, diamond deps, visibility)
+- trueno: generated_contracts.rs gitignored (E0583)
+- realizar: same pattern
